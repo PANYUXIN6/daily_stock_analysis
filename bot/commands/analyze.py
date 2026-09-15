@@ -141,17 +141,10 @@ class AnalyzeCommand(BotCommand):
            registry canonical with the matching structured target. Parser
            STOCK results are deliberately ignored here so the legacy stock
            gate stays authoritative for stock shapes.
-        4. Explicit CSI forms (``csi`` + one or more digits, or one or more
-           digits + ``.csi``) that no registry entry claimed — they surface
-           the parser's ``unsupported`` details (never a stock-name fallback
-           or a US-ticker guess).
-        5. Legacy stock-code gate, preserved exactly as before this change
-           (case-insensitive): A-share six digits, ``HK`` + five digits, and
-           US 1-5 letters with optional ``.XX`` suffix. Matches keep the
-           legacy code path (no structured target) so lowercase real tickers
-           like ``usfd`` still resolve to ``USFD``.
-        6. Any remaining parser-UNSUPPORTED input (e.g. ``us1``,
-           ``600519.BJ``, ``1234567.SH``) is an explicit error — never sent
+        4. Explicit CSI forms that no registry entry claimed surface the
+           parser's ``unsupported`` details.
+        5. Six-digit A-share stock codes keep the stock code path.
+        6. Any remaining parser-UNSUPPORTED input is an explicit error — never sent
            into stock-name resolution.
         7. Anything code-like the legacy gate rejected (``12345``, bare
            ``00700``, ``600519.SH``, unregistered ``sh999999``) is an
@@ -206,23 +199,12 @@ class AnalyzeCommand(BotCommand):
             reason = target.unsupported_reason or f"无法识别标的: {raw}"
             return None, f"无法分析 `{raw}`：{reason}"
 
-        # 5) Legacy stock-code gate — case-insensitive, exactly the shapes the
-        #    old ``validate_args`` accepted. Matches keep the legacy code
-        #    path (no structured target), including lowercase real tickers
-        #    like ``usfd`` -> ``USFD``.
-        upper = raw.upper()
-        if (
-            re.fullmatch(r"\d{6}", upper)
-            or re.fullmatch(r"HK\d{5}", upper)
-            or re.fullmatch(r"[A-Z]{1,5}(?:\.[A-Z]{1,2})?", upper)
-        ):
+        # 5) A-share stock-code gate.
+        if target.asset_type == ParseStatus.STOCK:
             return resolve_index_stock_code_for_analysis(raw), None
 
-        # 6) Any remaining parser-UNSUPPORTED input is an explicit error —
-        #    never sent into stock-name resolution. This covers malformed
-        #    code shapes the parser rejected (``us1``, ``600519.BJ``,
-        #    ``1234567.SH``) that the legacy gate above did not claim.
-        if target.asset_type == ParseStatus.UNSUPPORTED:
+        # 6) Reject unsupported code shapes; Chinese names continue to name resolution.
+        if target.asset_type == ParseStatus.UNSUPPORTED and not re.search(r"[\u4e00-\u9fff]", raw):
             reason = target.unsupported_reason or f"无法识别标的: {raw}"
             return None, f"无法分析 `{raw}`：{reason}"
 
@@ -234,7 +216,7 @@ class AnalyzeCommand(BotCommand):
         if is_code_like(raw) or re.fullmatch(r"(?:sh|sz)\d{6}", normalized):
             return None, (
                 f"无效的标的代码: `{raw}`"
-                f"（A股6位数字 / HK+5位数字 / 美股1-5个字母 / 已登记指数代码或名称）"
+                f"（A股6位数字 / 已登记A股指数代码或名称）"
             )
 
         # 8) Name input → stock-name fallback.

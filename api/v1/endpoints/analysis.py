@@ -1005,7 +1005,7 @@ def _display_stock_code_from_index(stock_code: Any) -> str:
     code = str(stock_code or "").strip()
     if not code:
         return code
-    return resolve_index_stock_code(code) or code
+    return resolve_index_stock_code_for_analysis(code)
 
 
 def _display_market_phase_summary(stock_code: Any, context_snapshot: Any) -> Any:

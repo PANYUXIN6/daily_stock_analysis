@@ -1,47 +1,20 @@
-# 小白客户端安装与配置指南
+# Web 工作台配置指南
 
-这份文档写给不会代码、只想下载客户端直接用的用户。目标很简单：下载客户端，填一个模型服务密钥（Key），填股票代码，然后生成第一份分析报告。
-
-> 本项目生成的是辅助分析报告，不构成投资建议。真实交易请自行判断风险。
+本项目通过浏览器使用。先按 [README 快速开始](../README.md#快速开始) 启动 Web 服务，或使用管理员提供的 Web 地址。
 
 ## 先准备
 
-1. Windows 或 macOS 电脑。
-2. 一个模型服务密钥（Key），推荐从下面任选一个：
-   - [Anspire Open](https://open.anspire.cn/?share_code=QFBC0FYC)：支持全球主流模型，一个 Key 可同时用于模型和新闻搜索，第一次配置最省事。
-   - [AIHubMix](https://inferera.com/?aff=CfMq)：支持全球主流模型，适合想在一个平台切换多种模型的用户。
-3. 想分析的股票代码，例如 `600519,hk00700,AAPL`。
+1. 浏览器和可访问的 Web 服务地址。
+2. 一个已支持的模型服务密钥，配置方式见[完整指南](full-guide.md)。
+3. A 股代码，例如 `600519,300750,920748`。
 
-## 1. 下载客户端
+## 1. 打开 Web 工作台
 
-打开发布页：
+在浏览器打开服务地址，按页面提示登录，然后进入系统设置。
 
-<https://github.com/ZhuLinsen/daily_stock_analysis/releases/latest>
+## 2. 配置 AI 模型
 
-在页面下方 `Assets`（附件）里下载：
-
-| 电脑 | 下载哪个 |
-| --- | --- |
-| Windows | `daily-stock-analysis-windows-installer-<版本号>.exe` |
-| Windows 不想安装 | `daily-stock-analysis-windows-noinstall-<版本号>.zip` |
-| macOS Apple 芯片 | `daily-stock-analysis-macos-arm64-<版本号>.dmg` |
-| macOS Intel 芯片 | `daily-stock-analysis-macos-x64-<版本号>.dmg` |
-
-不用下载 `latest.yml`、`*.blockmap`，它们不是客户端安装包。
-
-不知道 Mac 是哪种芯片：点击左上角苹果图标 -> 关于本机，看到 M1/M2/M3/M4 就选 `arm64`，看到 Intel 就选 `x64`。
-
-## 2. 安装并打开
-
-- Windows 安装包：双击 `.exe`，按提示安装，安装目录用默认位置即可。
-- Windows 免安装包：解压 `.zip`，双击 `Daily Stock Analysis.exe`。
-- macOS：双击 `.dmg`，把应用拖到 `Applications`。当前 DMG 未经 Apple Developer 签名和公证，Gatekeeper 仍可能阻止启动；仅对 GitHub Releases 官方附件尝试在“隐私与安全性”中允许打开，完整限制与排查方式见 `docs/desktop-package.md`。
-
-macOS 用户升级前建议先在客户端设置里导出一次配置备份。
-
-## 3. 配置 AI 模型
-
-打开客户端，进入：
+打开Web 工作台，进入：
 
 `系统设置 -> AI 模型`
 
@@ -51,23 +24,23 @@ macOS 用户升级前建议先在客户端设置里导出一次配置备份。
 
 ### 方案 A：Anspire Open
 
-1. 打开 [Anspire Open](https://open.anspire.cn/?share_code=QFBC0FYC)，注册 / 登录后创建 API Key。
-2. 回到客户端，在快速添加渠道里选择 `Anspire Open`。
+1. 打开 [Anspire Open](https://open.anspire.cn/)，注册 / 登录后创建 API Key。
+2. 回到Web 工作台，在快速添加渠道里选择 `Anspire Open`。
 3. 粘贴 API Key。
 4. 模型名选择控制台里已开通的模型；不确定就先选控制台推荐或轻量模型。
 5. 点击保存；看到保存成功后，再点击测试连接。
 
 ### 方案 B：AIHubMix
 
-1. 打开 [AIHubMix](https://inferera.com/?aff=CfMq)，注册 / 登录后创建 API Key。
-2. 回到客户端，在快速添加渠道里选择 `AIHubmix（聚合平台）`。
+1. 打开 [AIHubMix](https://aihubmix.com/)，注册 / 登录后创建 API Key。
+2. 回到Web 工作台，在快速添加渠道里选择 `AIHubmix（聚合平台）`。
 3. 粘贴 API Key。
 4. 模型名选择控制台里已开通的模型；不确定就先选控制台推荐模型。
 5. 点击保存；看到保存成功后，再点击测试连接。
 
 看到测试成功，就继续下一步。
 
-## 4. 填写自选股
+## 3. 填写自选股
 
 进入：
 
@@ -75,17 +48,16 @@ macOS 用户升级前建议先在客户端设置里导出一次配置备份。
 
 找到 `自选股列表`，填写：
 
-`600519,hk00700,AAPL`
+`600519,300750,000001`
 
 多个股票用英文逗号隔开。常见写法：
 
 - A 股：`600519`、`300750`、`000001`
-- 港股：`hk00700`、`hk09988`
-- 美股：`AAPL`、`TSLA`、`NVDA`
+- 北交所：`920748`、`920493`
 
 填完点击保存，看到保存成功后再回首页。
 
-## 5. 建议配置新闻源
+## 4. 建议配置新闻源
 
 新闻源不是必填，但建议配置。它会影响近期新闻、公告、事件驱动、热点题材和风险提示。
 
@@ -96,9 +68,9 @@ macOS 用户升级前建议先在客户端设置里导出一次配置备份。
 按你的模型服务选择：
 
 1. 用 Anspire Open：找到 `Anspire API Keys`，填入同一个 Anspire Key，保存成功后即可。
-2. 用 AIHubMix：建议再申请 [SerpAPI](https://serpapi.com/github-daily-stock-analysis) 或 [Tavily](https://tavily.com/) 的 Key，填到 `SerpAPI API Keys` 或 `Tavily API Keys`，保存成功后即可。
+2. 用 AIHubMix：可另行申请 [SerpAPI](https://serpapi.com/) 或 [Tavily](https://tavily.com/) 的 Key，填到 `SerpAPI API Keys` 或 `Tavily API Keys`，保存成功后即可。
 
-想先试用也可以跳过新闻源，客户端仍然能生成基础分析。
+想先试用也可以跳过新闻源，Web 工作台仍然能生成基础分析。
 
 ## 6. 开始分析
 
@@ -126,4 +98,4 @@ macOS 用户升级前建议先在客户端设置里导出一次配置备份。
 
 ### 配置乱了怎么办？
 
-在客户端设置里导出配置备份。出问题时可以导入之前的备份，或者只保留这三项重新配置：AI 模型、自选股、新闻源。
+在Web 工作台设置里导出配置备份。出问题时可以导入之前的备份，或者只保留这三项重新配置：AI 模型、自选股、新闻源。

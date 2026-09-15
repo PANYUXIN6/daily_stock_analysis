@@ -13,7 +13,6 @@ import { StockAutocomplete } from '../components/StockAutocomplete';
 import { StockHistoryTrendDrawer } from '../components/history';
 import { ReportMarkdownDrawer } from '../components/report/ReportMarkdownDrawer';
 import { MarketReviewReportView } from '../components/report/MarketReviewReportView';
-import { MarketReviewRegionSelector } from '../components/market-review/MarketReviewRegionSelector';
 import { ReportSummary } from '../components/report/ReportSummary';
 import { RunFlowPanel } from '../components/run-flow';
 import { TaskPanel } from '../components/tasks';
@@ -32,7 +31,6 @@ import type {
   AnalyzeAsyncResponse,
   HistoryItem,
   MarketReviewPayload,
-  MarketReviewRegion,
   StockBarItem,
   TaskInfo,
 } from '../types/analysis';
@@ -292,7 +290,6 @@ const HomePage: React.FC = () => {
   const [marketReviewError, setMarketReviewError] = useState<ParsedApiError | null>(null);
   const [marketReviewReport, setMarketReviewReport] = useState<string | null>(null);
   const [marketReviewPayload, setMarketReviewPayload] = useState<MarketReviewPayload | null>(null);
-  const [marketReviewRegionOverride, setMarketReviewRegionOverride] = useState<MarketReviewRegion[] | undefined>();
   const [analysisSkills, setAnalysisSkills] = useState<SkillInfo[]>([]);
   const [selectedStrategyId, setSelectedStrategyId] = useState('');
   const [strategyMenuOpen, setStrategyMenuOpen] = useState(false);
@@ -1078,7 +1075,6 @@ const HomePage: React.FC = () => {
     try {
       const result = await analysisApi.triggerMarketReview({
         sendNotification: notify,
-        regions: marketReviewRegionOverride,
       });
       setMarketReviewNotice({
         variant: 'success',
@@ -1100,7 +1096,7 @@ const HomePage: React.FC = () => {
     } finally {
       setIsSubmittingMarketReview(false);
     }
-  }, [marketReviewRegionOverride, notify, pollMarketReviewStatus, scrollMarketReviewFeedbackIntoView, t]);
+  }, [notify, pollMarketReviewStatus, scrollMarketReviewFeedbackIntoView, t]);
 
   const todayDateKey = getTodayInShanghai();
   useEffect(() => {
@@ -1597,11 +1593,6 @@ const HomePage: React.FC = () => {
               ) : null}
             </div>
             <div className="flex min-w-0 flex-wrap items-center gap-2.5">
-              <MarketReviewRegionSelector
-                value={marketReviewRegionOverride}
-                disabled={isSubmittingMarketReview}
-                onChange={setMarketReviewRegionOverride}
-              />
               <label className="flex h-10 flex-shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border border-subtle bg-surface/60 px-3 text-xs text-secondary-text select-none transition-colors hover:border-subtle-hover hover:text-foreground has-disabled:cursor-not-allowed has-disabled:opacity-50">
                 <input
                   type="checkbox"

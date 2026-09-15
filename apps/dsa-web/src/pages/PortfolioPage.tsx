@@ -133,8 +133,8 @@ function formatPortfolioLimitation(limitation: string, language: PortfolioPageLa
   return PORTFOLIO_LIMITATION_LABELS[limitation]?.[language] ?? limitation;
 }
 
-const DECISION_SIGNAL_MARKETS = new Set<DecisionSignalMarket>(['cn', 'hk', 'us', 'jp', 'kr', 'tw']);
-type PortfolioAccountMarket = 'cn' | 'hk' | 'us' | 'jp' | 'kr' | 'tw';
+const DECISION_SIGNAL_MARKETS = new Set<DecisionSignalMarket>(['cn']);
+type PortfolioAccountMarket = 'cn';
 
 function toDecisionSignalMarket(value: string | null | undefined): DecisionSignalMarket | undefined {
   const normalized = String(value || '').toLowerCase();
@@ -1108,7 +1108,7 @@ const PortfolioPage: React.FC = () => {
             />
             <input
               className={PORTFOLIO_INPUT_CLASS}
-              placeholder="基准币（如 CNY/USD/HKD）"
+              placeholder="基准币（CNY）"
               value={accountForm.baseCurrency}
               onChange={(e) => setAccountForm((prev) => ({ ...prev, baseCurrency: e.target.value.toUpperCase() }))}
             />
@@ -1118,11 +1118,6 @@ const PortfolioPage: React.FC = () => {
               onChange={(e) => setAccountForm((prev) => ({ ...prev, market: e.target.value as PortfolioAccountMarket }))}
             >
               <option value="cn">市场：A 股（cn）</option>
-              <option value="hk">市场：港股（hk）</option>
-              <option value="us">市场：美股（us）</option>
-              <option value="jp">市场：日股（jp）</option>
-              <option value="kr">市场：韩股（kr）</option>
-              <option value="tw">市场：台股（tw）</option>
             </select>
             <button type="submit" className="btn-secondary text-sm" disabled={accountCreating}>
               {accountCreating ? '创建中...' : '创建账户'}

@@ -152,17 +152,17 @@ class BotCommand(ABC):
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `/analyze` | Analyze a specific stock or a registered index | `/analyze AAPL`, `/analyze 600519`, `/analyze sh000016`, `/analyze 上证50` |
-| `/ask` | Single-turn question about a stock or the market | `/ask what is RSI for AAPL` |
+| `/analyze` | Analyze a specific A-share or a registered index | `/analyze 600519`, `/analyze sh000016`, `/analyze 上证50` |
+| `/ask` | Single-turn question about an A-share or the market | `/ask what is RSI for 600519` |
 | `/batch` | Batch-analyze your configured watchlist | `/batch` |
 | `/chat` | Multi-turn strategy chat (maintains conversation context) | `/chat` |
-| `/market` | Market review (A-shares / US stocks) | `/market` |
+| `/market` | A-share market review | `/market` |
 | `/help` | Show help text | `/help` |
 | `/status` | Show system status | `/status` |
 
-> **Stock code formats:** A-shares use 6-digit codes (e.g. `600519`); HK stocks prefix `hk` (e.g. `hk00700`); US stocks use ticker symbols (e.g. `AAPL`, `TSLA`).
+> **Stock code formats:** Shanghai, Shenzhen, and Beijing securities use 6-digit codes (for example `600519`, `300750`, and `920748`). Explicit `SH`, `SZ`, and `BJ` forms are also accepted when the exchange matches the code.
 
-> **Registered index inputs:** explicit codes (`sh000016`), CSI aliases (`930955.CSI` converges to `csi930955`) and registered Chinese names (`上证50`) are all accepted. Index inputs are submitted as a structured `AnalysisTarget` that flows through to the analysis pipeline, so `sh000016` is never rewritten to `SH000016`. Unregistered CSI forms (e.g. `930956.CSI`), code shapes the legacy gate rejected (`12345`, bare `00700`, `600519.SH`, unregistered `sh999999`) and unrecognized names return an explicit error without submitting a task; ambiguous registered names require an explicit code instead of guessing. Stock inputs (A-share 6-digit, `HK`+5-digit, US 1-5 letters, e.g. `usfd`→`USFD`) keep the legacy code path. Stock-name inputs (e.g. `贵州茅台`) are newly exposed by this Bot entry: they reuse the existing name resolver (`resolve_name_to_code`) and then submit the legacy code without a structured target.
+> **Registered index inputs:** explicit codes (`sh000016`), CSI aliases (`930955.CSI` converges to `csi930955`) and registered Chinese names (`上证50`) are accepted. Unregistered CSI forms (for example `930956.CSI`), invalid code shapes, and mismatched exchange suffixes return an explicit error without submitting a task; ambiguous registered names require an explicit code instead of guessing. Stock-name inputs (for example `贵州茅台`) reuse the existing name resolver (`resolve_name_to_code`).
 
 ### Bot index entry online E2E smoke (`scripts/smoke_bot_index_entry.py`)
 

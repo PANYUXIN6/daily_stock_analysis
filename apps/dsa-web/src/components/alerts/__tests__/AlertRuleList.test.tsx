@@ -224,9 +224,9 @@ describe('AlertRuleList', () => {
         },
         {
           id: 7,
-          name: '美股分数下降',
+          name: 'A 股分数下降',
           targetScope: 'market',
-          target: 'us',
+          target: 'cn',
           alertType: 'market_light_score_drop',
           parameters: { minDrop: 15 },
           severity: 'warning',
@@ -237,8 +237,8 @@ describe('AlertRuleList', () => {
       ],
     });
 
-    expect(screen.getByText('A 股')).toBeInTheDocument();
-    expect(screen.getByText('美股')).toBeInTheDocument();
+    expect(screen.getAllByText('A 股')[0]).toBeInTheDocument();
+    expect(screen.getAllByText('A 股')[0]).toBeInTheDocument();
     expect(screen.getAllByText('大盘市场').length).toBeGreaterThan(0);
     expect(screen.getAllByText('大盘红绿灯状态').length).toBeGreaterThan(0);
     expect(screen.getByText('红灯 / 黄灯')).toBeInTheDocument();

@@ -33,15 +33,10 @@ from tenacity import (
     before_sleep_log,
 )
 
-from data_provider.us_index_mapping import is_us_index_code
 from src.config import (
     NEWS_STRATEGY_WINDOWS,
     normalize_news_strategy_profile,
     resolve_news_window_days,
-)
-from src.data.stock_mapping import (
-    canonicalize_foreign_stock_code,
-    foreign_stock_english_aliases,
 )
 from src.services.run_diagnostics import record_provider_run, record_provider_run_started
 
@@ -2238,8 +2233,7 @@ class SearchService:
     1. 管理多个搜索引擎
     2. 自动故障转移
     3. 结果聚合和格式化
-    4. 数据源失败时的增强搜索（股价、走势等）
-    5. 港股/美股自动使用英文搜索关键词
+    4. 数据源失败时的 A 股增强搜索（股价、走势等）
     """
     
     # 增强搜索关键词模板（A股 中文）
@@ -2251,21 +2245,12 @@ class SearchService:
         "{name} {code} 涨跌 成交量",
     ]
 
-    # 增强搜索关键词模板（港股/美股 英文）
-    ENHANCED_SEARCH_KEYWORDS_EN = [
-        "{name} stock price today",
-        "{name} {code} latest quote trend",
-        "{name} stock analysis chart",
-        "{name} technical analysis",
-        "{name} {code} performance volume",
-    ]
     NEWS_OVERSAMPLE_FACTOR = 2
     NEWS_OVERSAMPLE_MAX = 10
     FUTURE_TOLERANCE_DAYS = 1
     ANALYTICAL_INTEL_LOOKBACK_DAYS = 180
     ANALYTICAL_INTEL_DIMENSIONS = {"market_analysis", "earnings"}
     _CHINESE_TEXT_RE = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
-    _US_STOCK_RE = re.compile(r"^[A-Za-z]{1,5}(\.[A-Za-z])?$")
     _DIRECT_NEWS_CATEGORY = "direct_company_news"
     _SECTOR_NEWS_CATEGORY = "sector_related_news"
     _MACRO_NEWS_CATEGORY = "macro_market_news"
@@ -2274,11 +2259,6 @@ class SearchService:
         _SECTOR_NEWS_CATEGORY: 1,
         _MACRO_NEWS_CATEGORY: 2,
     }
-    _AMBIGUOUS_EN_COMPANY_NAMES = {"apple", "meta", "square", "target", "gap"}
-    _AMBIGUOUS_EN_CONFIRMING_EVENT_TERMS = (
-        "earnings", "revenue", "profit", "guidance", "filing", "buyback",
-        "dividend", "lawsuit", "merger", "acquisition",
-    )
     _COMPANY_EVENT_TERMS = (
         "公告", "披露", "发布", "收购", "回购", "减持", "增持", "诉讼", "处罚",
         "业绩", "财报", "营收", "净利润", "分红", "董事会", "股东大会", "订单",
@@ -2291,22 +2271,19 @@ class SearchService:
         "peers", "competitors", "supply chain", "market share",
     )
     _MACRO_NEWS_TERMS = (
-        "大盘", "市场", "指数", "宏观", "央行", "利率", "通胀", "a股", "港股",
-        "美股", "纳指", "标普", "market", "index", "fed", "inflation",
-        "interest rate", "nasdaq", "s&p 500", "dow jones",
+        "大盘", "市场", "指数", "宏观", "央行", "利率", "通胀", "a股",
+        "market", "index", "inflation", "interest rate",
     )
     _OFFICIAL_SOURCE_TERMS = (
-        "cninfo", "sse.com", "szse.cn", "hkexnews", "sec.gov", "nasdaq.com",
-        "nyse.com", "上交所", "深交所", "港交所", "证券交易所",
+        "cninfo", "sse.com", "szse.cn", "上交所", "深交所", "证券交易所",
     )
     _OFFICIAL_SOURCE_HOSTS = (
-        "cninfo.com.cn", "sse.com", "sse.com.cn", "szse.cn", "hkexnews.hk",
-        "sec.gov", "nasdaq.com", "nyse.com",
+        "cninfo.com.cn", "sse.com", "sse.com.cn", "szse.cn",
     )
     _OFFICIAL_SOURCE_LABELS = (
-        "cninfo", "hkexnews", "巨潮资讯", "巨潮资讯网",
-        "上交所", "深交所", "港交所", "证券交易所",
-        "上海证券交易所", "深圳证券交易所", "香港交易所", "香港联合交易所",
+        "cninfo", "巨潮资讯", "巨潮资讯网",
+        "上交所", "深交所", "证券交易所",
+        "上海证券交易所", "深圳证券交易所",
     )
     _LOW_QUALITY_DOWNLOAD_ACTION_TERMS = (
         "下载", "安装", "下载安装", "下载安装到手机", "下载链接",
@@ -2511,60 +2488,10 @@ class SearchService:
             self.news_window_days,
         )
     
-    @staticmethod
-    def _is_foreign_stock(stock_code: str) -> bool:
-        """判断是否为港股或美股。
-
-        Honours all canonical input forms — bare ticker (``AAPL`` / ``00700``),
-        suffixed ticker (``AAPL.US`` / ``00700.HK``), and prefixed HK ticker
-        (``HK00700``) — by canonicalizing to the key form used in
-        STOCK_ENGLISH_NAME_MAP before applying the existing structural checks.
-        This is the canonical-boundary unification that massif-01 asked for on
-        PR #2047 (so alias resolution and foreign-ness detection no longer
-        disagree on the same input).
-        """
-        code = canonicalize_foreign_stock_code(stock_code).strip()
-        if not code:
-            return False
-        # 美股：1-5个大写字母，可能包含点（如 BRK.B）
-        if SearchService._US_STOCK_RE.match(code):
-            return True
-        # 港股：5位纯数字。canonicalize_foreign_stock_code 已把 HK00700 前缀
-        # 与 00700.HK 后缀全部归一为 00700 形式，原 lower.startswith('hk')
-        # 分支在 canonical 之后为不可达死代码，已删除。
-        if code.isdigit() and len(code) == 5:
-            return True
-        return False
-
-    @staticmethod
-    def _foreign_english_query_terms(stock_code: str, stock_name: str) -> Tuple[str, ...]:
-        """Return English company name(s) to embed in foreign-stock search
-        queries. issue #2026: When STOCK_NAME_MAP maps a foreign ticker to a
-        Chinese display name, the search layer must not pass that Chinese name
-        to English news providers, otherwise the provider misses English
-        headlines entirely.
-
-        Returns the canonical alias tuple from ``STOCK_ENGLISH_NAME_MAP`` if the
-        supplied ``stock_name`` is Chinese and the canonical ticker has English
-        aliases. Otherwise returns an empty tuple (callers fall back to
-        ``stock_name`` itself).
-
-        Kept deliberately small and read-only: this helper never mutates the
-        alias set and never invents aliases outside the single source of truth
-        in ``src/data/stock_mapping.py``.
-        """
-        return foreign_stock_english_aliases(stock_code, stock_name)
-
     @classmethod
     def _contains_chinese_text(cls, value: Optional[str]) -> bool:
         """Return True when the input contains CJK characters."""
         return bool(value and cls._CHINESE_TEXT_RE.search(value))
-
-    @classmethod
-    def _is_us_stock(cls, stock_code: str) -> bool:
-        """判断是否为美股/美股指数代码。"""
-        code = (stock_code or "").strip().upper()
-        return bool(cls._US_STOCK_RE.match(code) or is_us_index_code(code))
 
     @classmethod
     def _should_prefer_chinese_news(
@@ -2577,8 +2504,7 @@ class SearchService:
 
         Only returns True when there is a positive Chinese signal:
         Chinese characters in keywords/stock_name, or a 6-digit A-stock code.
-        Avoids false positives for non-foreign but English contexts like
-        ``stock_code="market", stock_name="US market"``.
+        Other text-only contexts are not forced to Chinese.
         """
         if any(cls._contains_chinese_text(keyword) for keyword in (focus_keywords or [])):
             return True
@@ -2647,16 +2573,13 @@ class SearchService:
         *,
         prefer_chinese: bool,
     ) -> Dict[str, str]:
-        """Resolve Brave locale hints without forcing US bias onto non-US symbols."""
+        """Resolve Brave locale hints for Chinese A-share news."""
         if prefer_chinese:
             return {"search_lang": "zh-hans", "country": "CN"}
-        if cls._is_us_stock(stock_code):
-            return {"search_lang": "en", "country": "US"}
         return {}
 
     # A-share ETF code prefixes (Shanghai 51/52/56/58, Shenzhen 15/16/18)
     _A_ETF_PREFIXES = ('51', '52', '56', '58', '15', '16', '18')
-    _ETF_NAME_KEYWORDS = ('ETF', 'FUND', 'TRUST', 'INDEX', 'TRACKER', 'UNIT')  # US/HK ETF name hints
 
     @staticmethod
     def is_index_or_etf(stock_code: str, stock_name: str) -> bool:
@@ -2670,13 +2593,6 @@ class SearchService:
         # A-share ETF
         if code.isdigit() and len(code) == 6 and code.startswith(SearchService._A_ETF_PREFIXES):
             return True
-        # US index (SPX, DJI, IXIC etc.)
-        if is_us_index_code(code):
-            return True
-        # US/HK ETF: foreign symbol + name contains fund-like keywords
-        if SearchService._is_foreign_stock(code):
-            name_upper = (stock_name or '').upper()
-            return any(kw in name_upper for kw in SearchService._ETF_NAME_KEYWORDS)
         return False
 
     @property
@@ -2824,48 +2740,17 @@ class SearchService:
         code_for_variants = upper
         if "." in upper:
             base, suffix = upper.rsplit(".", 1)
-            if suffix == "HK" and base.isdigit() and 1 <= len(base) <= 5:
-                code_for_variants = f"HK{base.zfill(5)}"
-            elif suffix in {"SH", "SZ", "SS", "BJ"} and base.isdigit() and len(base) == 6:
-                code_for_variants = base
-            elif suffix == "US" and re.fullmatch(r"[A-Z]{1,5}", base):
+            if suffix in {"SH", "SZ", "SS", "BJ"} and base.isdigit() and len(base) == 6:
                 code_for_variants = base
 
-        is_us_ticker = bool(cls._US_STOCK_RE.match(code_for_variants))
-        if not is_us_ticker:
-            cls._append_unique(terms, raw)
-            cls._append_unique(terms, upper)
-            if code_for_variants != upper:
-                cls._append_unique(terms, code_for_variants)
-
-        lower = code_for_variants.lower()
-        hk_digits = ""
-        if lower.startswith("hk"):
-            hk_digits = re.sub(r"\D", "", code_for_variants)
-        elif code_for_variants.isdigit() and len(code_for_variants) == 5:
-            hk_digits = code_for_variants
-
-        if hk_digits:
-            padded = hk_digits.zfill(5)
-            short = str(int(hk_digits)) if hk_digits.isdigit() else hk_digits.lstrip("0")
-            cls._append_unique(terms, padded)
-            cls._append_unique(terms, f"HK{padded}")
-            cls._append_unique(terms, f"{padded}.HK")
-            cls._append_unique(terms, f"{short}.HK")
-            cls._append_unique(terms, f"HKEX:{short}")
-            return terms
+        cls._append_unique(terms, raw)
+        cls._append_unique(terms, upper)
+        if code_for_variants != upper:
+            cls._append_unique(terms, code_for_variants)
 
         if code_for_variants.isdigit() and len(code_for_variants) == 6:
             suffix = ".SH" if code_for_variants.startswith(("5", "6", "9")) else ".SZ"
             cls._append_unique(terms, f"{code_for_variants}{suffix}")
-            return terms
-
-        if cls._US_STOCK_RE.match(code_for_variants):
-            cls._append_unique(terms, f"${code_for_variants}")
-            cls._append_unique(terms, f"NASDAQ:{code_for_variants}")
-            cls._append_unique(terms, f"NYSE:{code_for_variants}")
-            if len(code_for_variants) > 1:
-                cls._append_unique(terms, code_for_variants)
             return terms
 
         return terms
@@ -2931,15 +2816,6 @@ class SearchService:
     def _contains_stock_code_identity_term(cls, text: str, term: str) -> bool:
         if not text or not term:
             return False
-
-        if cls._US_STOCK_RE.match(term) and term.upper() == term and not term.startswith("$"):
-            ticker_pattern = f"(?:{re.escape(term)}|{re.escape(term.lower())})"
-            pattern = (
-                r"(?<![A-Za-z0-9$:.])"
-                + ticker_pattern
-                + r"(?=$|[^A-Za-z0-9.]|\.(?:US|us|O|o|N|n|NYSE|nyse|NASDAQ|nasdaq|AMEX|amex)\b)"
-            )
-            return bool(re.search(pattern, text))
 
         return cls._contains_identity_term(text, term)
 
@@ -3189,9 +3065,6 @@ class SearchService:
         score = 0
         direct_signal = 0
         reasons: List[str] = []
-        has_stock_code_signal = False
-        has_unambiguous_company_signal = False
-        has_ambiguous_company_signal = False
 
         def add_reason(reason: str) -> None:
             if reason not in reasons and len(reasons) < 5:
@@ -3201,7 +3074,6 @@ class SearchService:
             if cls._contains_stock_code_identity_term(title, term):
                 score += 55
                 direct_signal += 55
-                has_stock_code_signal = True
                 add_reason(f"标题命中股票代码 {term}")
                 break
         else:
@@ -3209,7 +3081,6 @@ class SearchService:
                 if cls._contains_stock_code_identity_term(snippet, term):
                     score += 34
                     direct_signal += 34
-                    has_stock_code_signal = True
                     add_reason(f"摘要命中股票代码 {term}")
                     break
             else:
@@ -3217,102 +3088,25 @@ class SearchService:
                     if cls._contains_stock_code_identity_term(url, term):
                         score += 18
                         direct_signal += 18
-                        has_stock_code_signal = True
                         add_reason(f"链接命中股票代码 {term}")
                         break
 
         for term in cls._company_identity_terms(stock_name):
-            ambiguous_en = (
-                not cls._contains_chinese_text(term)
-                and term.lower() in cls._AMBIGUOUS_EN_COMPANY_NAMES
-            )
-            title_score = 26 if ambiguous_en else 45
-            snippet_score = 16 if ambiguous_en else 28
             if cls._contains_identity_term(title, term):
-                score += title_score
-                direct_signal += title_score
-                if ambiguous_en:
-                    has_ambiguous_company_signal = True
-                else:
-                    has_unambiguous_company_signal = True
+                score += 45
+                direct_signal += 45
                 add_reason(f"标题命中公司名 {term}")
                 break
             if cls._contains_identity_term(snippet, term):
-                score += snippet_score
-                direct_signal += snippet_score
-                if ambiguous_en:
-                    has_ambiguous_company_signal = True
-                else:
-                    has_unambiguous_company_signal = True
+                score += 28
+                direct_signal += 28
                 add_reason(f"摘要命中公司名 {term}")
                 break
-
-        # Issue #2026: when STOCK_NAME_MAP maps a foreign ticker to a Chinese
-        # display name (e.g. AAPL -> 苹果), the loop above cannot match English
-        # news headlines ("Apple reports earnings beat"). Resolve English
-        # identity aliases from the single source of truth (STOCK_ENGLISH_NAME_MAP
-        # in src/data/stock_mapping.py — sibling of STOCK_NAME_MAP, asserted to
-        # be a subset of its foreign-ticker keys) and feed both the alias
-        # strings and their legal-suffix-stripped variants into the same
-        # identity-term scoring path.
-        english_aliases = foreign_stock_english_aliases(stock_code, stock_name)
-        if english_aliases:
-            # Issue #2026 / PR #2049 review: dedupe identity terms across all
-            # aliases BEFORE scoring. STOCK_ENGLISH_NAME_MAP legal alias
-            # (``Apple Inc.``) is intentionally designed to also expose its
-            # short alias (``Apple``) so the search-query construction path
-            # always has a concise term to put into English queries. But when
-            # the SAME short form appears both as an explicit alias tuple
-            # member AND as the cleaned output of _company_identity_terms on
-            # the legal alias, naive per-alias accumulation would double-count
-            # a single snippet hit on ``Apple`` (16+16=32) and push ambiguous
-            # snippet-only headlines over the direct_company_news threshold.
-            # Collect terms into a set first; score each unique term once.
-            seen_identity_terms: set = set()
-            for alias in english_aliases:
-                for term in cls._company_identity_terms(alias):
-                    if term in seen_identity_terms:
-                        continue
-                    seen_identity_terms.add(term)
-                    ambiguous_en = (
-                        not cls._contains_chinese_text(term)
-                        and term.lower() in cls._AMBIGUOUS_EN_COMPANY_NAMES
-                    )
-                    title_score = 26 if ambiguous_en else 45
-                    snippet_score = 16 if ambiguous_en else 28
-                    if cls._contains_identity_term(title, term):
-                        score += title_score
-                        direct_signal += title_score
-                        if ambiguous_en:
-                            has_ambiguous_company_signal = True
-                        else:
-                            has_unambiguous_company_signal = True
-                        add_reason(f"标题命中公司英文别名 {term}")
-                        break
-                    if cls._contains_identity_term(snippet, term):
-                        score += snippet_score
-                        direct_signal += snippet_score
-                        if ambiguous_en:
-                            has_ambiguous_company_signal = True
-                        else:
-                            has_unambiguous_company_signal = True
-                        add_reason(f"摘要命中公司英文别名 {term}")
-                        break
 
         has_company_event = cls._contains_any_news_term(full_text, cls._COMPANY_EVENT_TERMS)
         if has_company_event and direct_signal > 0:
             score += 12
-            ambiguous_name_only = (
-                has_ambiguous_company_signal
-                and not has_stock_code_signal
-                and not has_unambiguous_company_signal
-            )
-            has_confirming_event = cls._contains_any_news_term(
-                full_text,
-                cls._AMBIGUOUS_EN_CONFIRMING_EVENT_TERMS,
-            )
-            if not ambiguous_name_only or has_confirming_event:
-                direct_signal += 12
+            direct_signal += 12
             add_reason("命中公告/财报/交易等公司事件词")
 
         if cls._is_trusted_official_news_source(item):
@@ -4032,21 +3826,7 @@ class SearchService:
             focus_keywords=focus_keywords,
         )
 
-        # 构建搜索查询（优化搜索效果）
-        is_foreign = self._is_foreign_stock(stock_code)
-        # Issue #2026: When STOCK_NAME_MAP maps a foreign ticker to a Chinese
-        # display name (e.g. AAPL -> 苹果), the English news search query would
-        # otherwise contain the Chinese name and miss English headlines.
-        # Resolve the canonical English alias (single source of truth:
-        # STOCK_ENGLISH_NAME_MAP in src/data/stock_mapping.py) so the foreign
-        # query path uses a real English company name.
-        english_aliases = self._foreign_english_query_terms(stock_code, stock_name)
-        effective_name = english_aliases[0] if english_aliases else stock_name
-        short_name = english_aliases[-1] if english_aliases else None
-        # Issue #2026: Foreign tickers must bypass prefer_chinese even when the
-        # display name is Chinese (e.g. AAPL -> 苹果), otherwise the foreign
-        # branch below is unreachable and English headlines are missed.
-        prefer_chinese = prefer_chinese and not (is_foreign and english_aliases)
+        # 构建 A 股搜索查询。
         if focus_keywords:
             # 如果提供了关键词，直接使用关键词作为查询
             query = " ".join(focus_keywords)
@@ -4058,14 +3838,6 @@ class SearchService:
                 if stock_code
                 else f"{stock_name} 股票 最新消息"
             )
-        elif is_foreign:
-            # 港股/美股使用英文搜索关键词；优先使用英文公司名（issue #2026）
-            if english_aliases and short_name and short_name != effective_name:
-                query = (
-                    f"{effective_name} {short_name} {stock_code} stock latest news"
-                )
-            else:
-                query = f"{effective_name} {stock_code} stock latest news"
         else:
             # 默认主查询：股票名称 + 核心关键词
             query = f"{stock_name} {stock_code} 股票 最新消息"
@@ -4321,20 +4093,11 @@ class SearchService:
             SearchResponse 对象
         """
         if event_types is None:
-            if self._is_foreign_stock(stock_code):
-                event_types = ["earnings report", "insider selling", "quarterly results"]
-            else:
-                event_types = ["年报预告", "减持公告", "业绩快报"]
-
-        # Issue #2026: foreign-ticker Chinese display name needs canonical
-        # English alias for English event query (single source of truth in
-        # src/data/stock_mapping.py).
-        english_aliases = self._foreign_english_query_terms(stock_code, stock_name)
-        effective_name = english_aliases[0] if english_aliases else stock_name
+            event_types = ["年报预告", "减持公告", "业绩快报"]
 
         # 构建针对性查询
         event_query = " OR ".join(event_types)
-        query = f"{effective_name} ({event_query})"
+        query = f"{stock_name} ({event_query})"
         cache_key = self._cache_key(
             f"stock_events:{query}|target={stock_code}:{stock_name}",
             5,
@@ -4391,66 +4154,8 @@ class SearchService:
         results = {}
         search_count = 0
 
-        is_foreign = self._is_foreign_stock(stock_code)
         is_index_etf = self.is_index_or_etf(stock_code, stock_name)
-
-        if is_foreign:
-            # Issue #2026: Foreign-ticker English alias resolution from the
-            # single source of truth (STOCK_ENGLISH_NAME_MAP in
-            # src/data/stock_mapping.py). When STOCK_NAME_MAP maps the ticker
-            # to a Chinese display name, the English news query path must use
-            # the canonical English company name; otherwise English news
-            # providers receive the Chinese name and miss English headlines.
-            english_aliases = self._foreign_english_query_terms(stock_code, stock_name)
-            effective_name = english_aliases[0] if english_aliases else stock_name
-            search_dimensions = [
-                {
-                    'name': 'latest_news',
-                    'query': f"{effective_name} {stock_code} latest news events",
-                    'desc': '最新消息',
-                    'tavily_topic': 'news',
-                    'strict_freshness': True,
-                },
-                {
-                    'name': 'market_analysis',
-                    'query': f"{effective_name} analyst rating target price report",
-                    'desc': '机构分析',
-                    'tavily_topic': None,
-                    'strict_freshness': False,
-                },
-                {
-                    'name': 'risk_check',
-                    'query': (
-                        f"{effective_name} {stock_code} index performance outlook tracking error"
-                        if is_index_etf else f"{effective_name} risk insider selling lawsuit litigation"
-                    ),
-                    'desc': '风险排查',
-                    'tavily_topic': None if is_index_etf else 'news',
-                    'strict_freshness': not is_index_etf,
-                },
-                {
-                    'name': 'earnings',
-                    'query': (
-                        f"{effective_name} {stock_code} index performance composition outlook"
-                        if is_index_etf else f"{effective_name} earnings revenue profit growth forecast"
-                    ),
-                    'desc': '业绩预期',
-                    'tavily_topic': None,
-                    'strict_freshness': False,
-                },
-                {
-                    'name': 'industry',
-                    'query': (
-                        f"{effective_name} {stock_code} index sector allocation holdings"
-                        if is_index_etf else f"{effective_name} industry competitors market share outlook"
-                    ),
-                    'desc': '行业分析',
-                    'tavily_topic': None,
-                    'strict_freshness': False,
-                },
-            ]
-        else:
-            search_dimensions = [
+        search_dimensions = [
                 {
                     'name': 'latest_news',
                     'query': f"{stock_name} {stock_code} 最新 新闻 重大 事件",
@@ -4505,7 +4210,7 @@ class SearchService:
                     'tavily_topic': None,
                     'strict_freshness': False,
                 },
-            ]
+        ]
         
         search_days = self._effective_news_window_days()
         target_per_dimension = 3
@@ -4752,8 +4457,7 @@ class SearchService:
         successful_providers = []
         
         # 使用多个关键词模板搜索
-        is_foreign = self._is_foreign_stock(stock_code)
-        keywords = self.ENHANCED_SEARCH_KEYWORDS_EN if is_foreign else self.ENHANCED_SEARCH_KEYWORDS
+        keywords = self.ENHANCED_SEARCH_KEYWORDS
         for i, keyword_template in enumerate(keywords[:max_attempts]):
             query = keyword_template.format(name=stock_name, code=stock_code)
             

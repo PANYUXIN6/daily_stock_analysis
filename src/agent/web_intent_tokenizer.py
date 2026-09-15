@@ -28,8 +28,8 @@ Step 6 混合匹配但要求整段 TAG 全覆盖（交叉验证）才产出，�
     AkShare 扩展因此钉死在管道最前，Steps 1~6 自始面对同一合并后库视图。
   - 输入侧 NFKC 宽度归一 + 窗口匹配时删去输入端空格："贵 州 茅 台" 与
     常规书写同样整名命中（库侧源数据归一属 resolver 层，后续 PR 引入）。
-  - token 层代码身份的规范拼写单一定义点 ``_canonical_stock_code``（a=6
-    位裸数字、hk=HK+5 位、us=大写 ticker）：名称路径与代码路径共享同一
+  - token 层代码身份的规范拼写单一定义点 ``_canonical_stock_code``（A 股
+    为 6 位裸数字）：名称路径与代码路径共享同一
     拼写，下游从其它来源（LLM 输出/session 继承）构造 stocks 时必须复用，
     否则同一股票出现多重代码身份。
   - sector 系三标签词池见 web_intent_types（泛称/行业名/行业兼股票名），
@@ -75,7 +75,6 @@ from src.agent.web_intent_types import (
 )
 from src.services.name_to_code_resolver import (
     Stock,  # (code/name/market)
-    US_stock_code_match,  # 美股代码匹配
     _db_lock,  # stockDB 读锁：与下游 extend_AkShare 的并发合并串行
     extend_AkShare,  # Step 1 入口调用：合并 AkShare 全量进 stockDB（幂等）
     is_known_stock_name,  # 本地名称表成员判定（不联网）
@@ -91,12 +90,7 @@ from src.services.stock_code_utils import (  # 交易所推断权威实现（无
 
 
 def _extract_markets_from_tokens(tokens: List[Token]) -> List[Market]:
-    """从 token 提取市场枚举（唯一提取点）：TAG_SUBJECT_MARKET → _KW_TO_MARKET，
-    另识别 ASCII 简写 "us"/"hk"。消歧已在 _split_market_tokens 完成，此处仅映射。
-
-    小写简写仅在消息含 CJK 时生效：纯英文消息里独立的小写 "us" 几乎总是
-    代词；大写 US/HK 是刻意形态，不受语境限制。"""
-    has_cjk = any("\u3400" <= ch <= "\u9fff" for t in tokens for ch in t.text)
+    """从 token 提取 A 股市场枚举。"""
     markets: List[Market] = []
     seen: set = set()
     for t in tokens:
@@ -105,14 +99,6 @@ def _extract_markets_from_tokens(tokens: List[Token]) -> List[Market]:
             if mkt and mkt not in seen:
                 markets.append(mkt)
                 seen.add(mkt)
-        else:
-            stripped = t.text.strip()
-            shorthand = stripped.lower()
-            if shorthand in ("us", "hk") and (has_cjk or shorthand != stripped):
-                mkt = Market(shorthand)
-                if mkt not in seen:
-                    markets.append(mkt)
-                    seen.add(mkt)
     return markets
 
 
@@ -124,28 +110,15 @@ def _recognition_rate(tokens: List[Token]) -> float:
 
 
 def _market_of_code(code: str) -> str:
-    """从代码形态推断市场：6 位→a、5 位→hk、字母 ticker→us（与
-    name_to_code_resolver._infer_code_market 语义一致）。"""
+    """从六位代码形态推断 A 股市场。"""
     c = (code or "").strip().upper()
     if not c:
         return ""
-    if c.isdigit():
-        if len(c) == 5:
-            return "hk"
-        if len(c) == 6:
-            return "a"
-        return ""
-    if re.match(r"^[A-Z]{1,5}(\.[A-Z])?$", c):
-        return "us"
-    return ""
+    return "a" if c.isdigit() and len(c) == 6 else ""
 
 
 def _canonical_stock_code(code: str, market: str) -> str:
-    """token 层股票代码的规范拼写：hk → HK+5 位，a/us 保持 stockDB 键原样
-    （6 位裸数字 / 大写 ticker）。名称路径产出的唯一归一点——不归一会与
-    代码路径形成同一股票的双重身份。"""
-    if market == "hk" and code.isdigit():
-        return f"HK{code}"
+    """返回 A 股六位裸代码。"""
     return code
 
 
@@ -198,7 +171,7 @@ def _build_entity_index() -> Tuple[List[str], Dict[str, List[Tuple[str, str, str
 
 # 实体扫描压缩长度上限：按删空格后计，与库内最长全名取小、封顶 8（9 字
 # 以上 CJK 股名不存在，超长指称交 Step 6/下游 LLM）；下探到 2 字（美团/
-# 快手 等港股短名）——窗口必须整体等于全名，误切风险有界
+# 短公司名窗口必须整体等于全名，误切风险有界
 _MAX_ENTITY_LEN = 8
 
 # sector 系词池并集：与股票名冲突时行业语义优先，全管道不做个股名匹配。
@@ -245,7 +218,7 @@ def _split_by_stock_entities(text: str) -> List[Token]:
     # gap 文本随之规整——空白本就被后续步骤切分与过滤，无信息损失
     text = re.sub(r"\s+", " ", text)
     if not any("\u3400" <= ch <= "\u9fff" for ch in text):
-        return [Token(text)]  # 纯英文段由 Step 6 DFS（拼音/美股代码）兜底
+        return [Token(text)]  # 纯英文段由 Step 6 DFS（拼音）兜底
     names, name_codes = _build_entity_index()
     max_len = min(_MAX_ENTITY_LEN, max((len(n) for n in names), default=0))
     max_span = 2 * max_len - 1  # 收敛后最长全名的最宽 raw 跨度（静态完备）
@@ -317,7 +290,7 @@ def _extract_full_names_first(normalized: str) -> List[Token]:
 # =========================================================================
 
 # 市场相关 tag 关键词 union；"股"+"份"消歧见 _split_market_tokens
-# （防 "大港股份" 中的 "港股" 子串被误提取）
+# 市场词不参与本层匹配，避免公司名子串被误提取。
 _MARKET_TOKEN_PATTERN = _compile_kw_pattern(
     TAG_SUBJECT_MARKET, TAG_SUBJECT_MARKET_BROAD, TAG_SUBJECT_INDEX,
 )
@@ -428,15 +401,7 @@ def _dfs_match(text: str) -> Optional[List[Token]]:
         while i < len(text) and _isAlpha(text[i]):
             i += 1
         segment = text[:i]
-        # 纯英文做股票名拼音检测 + 美股代码检测；双源按 (code, market) 去重
-        # （名称恰等于 ticker 的 AMD/Meta 两源各出一份同实体），先归一到
-        # canonical 拼写使去重键与产出一致
         stock_list = _canonical_stocks(resolver_name_to_code_list(segment))
-        seen = {(s.code, s.market) for s in stock_list}
-        stock_list += [
-            s for s in US_stock_code_match(segment)
-            if (s.code, s.market) not in seen
-        ]
         if stock_list:
             rest = _dfs_match(text[i:])
             if rest is not None:
@@ -516,7 +481,7 @@ def _apply_multi_extraction(tokens: List[Token]) -> List[Token]:
 
 def _split_by_special_punct(text: str) -> List[Token]:
     """Step 2: 按特殊标点与空白边界切分（排除 * - .；空白同为词界，
-    "tsla aapl" 与 "tsla,aapl" 同构处理）。仅作用于 Step 1 的 gap；切分符
+    "600519 300750" 与 "600519,300750" 同构处理）。仅作用于 Step 1 的 gap；切分符
     留作空 tag token，由末端 _HAS_CONTENT_PATTERN 过滤。"""
     if not text:
         return []
@@ -543,24 +508,21 @@ def _split_by_special_punct(text: str) -> List[Token]:
 # 宽松匹配（宁多勿漏）：命中"像代码"的片段打 TAG_UNKNOWN_CODE，合法性交
 # _identify_stock_codes。纯文本匹配不查库、同位置多正则取最长、不推断市场。
 _CODE_CANDIDATE_PATTERNS: List[Tuple[str, int]] = [
-    # 1. 交易所前缀 + 任意位数字: SH600519, HK88888, SZ123
-    (r'(?<![a-zA-Z])(?:SH|SZ|BJ|HK)\d{1,}(?!\d)', re.IGNORECASE),
-    # 2. 数字.交易所后缀: 123456.HK, 235454354.sh
-    (r'(?<!\d)\d{1,}\.(?:SH|SZ|BJ|HK)(?!\d)', re.IGNORECASE),
+    # Keep foreign or conflicting qualifiers intact so their digits cannot become A shares.
+    (r"(?<![a-zA-Z0-9])(?:[A-Z]{2})?\d+(?:\.[A-Z]+)?(?![a-zA-Z0-9])", re.IGNORECASE),
+    # 1. 交易所前缀 + 任意位数字: SH600519, BJ920001, SZ123
+    (r'(?<![a-zA-Z])(?:SH|SZ|BJ)\d{1,}(?!\d)', re.IGNORECASE),
+    # 2. 数字.交易所后缀: 600519.SH, 920001.BJ
+    (r'(?<!\d)\d{1,}\.(?:SH|SZ|BJ)(?!\d)', re.IGNORECASE),
     # 3. 裸任意位数字: 600519, 12（形态歧义 → unknown_number，不按位数猜测）
     (r'(?<!\d)\d{1,}(?!\d)', 0),
-    # 4. 美股大写 ticker（左右不紧邻字母数字），可选交易所后缀 BRK.B——
-    #    后缀与主体整体成 span，防止 "BRK" 与 ".B" 撕成两段
-    (r'(?<![A-Za-z0-9.])([A-Z]{2,5}(?:\.[A-Z]{1,2})?)(?![A-Za-z0-9])', 0),
-    # 5. 连续字母 + .us 后缀（大小写不敏感）: aapl.us, BABA.US
-    (r'(?<![A-Za-z0-9.])([A-Za-z]{1,5}\.us)(?![A-Za-z0-9])', re.IGNORECASE),
 ]
 
 
 def _split_by_codes(text: str) -> List[Token]:
     """Step 3 子函数：宽口径代码形字符串提取。
 
-    5 类正则命中"像代码"的片段 → TAG_UNKNOWN_CODE，任意位裸数字 →
+    正则命中"像代码"的片段 → TAG_UNKNOWN_CODE，任意位裸数字 →
     TAG_UNKNOWN_NUMBER（形态歧义，交下游 LLM 辨析）；间隙保留为空 tag
     token。只做形态匹配与最大连续合并，不校验合法性、不推断市场。
     不复用 extract_stock_codes：其首码白名单会丢弃 777777 这类非法代码，
@@ -680,94 +642,72 @@ def _preprocess_text(text: str) -> Tuple[str, List[Token]]:
 
 def _is_valid_canonical_numeric_code(code: str) -> bool:
     """extract_stock_codes 规范化后的数字代码是否满足裸格式约束（6 位 A 股
-    首码白名单 0/3/6/4/8 或 92 段、HK+5 位）。extract 只去前缀不校验白名单，
+    首码白名单 0/3/6/4/8 或 92 段）。extract 只去前缀不校验白名单，
     规范化结果必须再过本闸门，否则带前缀的非法代码会绕过确认直接执行。
     """
     c = (code or "").strip().upper()
-    if c.startswith("HK"):
-        digits = c[2:]
-        return digits.isdigit() and len(digits) == 5
     if c.isdigit():
         return len(c) == 6 and (c[0] in "03648" or c.startswith("92"))
     return False
 
 
 def _shape_market(text: str, canonical: str) -> str:
-    """代码市场推断：优先规范化形态（HK 前缀 → hk、6 位 → a、字母 → us），
-    形态非法（canonical 为空）时回退原始文本的前缀/后缀形状；兜底 a。"""
-    if canonical:
-        if canonical.startswith("HK"):
-            return "hk"
-        m = _market_of_code(canonical)
-        if m:
-            return m
-    t = (text or "").upper()
-    if t.startswith("HK") or t.endswith(".HK"):
-        return "hk"
-    if _isAlpha(t.split(".", 1)[0]) and not any(ch.isdigit() for ch in t):
-        return "us"
+    """代码市场固定为 A 股。"""
     return "a"
 
 
-# 显式交易所标注解析：前缀 SH/SZ/BJ/HK 或后缀 .SH/.SZ/.BJ/.HK（大小写
+# 显式交易所标注解析：前缀 SH/SZ/BJ 或后缀 .SH/.SZ/.BJ（大小写
 # 不敏感），后缀优先。判决层权威解析，不复用 extract_stock_codes（那是
 # 候选收集器，位数不符时静默放行，不适用于判决）；标注市场与数字形态
 # 矛盾 → wrong_{标注市场}，绝不静默换市场解析
 _EXPLICIT_MARKER_RE = re.compile(
-    r"^(?P<pfx>SH|SZ|BJ|HK)?(?P<digits>[0-9]+)(?:[.](?P<sfx>SH|SZ|BJ|HK))?$",
+    r"^(?P<pfx>SH|SZ|BJ)?(?P<digits>[0-9]+)(?:[.](?P<sfx>SH|SZ|BJ))?$",
     re.IGNORECASE,
 )
-_MARKER_MARKET = {"SH": "a", "SZ": "a", "BJ": "a", "HK": "hk"}
+_MARKER_MARKET = {"SH": "a", "SZ": "a", "BJ": "a"}
 
 
 def _identify_one_code(t: Token) -> Token:
     """单个 TAG_UNKNOWN_CODE token 的辨认（_identify_stock_codes 子函数）：
     显式标注优先的确定性判决。
 
-    标注市场/交易所与数字形态矛盾 → wrong_{标注市场}（HK600519 / SH00700 /
-    SH000001 不静默改按其它市场或交易所解析）；形态合法则查库 → stock_code，
-    未命中按该市场库全量与否细分 wrong/unknown。纯字母 → 美股 ticker 路径；
+    标注市场/交易所与数字形态矛盾 → wrong_{标注市场}；形态合法则查库 → stock_code，
+    未命中按该市场库全量与否细分 wrong/unknown。
     无标注的防御形态走 extract 兜底（管道契约下 Step 3 不会产出该形态）。"""
     text = t.text
 
-    # 纯字母 → 美股 ticker：仅本地库命中才认可，未命中一律存疑交 LLM
+    # 非数字输入不属于 A 股代码。
     if not any(ch.isdigit() for ch in text):
-        ticker = text.split(".", 1)[0].upper()
-        matched = US_stock_code_match(ticker)
-        if matched:
-            # 统一规范大写拼写（aapl.us → AAPL），同一股票共享同一代码身份
-            return Token(ticker, TAG_STOCK_CODE, stocks=tuple(matched))
-        return Token(text, unknown_code_tag("us"))
+        return Token(text, wrong_code_tag("a"))
 
     m = _EXPLICIT_MARKER_RE.match(text)
-    pfx, sfx = (m.group("pfx"), m.group("sfx")) if m else (None, None)
+    if m is None:
+        return Token(text, wrong_code_tag("a"))
+    pfx, sfx = m.group("pfx"), m.group("sfx")
     if pfx and sfx and pfx.upper() != sfx.upper():
-        # 前后缀双标注市场互斥（HK600519.SH）：静态规则断非法，按后缀市场
+        # 前后缀交易所标注互斥（如 SH600519.SZ）：按后缀标注判为非法
         return Token(text, wrong_code_tag(_MARKER_MARKET[sfx.upper()]))
-    marker = (sfx or pfx) if m else None
+    marker = sfx or pfx
     if marker is not None:
         market = _MARKER_MARKET[marker.upper()]
         digits = m.group("digits")
-        # HK 短码先补零再校验（1810.HK/HK700 → HK01810/HK00700，对齐
-        # stock_code_utils zfill(5) 归一口径；≥5 位 zfill 无操作，位数
-        # 超标判决不受影响）
-        canonical = f"HK{digits.zfill(5)}" if marker.upper() == "HK" else digits
-        # 标注市场的形态闸门（HK=5 位、A 股=6 位+首码白名单）：不符即
+        canonical = digits
+        # 标注市场的形态闸门（A 股=6 位+首码白名单）：不符即
         # wrong_{标注市场}，即使数字段恰为其它市场合法代码也不改判
         if not _is_valid_canonical_numeric_code(canonical):
             return Token(text, wrong_code_tag(market))
-        if marker.upper() != "HK" and _infer_cn_exchange(digits) != marker.upper():
+        if _infer_cn_exchange(digits) != marker.upper():
             # 数字形态所属交易所与标注点名矛盾（SH000001/BJ600519）：
             # wrong_{标注市场}，不得静默解析成其它交易所的同号代码
             return Token(text, wrong_code_tag(market))
         stock = lookup_stock_by_code(canonical)
         if stock is not None:
-            # 规范化拼写（hk00700 → HK00700、600519.SH → 600519）
+            # 规范化拼写（600519.SH → 600519）
             return Token(canonical, TAG_STOCK_CODE, stocks=(stock,))
         if is_market_db_complete(market):
             # 该市场库已全量仍未命中（如 A 股 AkShare 已并入）：确定不存在
             return Token(text, wrong_code_tag(market))
-        # 库非全量（A 股未扩展 / hk/us 本地精选库）：存疑交下游 LLM 判断
+        # A 股库未扩展完成时，存疑交下游 LLM 判断。
         return Token(text, unknown_code_tag(market))
 
     # 无标注防御路径（管道契约下不出现：Step 3 裸数字 → unknown_number）
@@ -788,7 +728,7 @@ def _identify_stock_codes(tokens: List[Token]) -> List[Token]:
     """对 TAG_UNKNOWN_CODE 逐个辨认，三种产出：
 
     - 库命中 → ``stock_code``：``stocks`` 附完整三元组，文本用规范化拼写
-      （hk00700 → HK00700、600519.SH → 600519，与名称路径
+      （600519.SH → 600519，与名称路径
       ``_canonical_stock_code`` 同源归一，同一股票共享同一代码身份）；
     - 形态非法或该市场库已全量未命中 → ``wrong_{market}_code``：确定不存在；
     - 该市场库非全量未命中 → ``unknown_{market}_code``：存疑交下游 LLM。

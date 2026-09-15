@@ -34,48 +34,6 @@ describe('normalizeStockCode', () => {
     expect(normalizeStockCode('920748.BJ')).toBe('920748');
   });
 
-  it('normalizes HK prefix to 5-digit form', () => {
-    expect(normalizeStockCode('HK00700')).toBe('HK00700');
-    expect(normalizeStockCode('HK1810')).toBe('HK01810');
-    expect(normalizeStockCode('HK700')).toBe('HK00700');
-    expect(normalizeStockCode('hk00700')).toBe('HK00700');
-    expect(normalizeStockCode('hk1810')).toBe('HK01810');
-  });
-
-  it('normalizes pure 5-digit HK codes to canonical prefix form', () => {
-    expect(normalizeStockCode('00700')).toBe('HK00700');
-    expect(normalizeStockCode('01810')).toBe('HK01810');
-  });
-
-  it('normalizes HK suffix to canonical prefix form', () => {
-    expect(normalizeStockCode('00700.HK')).toBe('HK00700');
-    expect(normalizeStockCode('1810.HK')).toBe('HK01810');
-    expect(normalizeStockCode('700.HK')).toBe('HK00700');
-  });
-
-  it('keeps US tickers as-is', () => {
-    expect(normalizeStockCode('AAPL')).toBe('AAPL');
-    expect(normalizeStockCode('TSLA')).toBe('TSLA');
-    expect(normalizeStockCode('GOOGL')).toBe('GOOGL');
-    expect(normalizeStockCode('BRK.B')).toBe('BRK.B');
-  });
-
-  it('keeps JP/KR Yahoo suffix codes in canonical uppercase suffix form', () => {
-    expect(normalizeStockCode('7203.T')).toBe('7203.T');
-    expect(normalizeStockCode('6758.t')).toBe('6758.T');
-    expect(normalizeStockCode('005930.KS')).toBe('005930.KS');
-    expect(normalizeStockCode('035720.kq')).toBe('035720.KQ');
-    expect(normalizeStockCode('005930')).toBe('005930');
-  });
-
-  it('keeps TW Yahoo suffix codes (.TW / .TWO) in canonical uppercase suffix form', () => {
-    expect(normalizeStockCode('2330.tw')).toBe('2330.TW');
-    expect(normalizeStockCode('0050.TW')).toBe('0050.TW');
-    expect(normalizeStockCode('006208.tw')).toBe('006208.TW');
-    expect(normalizeStockCode('6505.two')).toBe('6505.TWO');
-    expect(normalizeStockCode('2330')).toBe('2330');
-  });
-
   it('is case-insensitive for prefixes', () => {
     expect(normalizeStockCode('sh600519')).toBe('600519');
     expect(normalizeStockCode('sz000001')).toBe('000001');
@@ -88,34 +46,21 @@ describe('normalizeStockCode', () => {
     expect(normalized[0]).toBe('600519');
   });
 
-  it('handles HK variants as equivalent', () => {
-    const codes = ['00700', 'HK00700', '00700.HK', 'hk00700'];
-    const normalized = codes.map(normalizeStockCode);
-    expect(new Set(normalized).size).toBe(1);
-    expect(normalized[0]).toBe('HK00700');
-  });
-
   it('compares stock-code variants with both sides normalized', () => {
-    expect(areStockCodesEquivalent('00700', 'HK00700')).toBe(true);
-    expect(areStockCodesEquivalent('01810', '1810.HK')).toBe(true);
-    expect(areStockCodesEquivalent('aapl', 'AAPL')).toBe(true);
-    expect(areStockCodesEquivalent('7203.t', '7203.T')).toBe(true);
-    expect(areStockCodesEquivalent('005930.ks', '005930.KS')).toBe(true);
-    expect(areStockCodesEquivalent('005930', '005930.KS')).toBe(false);
-    expect(areStockCodesEquivalent('00700', 'HK01810')).toBe(false);
-    expect(areStockCodesEquivalent('', 'HK00700')).toBe(false);
+    expect(areStockCodesEquivalent('SH600519', '600519.SH')).toBe(true);
+    expect(areStockCodesEquivalent('sz000001', '000001')).toBe(true);
+    expect(areStockCodesEquivalent('600519', '300750')).toBe(false);
+    expect(areStockCodesEquivalent('', '600519')).toBe(false);
   });
 
   it('finds raw watchlist entries that match normalized current codes', () => {
-    const codes = ['600519', '00700', 'aapl'];
+    const codes = ['600519', 'SZ000001', 'bj920748'];
 
     expect(includesStockCode(codes, '600519.SH')).toBe(true);
-    expect(includesStockCode(codes, 'HK00700')).toBe(true);
-    expect(includesStockCode(codes, '00700.HK')).toBe(true);
-    expect(includesStockCode(codes, 'AAPL')).toBe(true);
-    expect(includesStockCode(codes, 'HK01810')).toBe(false);
-    expect(findMatchingStockCode(codes, 'HK00700')).toBe('00700');
-    expect(findMatchingStockCode(codes, 'AAPL')).toBe('aapl');
+    expect(includesStockCode(codes, '000001.SZ')).toBe(true);
+    expect(includesStockCode(codes, 'BJ920748')).toBe(true);
+    expect(includesStockCode(codes, '300750')).toBe(false);
+    expect(findMatchingStockCode(codes, '000001.SZ')).toBe('SZ000001');
   });
 });
 
@@ -154,7 +99,7 @@ describe('asset-aware identity keys (PR #2312)', () => {
   it('keeps legacy stock normalization for stock/unknown codes', () => {
     expect(toAssetAwareCodeKey('SH600519', 'stock')).toBe('600519');
     expect(toAssetAwareCodeKey('600519.SH', undefined)).toBe('600519');
-    expect(toAssetAwareCodeKey('00700.HK', undefined)).toBe('HK00700');
+    expect(toAssetAwareCodeKey('BJ920748', undefined)).toBe('920748');
     expect(toAssetAwareCodeKey('sh600519', undefined)).toBe('600519');
   });
 

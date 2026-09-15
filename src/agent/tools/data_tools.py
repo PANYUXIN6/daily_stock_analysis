@@ -308,7 +308,7 @@ get_realtime_quote_tool = ToolDefinition(
         ToolParameter(
             name="stock_code",
             type="string",
-            description="Stock code, e.g., '600519' (A-share), 'AAPL' (US), 'hk00700' (HK)",
+            description="Six-digit A-share stock code, e.g., '600519'",
         ),
     ],
     handler=_handle_get_realtime_quote,
@@ -383,7 +383,7 @@ get_daily_history_tool = ToolDefinition(
         ToolParameter(
             name="stock_code",
             type="string",
-            description="Stock code, e.g., '600519' (A-share), 'AAPL' (US)",
+            description="Six-digit A-share stock code, e.g., '600519'",
         ),
         ToolParameter(
             name="days",
@@ -538,7 +538,7 @@ get_stock_info_tool = ToolDefinition(
         ToolParameter(
             name="stock_code",
             type="string",
-            description="Stock code: A-share '600519', US 'AAPL', HK '00700'",
+            description="Six-digit A-share stock code, e.g., '600519'",
         ),
     ],
     handler=_handle_get_stock_info,
@@ -719,7 +719,7 @@ get_capital_flow_tool = ToolDefinition(
         "Get main-force (主力) capital flow data for an A-share stock. "
         "Returns today's net inflow, 5-day and 10-day cumulative inflows, "
         "and top sector-level capital flow rankings. "
-        "Only supported for A-share individual stocks (not ETFs, indices, HK, or US stocks)."
+        "Only supported for A-share individual stocks, not ETFs or indices."
     ),
     parameters=[
         ToolParameter(

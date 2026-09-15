@@ -144,14 +144,16 @@ class MarketAnalyzer:
         Args:
             search_service: 搜索服务实例
             analyzer: AI分析器实例（用于调用LLM）
-            region: 市场区域 cn=A股 hk=港股 us=美股 jp=日本 kr=韩国
+            region: 市场区域，仅支持 cn（A 股）
             config: 本次复盘使用的配置；未传时读取全局配置
         """
         self.config = config or get_config()
         self.search_service = search_service
         self.analyzer = analyzer
         self.data_manager = DataFetcherManager()
-        self.region = region if region in ("cn", "us", "hk", "jp", "kr") else "cn"
+        if str(region or "cn").strip().lower() != "cn":
+            raise ValueError("大盘复盘仅支持 A 股（region=cn）")
+        self.region = "cn"
         self.profile: MarketProfile = get_profile(self.region)
         self.strategy = get_market_strategy_blueprint(self.region)
 
@@ -299,36 +301,18 @@ class MarketAnalyzer:
 
     def _get_market_scope_name(self, review_language: str | None = None) -> str:
         review_language = review_language or self._get_review_language()
-        if self.region == "us":
-            return "US market" if review_language == "en" else "美股市场"
-        if self.region == "hk":
-            return "Hong Kong market" if review_language == "en" else "港股市场"
-        if self.region == "jp":
-            return "Japan market" if review_language == "en" else "日本市场"
-        if self.region == "kr":
-            return "Korea market" if review_language == "en" else "韩国市场"
         if review_language == "en":
             return "A-share market"
         return "A股市场"
 
     def _get_turnover_unit_label(self) -> str:
         """Return the turnover unit label for the current market/language."""
-        if self.region == "us":
-            return "USD bn" if self._get_review_language() == "en" else "十亿美元"
-        if self.region == "hk":
-            return "HKD bn" if self._get_review_language() == "en" else "十亿港元"
-        if self.region == "jp":
-            return "JPY bn" if self._get_review_language() == "en" else "十亿日元"
-        if self.region == "kr":
-            return "KRW bn" if self._get_review_language() == "en" else "十亿韩元"
         return "CNY 100m" if self._get_review_language() == "en" else "亿"
 
     def _format_turnover_value(self, amount_raw: float) -> str:
         """Format raw turnover according to market-specific units."""
         if amount_raw == 0.0:
             return "N/A"
-        if self.region in ("us", "hk", "jp", "kr"):
-            return f"{amount_raw / 1e9:.2f}"
         if amount_raw > 1e6:
             return f"{amount_raw / 1e8:.0f}"
         return f"{amount_raw:.0f}"
@@ -343,130 +327,16 @@ class MarketAnalyzer:
 
     def _get_review_title(self, date: str) -> str:
         if self._get_review_language() == "en":
-            market_names = {
-                "us": "US Market Recap",
-                "hk": "HK Market Recap",
-                "jp": "Japan Market Recap",
-                "kr": "Korea Market Recap",
-            }
-            market_name = market_names.get(self.region, "A-share Market Recap")
-            return f"## {date} {market_name}"
+            return f"## {date} A-share Market Recap"
         return f"## {date} 大盘复盘"
 
     def _get_index_hint(self) -> str:
         if self._get_review_language() == "en":
-            if self.region == "us":
-                return "Analyze the key moves in the S&P 500, Nasdaq, Dow, and other major indices."
-            if self.region == "hk":
-                return "Analyze the key moves in the HSI, Hang Seng Tech, HSCEI, and other major indices."
-            if self.region == "jp":
-                return "Analyze the key moves in the Nikkei 225, TOPIX, and other major Japanese indices."
-            if self.region == "kr":
-                return "Analyze the key moves in the KOSPI, KOSDAQ, and other major Korean indices."
             return "Analyze the price action in the SSE, SZSE, ChiNext, and other major indices."
         return self.profile.prompt_index_hint
 
     def _get_strategy_prompt_block(self) -> str:
-        if self.region == "hk" and self._get_review_language() == "en":
-            return """## Strategy Blueprint: Hong Kong Market Regime Strategy
-Focus on HSI trend, southbound flow dynamics, and sector rotation to define next-session risk posture.
-
-### Strategy Principles
-- Read market regime from HSI, HSTECH, and HSCEI alignment first.
-- Track southbound capital flow as a key sentiment driver.
-- Translate recap into actionable risk-on/risk-off stance with clear invalidation points.
-
-### Analysis Dimensions
-- Trend Regime: Classify the market as momentum, range, or risk-off.
-  - Are HSI/HSTECH/HSCEI directionally aligned
-  - Did volume confirm the move
-  - Are key index levels reclaimed or lost
-- Capital Flows: Map southbound flow and macro narrative into equity risk appetite.
-  - Southbound net flow direction and magnitude
-  - USD/HKD and China policy implications
-  - Breadth and leadership concentration
-- Sector Themes: Identify persistent leaders and vulnerable laggards.
-  - Tech/internet platform trend persistence
-  - Financials/property sensitivity to policy shifts
-  - Defensive vs growth factor rotation
-
-### Action Framework
-- Risk-on: broad index breakout with expanding southbound participation.
-- Neutral: mixed index signals; focus on selective relative strength.
-- Risk-off: failed breakouts and rising volatility; prioritize capital preservation."""
-        if self.region == "jp" and self._get_review_language() == "en":
-            return """## Strategy Blueprint: Japan Market Regime Strategy
-Focus on Nikkei 225, TOPIX, currency dynamics, and global risk appetite to define the next-session trading plan.
-
-### Strategy Principles
-- Read Nikkei 225 and TOPIX alignment first, then assess yen moves, semiconductor/export chains, and financials.
-- Translate index conclusions into position sizing, trading pace, and risk-control actions.
-- Base judgments only on available index data, news, and price action without inventing breadth or sector statistics.
-
-### Analysis Dimensions
-- Trend Regime: Classify Japan equities as advancing, range-bound, or defensive.
-  - Are Nikkei 225 and TOPIX directionally aligned
-  - Have key index ranges been reclaimed or lost
-  - Are large-cap weights and growth chains moving together
-- Macro & FX: Map yen, rates, and global risk appetite into equity impact.
-  - Yen direction and implications for exporters
-  - Bank of Japan and US Treasury yield narratives
-  - Overseas technology and semiconductor read-through
-- Theme Signals: Identify durable leadership and crowded areas to avoid.
-  - Semiconductor, automation, and auto-chain persistence
-  - Rotation between financials and domestic-demand stocks
-  - Whether news catalysts confirm price action
-
-### Action Framework
-- Risk-on: major indices rise together with improving external risk appetite and stronger leadership.
-- Neutral: index divergence or FX disruption; avoid chasing and wait for confirmation.
-- Risk-off: major indices weaken or external risk rises; prioritize position control."""
-        if self.region == "kr" and self._get_review_language() == "en":
-            return """## Strategy Blueprint: Korea Market Regime Strategy
-Focus on KOSPI, KOSDAQ, semiconductor heavyweights, and global technology risk appetite to define the next-session trading plan.
-
-### Strategy Principles
-- Read KOSPI and KOSDAQ alignment first, then assess heavyweight signals from Samsung Electronics, SK Hynix, and related technology leaders.
-- Separate broad index beta, semiconductor cycle exposure, and growth-stock risk appetite.
-- Base judgments only on available index data, news, and price action without inventing breadth or sector statistics.
-
-### Analysis Dimensions
-- Trend Regime: Classify Korea equities as advancing, range-bound, or defensive.
-  - Are KOSPI and KOSDAQ directionally aligned
-  - Are heavyweight technology names supporting the indices
-  - Have key support or resistance levels been reclaimed or lost
-- Technology Cycle: Map semiconductor, AI hardware, and global technology moves into Korea equity risk.
-  - Memory and semiconductor-chain catalysts
-  - US technology-market read-through
-  - Foreign investor risk appetite signals
-- Theme Signals: Identify durable leadership and crowded areas to avoid.
-  - Rotation across batteries, autos, and internet platforms
-  - KOSDAQ growth-stock risk appetite
-  - Whether news catalysts confirm price action
-
-### Action Framework
-- Risk-on: KOSPI and KOSDAQ rise together with confirmed technology leadership and improving external risk appetite.
-- Neutral: index or heavyweight divergence; keep sizing controlled and wait for confirmation.
-- Risk-off: technology heavyweights weaken or external risk rises; prioritize drawdown control."""
-        if self.region == "us" and self._get_review_language() == "zh":
-            return """## 美股市场三段式复盘策略
-聚焦指数趋势、宏观叙事与板块轮动，给出次日风控与仓位框架。
-
-### 策略原则
-- 先看标普500、纳斯达克、道琼斯是否同向，确认主线是否一致。
-- 结合宏观与流动性指标，识别风险偏好是修复还是转弱。
-- 将复盘输出映射为“进攻/均衡/防守”动作建议，并给出明确触发失效条件。
-
-### 分析维度
-- 趋势结构：明确市场处于上冲、震荡还是防守转向，判断是否存在关键支撑位背离。
-- 资金与情绪：区分宏观政策、货币面与波动率对权益风险的影响。
-- 主题线索：识别持续性最强的主题与板块轮动是否形成可交易主线。
-
-### 行动框架
-- 进攻：主板块联动上行且量能/风险位同步改善。
-- 均衡：指数分化或量能未明显放大，仓位保守执行。
-- 防守：突破失守且波动率抬升时，优先减码并保留反弹可交易性。"""
-        if not (self.region == "cn" and self._get_review_language() == "en"):
+        if self._get_review_language() != "en":
             return self.strategy.to_prompt_block()
         return """## Strategy Blueprint: A-share Three-Phase Recap Strategy
 Focus on index trend, liquidity, and sector rotation to shape the next-session trading plan.
@@ -497,31 +367,7 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
 
     def _get_strategy_markdown_block(self, review_language: str | None = None) -> str:
         review_language = review_language or self._get_review_language()
-        if self.region == "hk" and review_language == "en":
-            return """### 6. Strategy Framework
-- **Trend Regime**: Classify the market as momentum, range, or risk-off based on HSI/HSTECH/HSCEI alignment.
-- **Capital Flows**: Track southbound flow direction and macro narrative for risk appetite signals.
-- **Sector Themes**: Focus on tech/internet platform persistence and financials/property policy sensitivity.
-"""
-        if self.region == "jp" and review_language == "en":
-            return """### 6. Strategy Framework
-- **Trend Regime**: Classify Japan equities as advancing, range-bound, or defensive based on Nikkei 225/TOPIX alignment.
-- **Macro & FX**: Track yen, rates, and global risk appetite for exporter and financial-sector implications.
-- **Theme Signals**: Focus on semiconductor, automation, auto-chain, financial, and domestic-demand rotation.
-"""
-        if self.region == "kr" and review_language == "en":
-            return """### 6. Strategy Framework
-- **Trend Regime**: Classify Korea equities as advancing, range-bound, or defensive based on KOSPI/KOSDAQ alignment.
-- **Technology Cycle**: Track semiconductor, AI hardware, and global technology read-through for market risk appetite.
-- **Theme Signals**: Focus on battery, auto, internet-platform, and KOSDAQ growth-stock rotation.
-"""
-        if self.region == "us" and review_language == "zh":
-            return """### 六、策略框架
-- **趋势结构**：判断市场在进攻、震荡与防守中的状态是否一致。
-- **资金与情绪**：结合波动率、宽度和主题轮动评估风险偏好。
-- **主题主线**：识别可延续和可放大的行业主线与防守线索。
-"""
-        if not (self.region == "cn" and review_language == "en"):
+        if review_language != "en":
             return self.strategy.to_markdown_block()
         return """### 6. Strategy Framework
 - **Trend Structure**: Determine whether the market is in an uptrend, range, or defensive phase.
@@ -559,14 +405,14 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
         today = datetime.now().strftime('%Y-%m-%d')
         overview = MarketOverview(date=today)
         
-        # 1. 获取主要指数行情（按 region 切换 A 股/美股）
+        # 1. 获取 A 股主要指数行情
         overview.indices = self._get_main_indices()
 
-        # 2. 获取涨跌统计（A 股有，美股无等效数据）
+        # 2. 获取涨跌统计
         if self.profile.has_market_stats:
             self._get_market_statistics(overview)
 
-        # 3. 获取板块涨跌榜（A 股有，美股暂无）
+        # 3. 获取板块涨跌榜
         if self.profile.has_sector_rankings:
             self._get_sector_rankings(overview)
             self._get_concept_rankings(overview)
@@ -734,22 +580,14 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
         
         all_news = []
 
-        # 按 region 使用不同的新闻搜索词
+        # 使用 A 股新闻搜索词
         search_queries = self.profile.news_queries
         review_language = self._get_review_language()
-        market_names = {
-            "cn": "大盘" if review_language == "zh" else "A-share market",
-            "us": "美股市场" if review_language == "zh" else "US market",
-            "hk": "港股市场" if review_language == "zh" else "HK market",
-            "jp": "日本股市" if review_language == "zh" else "Japan stock market",
-            "kr": "韩国股市" if review_language == "zh" else "Korea stock market",
-        }
+        market_name = "大盘" if review_language == "zh" else "A-share market"
         
         try:
             logger.info("[大盘] %s action=search_market_news status=start", self._log_context())
             
-            # 根据 region 设置搜索上下文名称，避免美股搜索被解读为 A 股语境
-            market_name = market_names.get(self.region, "大盘")
             for query in search_queries:
                 response = self.search_service.search_stock_news(
                     stock_code="market",
@@ -1682,7 +1520,7 @@ Focus on index trend, liquidity, and sector rotation to shape the next-session t
             url_line = f"\n   URL: {url}" if url else ""
             news_text += f"{i}. {title}{meta}\n   {snippet or '-'}{url_line}\n"
         
-        # 按 region 组装市场概况与板块区块（美股/港股/日韩无涨跌家数、板块数据）
+        # 按 A 股能力组装市场概况与板块区块。
         stats_block = ""
         sector_block = ""
         data_limits_block = ""
@@ -1769,10 +1607,7 @@ Concept lagging: {bottom_concepts_text if bottom_concepts_text else "N/A"}"""
             )
 
         output_template_sections = self._build_output_template_sections(review_language)
-        zh_market_scope_name = self._get_market_scope_name("zh")
         zh_report_title = f"{overview.date} 大盘复盘"
-        if self.region in ("jp", "kr"):
-            zh_report_title = f"{overview.date} {zh_market_scope_name}大盘复盘"
         workflow_hint = (
             "报告要像交易员盘后工作台：先给结论，再按数据表、主线、催化、计划展开"
             if self.profile.has_market_stats or self.profile.has_sector_rankings
@@ -1894,8 +1729,7 @@ Output the report content directly, no extra commentary.
         template_language = self._get_template_review_language()
         mood_code = self.profile.mood_index_code
         # 根据 mood_index_code 查找对应指数
-        # cn: mood_code="000001"，idx.code 可能为 "sh000001"（以 mood_code 结尾）
-        # us: mood_code="SPX"，idx.code 直接为 "SPX"
+        # mood_code="000001"，idx.code 可能为 "sh000001"（以 mood_code 结尾）
         mood_index = next(
             (
                 idx
@@ -1947,14 +1781,7 @@ Output the report content directly, no extra commentary.
 - **Concept Leaders**: {top_concept_text or "N/A"}
 - **Concept Laggards**: {bottom_concept_text or "N/A"}
 """
-            market_names = {
-                "us": "US Market Recap",
-                "hk": "HK Market Recap",
-                "jp": "Japan Market Recap",
-                "kr": "Korea Market Recap",
-            }
-            market_name = market_names.get(self.region, "A-share Market Recap")
-            report = f"""## {overview.date} {market_name}
+            report = f"""## {overview.date} A-share Market Recap
 
 ### 1. Market Summary
 Today's {self._get_market_scope_name(template_language)} showed **{market_mood}**.
@@ -1973,8 +1800,7 @@ Market conditions can change quickly. The data above is for reference only and d
 """
             return report
 
-        market_labels = {"cn": "A股", "us": "美股", "hk": "港股", "jp": "日股", "kr": "韩股"}
-        market_label = market_labels.get(self.region, "A股")
+        market_label = "A股"
         dashboard_block = (
             self._build_stats_block(overview)
             if self._supports_market_light() or self.profile.has_market_stats

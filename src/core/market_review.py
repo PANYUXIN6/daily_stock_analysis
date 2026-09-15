@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """
 ===================================
-股票智能分析系统 - 大盘复盘模块（支持 A 股 / 港股 / 美股 / 日本 / 韩国）
+A 股智能分析系统 - 大盘复盘模块
 ===================================
 
 职责：
-1. 根据 MARKET_REVIEW_REGION 配置选择市场区域（cn / hk / us / jp / kr / both）
+1. 执行 A 股（cn）市场复盘
 2. 执行大盘复盘分析并生成复盘报告
 3. 保存和发送复盘报告
 """
@@ -43,10 +43,6 @@ MARKET_REVIEW_HISTORY_CODE = "MARKET"
 MARKET_REVIEW_REPORT_TYPE = "market_review"
 _MARKET_REVIEW_MARKETS = (
     ('cn', 'cn_title', 'A 股'),
-    ('hk', 'hk_title', '港股'),
-    ('us', 'us_title', '美股'),
-    ('jp', 'jp_title', '日股'),
-    ('kr', 'kr_title', '韩股'),
 )
 _MARKET_REVIEW_REGION_ORDER = MARKET_REVIEW_REGION_ORDER
 
@@ -119,32 +115,17 @@ def _get_market_review_text(language: str) -> dict[str, str]:
             "root_title": "# 🎯 Market Review",
             "push_title": "🎯 Market Review",
             "cn_title": "# A-share Market Recap",
-            "us_title": "# US Market Recap",
-            "hk_title": "# HK Market Recap",
-            "jp_title": "# Japan Market Recap",
-            "kr_title": "# Korea Market Recap",
-            "separator": "> Next market recap follows",
         }
     if normalized == "ko":
         return {
             "root_title": "# 🎯 시황 리뷰",
             "push_title": "🎯 시황 리뷰",
             "cn_title": "# 중국 A주 시황 리뷰",
-            "us_title": "# 미국 시황 리뷰",
-            "hk_title": "# 홍콩 시황 리뷰",
-            "jp_title": "# 일본 시황 리뷰",
-            "kr_title": "# 한국 시황 리뷰",
-            "separator": "> 다음 시장 시황 리뷰",
         }
     return {
         "root_title": "# 🎯 大盘复盘",
         "push_title": "🎯 大盘复盘",
         "cn_title": "# A股大盘复盘",
-        "us_title": "# 美股大盘复盘",
-        "hk_title": "# 港股大盘复盘",
-        "jp_title": "# 日股大盘复盘",
-        "kr_title": "# 韩股大盘复盘",
-        "separator": "> 以下为下一市场大盘复盘",
     }
 
 
@@ -167,8 +148,8 @@ def _market_review_region_metadata(region: Any) -> str:
 def _resolve_market_review_regions(raw_region: Optional[str]) -> list[str]:
     """Normalize MARKET_REVIEW_REGION into an ordered, non-empty region list."""
 
-    normalized = normalize_market_review_region_lenient(raw_region) or "cn"
-    return normalized.split(",")
+    normalize_market_review_region_lenient(raw_region)
+    return ["cn"]
 
 
 def run_market_review(
@@ -213,7 +194,7 @@ def run_market_review(
         else (getattr(runtime_config, 'market_review_region', 'cn') or 'cn')
     )
     run_markets = _resolve_market_review_regions(raw_region)
-    persist_region = ','.join(run_markets) if len(run_markets) > 1 else run_markets[0]
+    persist_region = run_markets[0]
     logger.info(
         "[MarketReview] component=market_review action=start trigger_source=%s query_id=%s region=%s",
         trigger_source,
@@ -222,82 +203,41 @@ def run_market_review(
     )
 
     try:
-        if len(run_markets) > 1:
-            # 多市场顺序执行，合并报告
-            parts = []
-            market_light_snapshots: Dict[str, Dict[str, Any]] = {}
-            market_review_payloads: Dict[str, Dict[str, Any]] = {}
-            for mkt, title_key, label in _MARKET_REVIEW_MARKETS:
-                if mkt not in run_markets:
-                    continue
-                logger.info(
-                    "[MarketReview] component=market_review action=build_report "
-                    "trigger_source=%s query_id=%s region=%s label=%s",
-                    trigger_source,
-                    history_query_id,
-                    mkt,
-                    label,
-                )
-                mkt_analyzer = MarketAnalyzer(
-                    search_service=search_service,
-                    analyzer=analyzer,
-                    region=mkt,
-                    config=runtime_config,
-                )
-                review_result = mkt_analyzer.run_daily_review_with_snapshot()
-                mkt_report = review_result.report
-                _collect_market_light_snapshot(
-                    market_light_snapshots,
-                    region=mkt,
-                    review_result=review_result,
-                )
-                market_review_payloads[mkt] = _coerce_market_review_payload(
-                    review_result,
-                    region=mkt,
-                    report=mkt_report,
-                )
-                if mkt_report:
-                    parts.append(f"{review_text[title_key]}\n\n{mkt_report}")
-            if parts:
-                review_report = f"\n\n---\n\n{review_text['separator']}\n\n".join(parts)
-            else:
-                review_report = None
-        else:
-            run_region = run_markets[0]
-            label = next(
-                (market_label for mkt, _, market_label in _MARKET_REVIEW_MARKETS if mkt == run_region),
-                run_region,
-            )
-            logger.info(
-                "[MarketReview] component=market_review action=build_report "
-                "trigger_source=%s query_id=%s region=%s label=%s",
-                trigger_source,
-                history_query_id,
-                run_region,
-                label,
-            )
-            market_analyzer = MarketAnalyzer(
-                search_service=search_service,
-                analyzer=analyzer,
+        run_region = run_markets[0]
+        label = next(
+            (market_label for mkt, _, market_label in _MARKET_REVIEW_MARKETS if mkt == run_region),
+            run_region,
+        )
+        logger.info(
+            "[MarketReview] component=market_review action=build_report "
+            "trigger_source=%s query_id=%s region=%s label=%s",
+            trigger_source,
+            history_query_id,
+            run_region,
+            label,
+        )
+        market_analyzer = MarketAnalyzer(
+            search_service=search_service,
+            analyzer=analyzer,
+            region=run_region,
+            config=runtime_config,
+        )
+        review_result = market_analyzer.run_daily_review_with_snapshot()
+        review_report = review_result.report
+        market_light_snapshots = {}
+        _collect_market_light_snapshot(
+            market_light_snapshots,
+            region=run_region,
+            review_result=review_result,
+        )
+        market_review_payloads = {
+            run_region: _coerce_market_review_payload(
+                review_result,
                 region=run_region,
-                config=runtime_config,
+                report=review_report,
             )
-            review_result = market_analyzer.run_daily_review_with_snapshot()
-            review_report = review_result.report
-            market_light_snapshots = {}
-            _collect_market_light_snapshot(
-                market_light_snapshots,
-                region=run_region,
-                review_result=review_result,
-            )
-            market_review_payloads = {
-                run_region: _coerce_market_review_payload(
-                    review_result,
-                    region=run_region,
-                    report=review_report,
-                )
-            }
-        
+        }
+
         if review_report:
             market_review_payload = _build_combined_market_review_payload(
                 review_report=review_report,

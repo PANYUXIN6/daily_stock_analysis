@@ -238,7 +238,7 @@ P5 支持的 `alert_type` 与 `parameters`：
 - 首版统一使用日线 close，不做分钟线。
 - 边缘触发只比较最近两根已收盘日线；非边缘但当前 level 已满足阈值时仍返回 `not_triggered`，避免规则创建首日把历史状态误报为新触发。
 - 边缘触发包含前一根刚好等于阈值或零轴的情况：`above` / `bullish_cross` 使用 `prev <= threshold < current`，`below` / `bearish_cross` 使用 `prev >= threshold > current`。
-- partial bar 只使用服务器本地时区启发式：当前本地时间早于 16:00 时，最后一行日期等于本地今天或日期不可判定都会保守丢弃；不区分 A 股、港股、美股市场时区或交易日历。Issue #1386 P0 的市场阶段基线暂不接入技术指标规则，告警 partial bar 精确判定留到后续阶段。
+- partial bar 只使用服务器本地时区启发式：当前本地时间早于 16:00 时，最后一行日期等于本地今天或日期不可判定都会保守丢弃。Issue #1386 P0 的市场阶段基线暂不接入技术指标规则，告警 partial bar 精确判定留到后续阶段。
 - `src/services/alert_indicators.py` 自行归一化 OHLCV 并计算 MA、RSI、MACD、KDJ、CCI，不依赖 fetcher 预计算的 MA5/MA10/MA20。
 - RSI 使用 Wilder's EMA / SMMA：`avg_gain = gain.ewm(alpha=1/period, adjust=False).mean()`，`avg_loss` 同理，不使用 rolling SMA。
 - MACD 使用 `EMA(fast_period) - EMA(slow_period)` 得到 DIF，DEA 为 DIF 的 `EMA(signal_period)`；金叉/死叉比较 DIF-DEA 相对 0 的边缘穿越。

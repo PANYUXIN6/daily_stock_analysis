@@ -1,6 +1,6 @@
 # 分享图片模板与数据填充
 
-分享图片用于把个股分析和市场复盘转换为适合社交平台传播的 1080px 长图。个股和大盘使用两套独立的信息结构，但共用 DSA 品牌、仓库标识 `ZhuLinsen/daily_stock_analysis` 和风险声明。GitHub 区不放二维码；Web 与桌面端分享图默认展示仓库内置小红书二维码及昵称 `@霸天土小豆`，部署配置可替换二维码和账号信息。
+分享图片用于把个股分析和市场复盘转换为适合社交平台传播的 1080px 长图。个股和大盘使用两套独立的信息结构，但共用 DSA 品牌、仓库标识 `ZhuLinsen/daily_stock_analysis` 和风险声明。GitHub 区不放二维码；Web 分享图默认展示仓库内置小红书二维码及昵称 `@霸天土小豆`，部署配置可替换二维码和账号信息。
 
 ## 运行时如何填充
 
@@ -23,7 +23,7 @@
 `MARKDOWN_TO_IMAGE_CHANNELS`、`MD2IMG_ENGINE`、`MARKDOWN_TO_IMAGE_MAX_CHARS` 继续控制哪些通知渠道转图、使用哪个引擎以及最大输入长度。转换失败时仍回退为文本通知。
 
 分享图需要运行环境提供对应语言字体。官方 Docker 镜像已内置 Noto CJK 字体；Debian/Ubuntu 源码部署使用默认 `wkhtmltoimage` 引擎时，应安装 `wkhtmltopdf fonts-noto-cjk`。如果只安装转图工具而缺少 CJK 字体，中文或韩文可能在 PNG 中消失，只剩数字、英文和边框。
-`fonts-noto-cjk` 是 Debian 字体包名，不代表新增日文报告语言。项目的报告输出仍只支持 `REPORT_LANGUAGE=zh|en|ko`；日股个股和日本市场复盘中的日文原生名称由通用 Noto CJK fallback 覆盖，页面语言仍跟随所选报告语言，不会根据 `7203.T` 或 `region=jp` 切换成未支持的 `ja` 输出。
+`fonts-noto-cjk` 是 Debian 字体包名，与证券市场支持范围无关。项目的报告输出仍支持 `REPORT_LANGUAGE=zh|en|ko`，页面语言跟随所选报告语言。
 
 小红书品牌使用以下可选配置。全部留空时展示仓库内置二维码及昵称 `@霸天土小豆`；配置任一自定义值后仅使用这组自定义品牌信息，避免把自定义账号与默认二维码混合：
 
@@ -33,15 +33,14 @@ SHARE_IMAGE_XIAOHONGSHU_HANDLE=@我的账号
 SHARE_IMAGE_XIAOHONGSHU_QR_PATH=assets/my-xiaohongshu-qr.png
 ```
 
-二维码路径支持绝对路径或相对项目根目录路径；冻结桌面后端也会从 PyInstaller 资源目录解析相对路径。账号 URL 只接受 `http://` 或 `https://`。二维码在转图时以内嵌 Data URI 渲染，不依赖运行时网络。未配置 `SHARE_IMAGE_XIAOHONGSHU_QR_PATH` 时，统一回退到随源码和桌面包分发的 `src/assets/share_image/xiaohongshu_qr.jpg`，因此 Web PNG 与桌面 Electron PNG 都会保留二维码。二维码下方固定显示小红书昵称，例如 `小红书@霸天土小豆`；历史配置中的数字 ID 不参与分享图渲染。
+二维码路径支持绝对路径或相对项目根目录路径。账号 URL 只接受 `http://` 或 `https://`。二维码在转图时以内嵌 Data URI 渲染，不依赖运行时网络。未配置 `SHARE_IMAGE_XIAOHONGSHU_QR_PATH` 时，统一回退到随源码分发的 `src/assets/share_image/xiaohongshu_qr.jpg`，因此 Web PNG 都会保留二维码。二维码下方固定显示小红书昵称，例如 `小红书@霸天土小豆`；历史配置中的数字 ID 不参与分享图渲染。
 
 ## Web 一键分享
 
 浏览器版历史个股报告、市场复盘和完整报告抽屉右上角都会显示“分享”按钮。页面加载报告时不会生成图片；只有用户点击“分享”后，页面才调用 `GET /api/v1/history/{record_id}/share-image` 按需生成或读取缓存 PNG。支持文件分享的浏览器会在图片准备好后提示“再次点击分享”，由第二次点击同步打开系统分享面板，避免异步生成过程使浏览器的用户激活状态失效；其他浏览器会在首次生成完成后直接下载 PNG。如果系统分享面板打开失败，除用户主动取消外也会自动回退下载已经生成的 PNG。
 
-Electron 桌面端同样展示“分享”按钮，但不依赖额外分发 `wkhtmltoimage`、`markdown-to-file` 或 Playwright。用户点击后，桌面 preload 通过受限 IPC 让主进程打开本地 `GET /api/v1/history/{record_id}/share-image-html`，使用 Electron 自带的隐藏 Chromium 窗口按完整页面高度截图为 PNG，随后走与浏览器一致的下载回退。IPC 只接受正整数记录 ID，主进程只允许当前桌面窗口请求本次启动时确定的后端 origin（包括显式配置的局域网 `WEBUI_HOST`），HTML 响应使用 CSP 禁止脚本、外部资源和网络加载。
 
-Web 手工生成不受 `MARKDOWN_TO_IMAGE_CHANNELS` 限制，但服务端仍需配置可用的 `MD2IMG_ENGINE`。桌面端手工生成复用 Electron，不读取 `MD2IMG_ENGINE`。Web 使用 Playwright 时先执行：
+Web 手工生成不受 `MARKDOWN_TO_IMAGE_CHANNELS` 限制，但服务端仍需配置可用的 `MD2IMG_ENGINE`。Web 使用 Playwright 时先执行：
 
 ```bash
 cd apps/dsa-web
@@ -71,7 +70,7 @@ npx playwright install chromium
 
 | 图片区域 | 项目字段 / 生成来源 | 填充规则 |
 | --- | --- | --- |
-| 日期、市场范围 | `MarketOverview.date`、复盘区域 | 生成 A股/美股/港股/日股/韩股市场复盘标题；多市场报告逐段匹配 `market_review_payload.markets` |
+| 日期、市场范围 | `MarketOverview.date`、复盘区域 | 生成 A 股市场复盘标题 |
 | 市场信号 | `market_light.score`、`temperature_label`、`label`、`guidance` | 使用确定性市场灯号结果，不由模板二次评分 |
 | 指数表现 | `MarketOverview.indices`、`color_scheme` | 最多展示 4 个主要指数的最新值和涨跌幅；结构化 payload 持久化生成时的 `green_up` / `red_up` 颜色语义 |
 | 市场宽度 | `up_count`、`down_count`、`limit_up_count`、`limit_down_count`、`total_amount` | 仅在数据源支持且报告包含结构化数据时展示 |

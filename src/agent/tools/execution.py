@@ -173,7 +173,7 @@ def _normalize_tool_stock_code(value: Any, registry: Optional[Any] = None) -> An
     """Canonicalize a stock argument for tool scope and cache keys.
 
     An injected registry preserves exact parser INDEX canonicals. Direct calls
-    without one retain the legacy stock/HK normalization path.
+    without one use A-share stock normalization.
     """
     if not isinstance(value, str):
         return value
@@ -194,18 +194,6 @@ def _normalize_tool_stock_code(value: Any, registry: Optional[Any] = None) -> An
             pass
 
     upper = text.upper()
-    if upper.endswith(".HK"):
-        base = upper[:-3]
-        if base.isdigit() and 1 <= len(base) <= 5:
-            return f"HK{base.zfill(5)}"
-
-    if upper.startswith("HK"):
-        base = upper[2:]
-        if base.isdigit() and 1 <= len(base) <= 5:
-            return f"HK{base.zfill(5)}"
-
-    if upper.isdigit() and len(upper) == 5:
-        return f"HK{upper}"
 
     try:
         from data_provider.base import canonical_stock_code, normalize_stock_code

@@ -174,13 +174,11 @@ def fetch_daily_history(
 ) -> pd.DataFrame:
     """Fetch daily history for one stock code.
 
-    ``source`` accepts ``tencent``, ``sina``, ``akshare``, ``baostock``, ``tushare``,
-    ``yfinance`` or ``auto``. ``auto`` prefers Tushare when a token is
+    ``source`` accepts ``tencent``, ``sina``, ``akshare``, ``baostock``, ``tushare``
+    or ``auto``. ``auto`` prefers Tushare when a token is
     configured, then Tencent's direct HTTP K-line endpoint before wrapper-based
     free sources. Without a token it starts with Tencent. Sina is a second
-    direct HTTP K-line source before wrapper-based fallbacks. ``yfinance`` is
-    explicit-only (never part of ``auto``) and expects a US ticker rather than
-    an A-share code.
+    direct HTTP K-line source before wrapper-based fallbacks.
     """
     normalized_code = _normalize_daily_code(code)
     normalized_lookback_days = int(lookback_days)
@@ -192,7 +190,7 @@ def fetch_daily_history(
             else ("tencent", "sina", "akshare", "baostock")
         )
         sources, source_order_notes = _rank_daily_sources_by_health(sources)
-    elif src in ("akshare", "baostock", "tushare", "tencent", "sina", "yfinance"):
+    elif src in ("akshare", "baostock", "tushare", "tencent", "sina"):
         sources = (src,)
         source_order_notes = []
     else:
@@ -220,15 +218,7 @@ def fetch_daily_history(
         last_error: Exception | None = None
         for attempt in range(attempts):
             try:
-                if current == "yfinance":
-                    from src.services.screening.snapshot_us import fetch_daily_history_yfinance
-                    result = _call_daily_wrapper(
-                        fetch_daily_history_yfinance,
-                        current,
-                        code,
-                        lookback_days=lookback_days,
-                    )
-                elif current == "tencent":
+                if current == "tencent":
                     result = _call_daily_wrapper(
                         _fetch_daily_tencent,
                         current,

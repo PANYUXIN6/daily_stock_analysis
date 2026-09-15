@@ -253,9 +253,9 @@ def test_service_defaults_lifecycle_and_preserves_explicit_values(isolated_db) -
     hk_alert_payload = _payload(
         source_report_id=152,
         trace_id="trace-lifecycle-hk-alert",
-        stock_code="00700",
+        stock_code="000001",
         stock_name="Tencent",
-        market="hk",
+        market="cn",
         action="alert",
     )
     hk_alert_payload.pop("horizon")
@@ -264,8 +264,8 @@ def test_service_defaults_lifecycle_and_preserves_explicit_values(isolated_db) -
     hk_alert = service.create_signal(hk_alert_payload)["item"]
     hk_alert_expiry = datetime.fromisoformat(hk_alert["expires_at"])
     assert hk_alert["horizon"] == "intraday"
-    assert before_alert + timedelta(hours=5, minutes=29) <= hk_alert_expiry
-    assert hk_alert_expiry <= utc_naive_now() + timedelta(hours=5, minutes=31)
+    assert before_alert + timedelta(hours=3, minutes=59) <= hk_alert_expiry
+    assert hk_alert_expiry <= utc_naive_now() + timedelta(hours=4, minutes=1)
 
     postmarket_payload = _payload(
         source_report_id=153,

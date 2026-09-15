@@ -361,15 +361,15 @@ class TestCallLitellmVision:
 
 class TestParseCodesFromText:
     def test_parses_json_array(self):
-        text = '["600519", "300750", "AAPL"]'
-        assert _parse_codes_from_text(text) == ["600519", "300750", "AAPL"]
+        text = '["600519", "300750"]'
+        assert _parse_codes_from_text(text) == ["600519", "300750"]
 
     def test_parses_fallback_from_plain_text(self):
-        text = "关注 600519、300750 和 AAPL。"
+        text = "关注 600519、300750 和 600519。"
         codes = _parse_codes_from_text(text)
         assert "600519" in codes
         assert "300750" in codes
-        assert "AAPL" in codes
+        assert "600519" in codes
 
     def test_filters_fake_codes_in_legacy_format(self):
         """Legacy JSON array or regex fallback should not include CODE, NAME, HIGH, JSON, etc."""
@@ -386,11 +386,11 @@ class TestParseCodesFromText:
 
 class TestParseItemsFromText:
     def test_parses_new_format(self):
-        text = '[{"code":"600519","name":"贵州茅台","confidence":"high"},{"code":"00700","name":"腾讯控股","confidence":"medium"}]'
+        text = '[{"code":"600519","name":"贵州茅台","confidence":"high"},{"code":"000001","name":"平安银行","confidence":"medium"}]'
         items = _parse_items_from_text(text)
         assert len(items) == 2
         assert items[0] == ("600519", "贵州茅台", "high")
-        assert items[1] == ("00700", "腾讯控股", "medium")
+        assert items[1] == ("000001", "平安银行", "medium")
 
     def test_fallback_to_legacy_format(self):
         text = '["600519", "300750"]'

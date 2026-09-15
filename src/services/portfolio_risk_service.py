@@ -189,7 +189,7 @@ class PortfolioRiskService:
             for pos in account.get("positions", []) or []:
                 symbol = str(pos.get("symbol") or "").strip().upper()
                 market = str(pos.get("market") or "").strip().lower()
-                if not symbol or market not in {"cn", "hk", "us"}:
+                if not symbol or market != "cn":
                     continue
                 signal_stock_code = DecisionSignalService.normalize_stock_code_for_signal(symbol, market=market)
                 positions.append({

@@ -1103,40 +1103,12 @@ def test_share_image_escapes_title_but_keeps_markdown_body_markup():
 
 def test_english_company_name_is_not_mistaken_for_a_ticker():
     html = build_share_image_html(
-        "## Apple Inc. (AAPL)\n\n> 2026-07-31 | Score: **70** | Bullish",
+        "## Kweichow Moutai (600519)\n\n> 2026-07-31 | Score: **70** | Bullish",
         generated_on=date(2026, 7, 31),
     )
 
-    assert "Apple Inc." in html
-    assert '<span class="code">AAPL</span>' in html
-
-
-def test_dotted_us_ticker_is_preserved_in_stock_heading():
-    html = build_share_image_html(
-        "## Berkshire Hathaway (BRK.B)\n\n> 2026-07-31 | Score: **70** | Bullish",
-        generated_on=date(2026, 7, 31),
-    )
-
-    assert "Berkshire Hathaway" in html
-    assert '<span class="code">BRK.B</span>' in html
-
-
-@pytest.mark.parametrize(
-    ("heading", "company", "code"),
-    [
-        ("## 台积电 (2330.TW)", "台积电", "2330.TW"),
-        ("## 台塑化 (6505.TWO)", "台塑化", "6505.TWO"),
-        ("## 国泰永续高股息 (00878.TW)", "国泰永续高股息", "00878.TW"),
-    ],
-)
-def test_suffix_stock_code_is_preserved_in_stock_heading(heading, company, code):
-    html = build_share_image_html(
-        f"{heading}\n\n> 2026-07-31 | Score: **70** | Bullish",
-        generated_on=date(2026, 7, 31),
-    )
-
-    assert company in html
-    assert f'<span class="code">{code}</span>' in html
+    assert "Kweichow Moutai" in html
+    assert '<span class="code">600519</span>' in html
 
 
 def test_korean_market_review_heading_uses_market_poster():
@@ -1150,55 +1122,9 @@ def test_korean_market_review_heading_uses_market_poster():
     assert "미국 시황 리뷰" in html
 
 
-def test_korean_multi_market_review_skips_root_wrapper_segment():
-    html = build_share_image_html(
-        """# 🎯 시황 리뷰
-
-> 여러 시장 마감 요약.
-
-# 미국 시황 리뷰
-
-## 2026-07-31 미국 시황 리뷰
-
-### 1. 시장 요약
-
-- **시장 신호**: 66/100 (건설적, 위험 선호)
-
-### 2. 주요 지수
-
-| 지수 | 최신 | 등락률 |
-| --- | --- | --- |
-| S&P 500 | 6200 | +0.8% |
-
-> 다음 시장 시황 리뷰
-
-# 홍콩 시황 리뷰
-
-## 2026-07-31 홍콩 시황 리뷰
-
-### 1. 시장 요약
-
-- **시장 신호**: 58/100 (중립, 선별)
-
-### 2. 주요 지수
-
-| 지수 | 최신 | 등락률 |
-| --- | --- | --- |
-| Hang Seng | 18200 | +1.2% |
-""",
-        generated_on=date(2026, 7, 31),
-    )
-
-    assert 'class="poster market"' in html
-    assert "다중 시장 리뷰" in html
-    assert "미국 시황 리뷰" in html
-    assert "홍콩 시황 리뷰" in html
-    assert "여러 시장 마감 요약" not in html
-
-
 def test_stock_report_market_snapshot_does_not_route_to_market_poster():
     html = build_share_image_html(
-        """# Apple Inc. (AAPL)
+        """# Kweichow Moutai (600519)
 
 ## Core Conclusion
 
@@ -1225,139 +1151,15 @@ def test_stock_report_market_snapshot_does_not_route_to_market_poster():
 
     assert 'class="poster stock"' in html
     assert "Stock decision card" in html
-    assert "Apple Inc." in html
+    assert "Kweichow Moutai" in html
     assert "Ideal Entry" in html
     assert "failed earnings guide" in html
-
-
-def test_multi_market_review_keeps_every_region_in_share_image():
-    html = build_share_image_html(
-        """# A股大盘复盘
-
-## 2026-07-31 A股大盘复盘
-
-> 今日A股情绪修复。
-
-### 一、盘面总览
-
-- **盘面信号**：66/100（偏暖，可进攻）
-
-| 指标 | 数值 |
-| --- | --- |
-| 上涨/下跌 | 3200 / 1500 |
-
-### 二、指数结构
-
-| 指数 | 最新 | 涨跌幅 |
-| --- | --- | --- |
-| 上证指数 | 3200 | +0.80% |
-
----
-
-> 以下为下一市场大盘复盘
-
-# 港股大盘复盘
-
-## 2026-07-31 港股大盘复盘
-
-> 今日港股科技反弹。
-
-### 一、盘面总览
-
-- **盘面信号**：61/100（偏暖，可进攻）
-
-| 指标 | 数值 |
-| --- | --- |
-| 上涨/下跌 | 900 / 700 |
-
-### 二、指数结构
-
-| 指数 | 最新 | 涨跌幅 |
-| --- | --- | --- |
-| 恒生指数 | 18200 | +1.20% |
-""",
-        generated_on=date(2026, 7, 31),
-    )
-
-    assert 'class="poster market"' in html
-    assert "多市场复盘" in html
-    assert "A股市场复盘" in html
-    assert "港股市场复盘" in html
-    assert "上证指数" in html
-    assert "恒生指数" in html
-
-
-def test_multi_market_review_uses_each_structured_market_payload():
-    payload = {
-        "kind": "market_review",
-        "region": "cn,us",
-        "language": "zh",
-        "markets": {
-            "cn": {
-                "region": "cn",
-                "title": "A股市场复盘",
-                "color_scheme": "green_up",
-                "market_light": {
-                    "score": 81,
-                    "dimensions": {
-                        "breadth": {"score": 88, "available": True},
-                    },
-                },
-                "indices": [
-                    {"name": "结构化上证", "current": 3999, "change_pct": 0.9},
-                ],
-            },
-            "us": {
-                "region": "us",
-                "title": "美股市场复盘",
-                "color_scheme": "green_up",
-                "market_light": {
-                    "score": 67,
-                    "dimensions": {
-                        "breadth": {"score": 50, "available": False},
-                        "index": {"score": 71, "available": True},
-                    },
-                },
-                "indices": [
-                    {"name": "Structured Nasdaq", "current": 7777, "change_pct": 1.1},
-                ],
-            },
-        },
-    }
-    html = build_share_image_html(
-        """# A股大盘复盘
-
-## 指数结构
-
-| 指数 | 最新 | 涨跌幅 |
-| --- | --- | --- |
-| 上证指数 | 3200 | +0.80% |
-
-# 美股大盘复盘
-
-## Major Indices
-
-| Index | Last | Change % |
-| --- | --- | --- |
-| Nasdaq | 6500 | +0.70% |
-""",
-        generated_on=date(2026, 8, 1),
-        structured_payload=payload,
-    )
-
-    assert "结构化上证" in html
-    assert "3999" in html
-    assert "Structured Nasdaq" in html
-    assert "7777" in html
-    assert "88/100" in html
-    assert "71/100" in html
-    assert html.count("赚钱效应") == 1
 
 
 @pytest.mark.parametrize("action", ["强烈买入", "Strong Buy"])
 def test_stock_share_image_preserves_compound_buy_action(action):
     html = build_share_image_html(
-        f"## Apple (AAPL)\n\n## Core Conclusion\n\n**{action}**: Momentum remains constructive.",
+        f"## Apple (600519)\n\n## Core Conclusion\n\n**{action}**: Momentum remains constructive.",
         generated_on=date(2026, 8, 1),
     )
 
@@ -1366,7 +1168,7 @@ def test_stock_share_image_preserves_compound_buy_action(action):
 
 def test_stock_share_image_finds_action_after_other_bold_labeled_fields():
     html = build_share_image_html(
-        """## Apple (AAPL)
+        """## Apple (600519)
 
 ## Core Conclusion
 
@@ -1378,110 +1180,6 @@ def test_stock_share_image_finds_action_after_other_bold_labeled_fields():
     )
 
     assert '<div class="action-chip positive">Strong Buy</div>' in html
-
-
-def test_multi_market_review_ignores_root_wrapper_title_when_splitting_regions():
-    html = build_share_image_html(
-        """# 🎯 大盘复盘
-
-> 汇总多个市场的收盘观察。
-
-# A股大盘复盘
-
-## 2026-07-31 A股大盘复盘
-
-> 今日A股情绪修复。
-
-### 一、盘面总览
-
-- **盘面信号**：66/100（偏暖，可进攻）
-
-| 指标 | 数值 |
-| --- | --- |
-| 上涨/下跌 | 3200 / 1500 |
-
-### 二、指数结构
-
-| 指数 | 最新 | 涨跌幅 |
-| --- | --- | --- |
-| 上证指数 | 3200 | +0.80% |
-
----
-
-> 以下为下一市场大盘复盘
-
-# 港股大盘复盘
-
-## 2026-07-31 港股大盘复盘
-
-> 今日港股科技反弹。
-
-### 一、盘面总览
-
-- **盘面信号**：61/100（偏暖，可进攻）
-
-| 指标 | 数值 |
-| --- | --- |
-| 上涨/下跌 | 900 / 700 |
-
-### 二、指数结构
-
-| 指数 | 最新 | 涨跌幅 |
-| --- | --- | --- |
-| 恒生指数 | 18200 | +1.20% |
-""",
-        generated_on=date(2026, 7, 31),
-    )
-
-    assert 'class="poster market"' in html
-    assert html.count("A股市场复盘") == 1
-    assert html.count("港股市场复盘") == 1
-    assert "汇总多个市场的收盘观察" not in html
-    assert "上证指数" in html
-    assert "恒生指数" in html
-
-
-def test_english_multi_market_review_maps_region_titles_from_headings():
-    html = build_share_image_html(
-        """# US Market Recap
-
-## 2026-07-31 US Market Recap
-
-> US breadth improved into the close.
-
-### 1. Market Summary
-
-- **Market Signal**: 62/100 (constructive, risk-on)
-
-### 2. Index Commentary
-
-| Index | Last | Change % |
-| --- | --- | --- |
-| S&P 500 | 6500 | +0.80% |
-
-# HK Market Recap
-
-## 2026-07-31 HK Market Recap
-
-> Hong Kong tech outperformed.
-
-### 1. Market Summary
-
-- **Market Signal**: 58/100 (neutral, selective)
-
-### 2. Index Commentary
-
-| Index | Last | Change % |
-| --- | --- | --- |
-| Hang Seng Index | 18200 | +1.20% |
-""",
-        generated_on=date(2026, 7, 31),
-    )
-
-    assert 'class="poster market"' in html
-    assert "US Market Recap" in html
-    assert "HK Market Recap" in html
-    assert "A股市场复盘" not in html
 
 
 def test_generic_market_review_does_not_treat_english_pronoun_us_as_us_market():
@@ -1512,7 +1210,7 @@ def test_generic_market_review_does_not_treat_english_pronoun_us_as_us_market():
 
 def test_hidden_market_region_metadata_preserves_single_region_chinese_market_title():
     html = build_share_image_html(
-        """[dsa-market-region]: # (us)
+        """[dsa-market-region]: # (cn)
 
 # 🎯 大盘复盘
 
@@ -1534,13 +1232,13 @@ def test_hidden_market_region_metadata_preserves_single_region_chinese_market_ti
     )
 
     assert 'class="poster market"' in html
-    assert "美股市场复盘" in html
-    assert "A股市场复盘" not in html
+    assert "A股市场复盘" in html
+    assert "美股市场复盘" not in html
 
 
 def test_hidden_market_region_metadata_overrides_body_scope_mentions():
     html = build_share_image_html(
-        """[dsa-market-region]: # (us)
+        """[dsa-market-region]: # (cn)
 
 # 🎯 大盘复盘
 
@@ -1562,8 +1260,8 @@ def test_hidden_market_region_metadata_overrides_body_scope_mentions():
     )
 
     assert 'class="poster market"' in html
-    assert "美股市场复盘" in html
-    assert "A股市场复盘" not in html
+    assert "A股市场复盘" in html
+    assert "美股市场复盘" not in html
 
 
 def test_english_breadth_line_populates_structured_market_breadth_cards():
@@ -1836,7 +1534,7 @@ def test_single_stock_dashboard_title_routes_to_stock_poster():
     html = build_share_image_html(
         """# 2026-07-31 Decision Dashboard
 
-## Apple Inc. (AAPL)
+## Kweichow Moutai (600519)
 
 > 2026-07-31 15:30 | Score: **70** | Bullish
 
@@ -1855,8 +1553,8 @@ def test_single_stock_dashboard_title_routes_to_stock_poster():
 
     assert 'class="poster stock"' in html
     assert "Stock decision card" in html
-    assert "Apple Inc." in html
-    assert '<span class="code">AAPL</span>' in html
+    assert "Kweichow Moutai" in html
+    assert '<span class="code">600519</span>' in html
 
 
 def test_single_stock_dashboard_prefers_parenthesized_numeric_code_after_st_prefix():
@@ -1878,27 +1576,6 @@ def test_single_stock_dashboard_prefers_parenthesized_numeric_code_after_st_pref
     assert "个股决策卡" in html
     assert "ST 海越" in html
     assert '<span class="code">600387</span>' in html
-
-
-def test_single_stock_dashboard_uses_trailing_parenthesized_us_ticker():
-    html = build_share_image_html(
-        """# 2026-07-31 Decision Dashboard
-
-## IBM (IBM)
-
-> 2026-07-31 15:30 | Score: **64** | Neutral
-
-### Core Conclusion
-
-**Hold**: Wait for a clearer breakout.
-""",
-        generated_on=date(2026, 7, 31),
-    )
-
-    assert 'class="poster stock"' in html
-    assert "Stock decision card" in html
-    assert "IBM" in html
-    assert '<span class="code">IBM</span>' in html
 
 
 def test_single_stock_dashboard_uses_numeric_code_prefix_with_trailing_name():
@@ -1962,13 +1639,6 @@ def test_brief_aggregate_report_without_single_stock_heading_uses_generic_poster
     assert "Buy leaders on pullbacks." in html
 
 
-def test_desktop_backend_build_scripts_bundle_share_image_assets():
-    root = Path(__file__).resolve().parents[1]
-    for relative_path in ("scripts/build-backend.ps1", "scripts/build-backend-macos.sh"):
-        content = (root / relative_path).read_text(encoding="utf-8")
-        assert "src/assets/share_image" in content
-
-
 def test_share_image_declares_supported_cjk_fonts_and_docker_installs_them():
     html = build_share_image_html(
         "# 贵州茅台 600519 分析报告\n\n## 核心判断\n\n- 趋势偏多\n",
@@ -1986,13 +1656,13 @@ def test_share_image_declares_supported_cjk_fonts_and_docker_installs_them():
     assert "fonts-noto-cjk \\" in dockerfile
 
 
-def test_japanese_stock_share_image_uses_english_report_cjk_fallback():
+def test_a_share_image_uses_english_report_cjk_fallback():
     html = build_share_image_html(
-        "# トヨタ自動車 7203.T Analysis Report\n\n## Core Conclusion\n\n- Bullish trend.\n",
+        "# 贵州茅台 600519 Analysis Report\n\n## Core Conclusion\n\n- Bullish trend.\n",
         generated_on=date(2026, 8, 24),
         structured_payload={
-            "code": "7203.T",
-            "name": "トヨタ自動車",
+            "code": "600519",
+            "name": "贵州茅台",
             "report_language": "en",
         },
     )
@@ -2001,7 +1671,7 @@ def test_japanese_stock_share_image_uses_english_report_cjk_fallback():
     assert '<html lang="en">' in html
     assert '"Segoe UI", "Noto Sans CJK SC", "Noto Sans CJK KR"' in html
     assert '"Noto Sans CJK SC"' in html
-    assert "トヨタ自動車" in html
+    assert "贵州茅台" in html
 
 
 def test_japanese_market_share_image_uses_korean_report_font_contract():

@@ -99,7 +99,6 @@ _FIELD_DEFINITIONS: Dict[str, Dict[str, Any]] = {
         "help_key": "settings.base.STOCK_LIST",
         "examples": [
             "STOCK_LIST=600519,300750,002594",
-            "STOCK_LIST=600519,hk00700,AAPL",
         ],
         "docs": [
             {
@@ -795,7 +794,7 @@ _FIELD_DEFINITIONS: Dict[str, Dict[str, Any]] = {
     },
     "TICKFLOW_PRIORITY": {
         "title": "TickFlow Daily K-line Priority",
-        "description": "Priority for TickFlow in the generic A-share daily K-line route. Registered indices use the fixed Tencent -> AkShare -> TickFlow -> YFinance chain and ignore this setting; realtime quote order is controlled separately by REALTIME_SOURCE_PRIORITY.",
+        "description": "Priority for TickFlow in the generic A-share daily K-line route. Registered indices use the fixed Tencent -> AkShare -> TickFlow chain and ignore this setting; realtime quote order is controlled separately by REALTIME_SOURCE_PRIORITY.",
         "category": "data_source",
         "data_type": "integer",
         "ui_control": "number",
@@ -894,29 +893,6 @@ _FIELD_DEFINITIONS: Dict[str, Dict[str, Any]] = {
             },
         ],
         "warning_codes": [],
-    },
-    "FUTU_HK_REALTIME_SOURCE_PRIORITY": {
-        "title": "Futu 港股实时数据源优先级",
-        "description": "港股实时行情优先级，可选 futu、longbridge、akshare、yfinance。未配置 OpenD 时自动跳过 futu。",
-        "category": "data_source",
-        "data_type": "string",
-        "ui_control": "text",
-        "is_sensitive": False,
-        "is_required": False,
-        "is_editable": True,
-        "default_value": "futu,longbridge,akshare,yfinance",
-        "options": [],
-        "validation": {},
-        "display_order": 22,
-        "help_key": "settings.data_source.FUTU_HK_REALTIME_SOURCE_PRIORITY",
-        "examples": ["FUTU_HK_REALTIME_SOURCE_PRIORITY=futu,longbridge,akshare,yfinance"],
-        "docs": [
-            {
-                "label": "数据源配置指南",
-                "href": "https://github.com/ZhuLinsen/daily_stock_analysis/blob/main/docs/full-guide.md#数据源配置",
-            },
-        ],
-        "warning_codes": ["provider_priority_order"],
     },
     "STOCK_INDEX_REMOTE_UPDATE_ENABLED": {
         "title": "Remote Stock Index Updates",
@@ -3565,7 +3541,7 @@ _FIELD_DEFINITIONS: Dict[str, Dict[str, Any]] = {
     },
     "MARKET_REVIEW_REGION": {
         "title": "Market Review Region",
-        "description": "Market region for review: cn (A-shares), hk (Hong Kong), us (US stocks), jp (Japan), kr (Korea), or both (all markets).",
+        "description": "Market region for review. This A-share edition only supports cn.",
         "category": "system",
         "data_type": "string",
         "ui_control": "text",
@@ -3573,14 +3549,12 @@ _FIELD_DEFINITIONS: Dict[str, Dict[str, Any]] = {
         "is_required": False,
         "is_editable": True,
         "default_value": "cn",
-        "options": ["cn", "hk", "us", "jp", "kr", "both"],
-        "validation": {"allowed_values": ["cn", "hk", "us", "jp", "kr", "both"], "delimiter": ","},
+        "options": ["cn"],
+        "validation": {"allowed_values": ["cn"]},
         "display_order": 48,
         "help_key": "settings.system.market_review",
         "examples": [
             "MARKET_REVIEW_REGION=cn",
-            "MARKET_REVIEW_REGION=jp",
-            "MARKET_REVIEW_REGION=both",
         ],
         "docs": [
             {
@@ -5135,7 +5109,6 @@ def _infer_category(key: str) -> str:
             "EFINANCE",
             "PYTDX",
             "BAOSTOCK",
-            "YFINANCE",
             "TAVILY",
             "SERPAPI",
             "BRAVE",

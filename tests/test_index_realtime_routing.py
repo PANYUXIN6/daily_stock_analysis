@@ -133,27 +133,6 @@ class IndexRealtimeRoutingTestCase(unittest.TestCase):
         self.assertEqual(efinance.calls, ["csi930955"])
         self.assertEqual(akshare.calls, [])
 
-    def test_us_index_does_not_fallback_to_longbridge(self):
-        yfinance = MagicMock()
-        yfinance.name = "YfinanceFetcher"
-        yfinance.priority = 4
-        yfinance.is_available_for_request.return_value = True
-        yfinance.get_realtime_quote.return_value = None
-
-        longbridge = MagicMock()
-        longbridge.name = "LongbridgeFetcher"
-        longbridge.priority = 5
-        longbridge.is_available_for_request.return_value = True
-        longbridge.get_realtime_quote.return_value = _quote("SPX")
-
-        manager = self._manager([yfinance, longbridge])
-        with patch("src.config.get_config", return_value=self._config()):
-            quote = manager.get_realtime_quote("SPX")
-
-        self.assertIsNone(quote)
-        yfinance.get_realtime_quote.assert_called_once_with("SPX")
-        longbridge.get_realtime_quote.assert_not_called()
-
     def test_bare_code_stays_on_stock_path(self):
         akshare = _FakeAkshareFetcher()
         manager = self._manager([_FakeEfinanceFetcher(), akshare])
@@ -171,11 +150,11 @@ class IndexRealtimeRoutingTestCase(unittest.TestCase):
             "src.config.get_config", return_value=self._config("tickflow,tencent")
         ):
             manager.prefetch_realtime_quotes(
-                ["sh000016", "600519", "000001", "AAPL", "hk00700"]
+                ["sh000016", "600519", "000001", "000858", "sz000001"]
             )
         self.assertEqual(
             tickflow.prefetch_calls[0][0],
-            ["sh000016", "600519", "000001", "AAPL", "HK00700"],
+            ["sh000016", "600519", "000001", "000858", "000001"],
         )
 
 
@@ -210,8 +189,8 @@ class HistoryCodeCandidatesIndexTestCase(unittest.TestCase):
 
         _, normalized = hc("600519")
         self.assertEqual(normalized, "600519")
-        _, normalized = hc("1810.HK")
-        self.assertEqual(normalized, "HK01810")
+        _, normalized = hc("000002.SZ")
+        self.assertEqual(normalized, "000002")
 
     def test_data_tools_candidates_preserve_index_canonical(self):
         from src.agent.tools.data_tools import _history_code_candidates as dc

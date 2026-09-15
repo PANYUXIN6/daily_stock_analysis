@@ -4,7 +4,6 @@ import { Menu } from 'lucide-react';
 import { Outlet } from 'react-router-dom';
 import { Drawer } from '../common/Drawer';
 import { SidebarNav } from './SidebarNav';
-import { DesktopUpdateIndicator } from './DesktopUpdateIndicator';
 import { cn } from '../../utils/cn';
 import { ThemeToggle } from '../theme/ThemeToggle';
 import { UiLanguageToggle } from '../i18n/UiLanguageToggle';
@@ -48,7 +47,6 @@ export const Shell: React.FC<ShellProps> = ({ children }) => {
           <Menu className="h-5 w-5" />
         </button>
         <div className="pointer-events-auto ml-auto flex items-center gap-2">
-          <DesktopUpdateIndicator />
           <div className="flex items-center gap-2 lg:hidden">
             <UiLanguageToggle />
             <ThemeToggle />

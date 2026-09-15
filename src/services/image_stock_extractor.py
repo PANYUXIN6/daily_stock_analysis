@@ -40,14 +40,12 @@ EXTRACT_PROMPT = """请分析这张股票市场截图或图片，提取其中所
 
 输出格式：仅返回有效的 JSON 数组，不要 markdown、不要解释。
 每个元素为对象：{"code":"股票代码","name":"股票名称","confidence":"high|medium|low"}
-- code: 必填，股票代码（A股6位、港股5位、美股1-5字母、ETF 如 159887/512880）
+- code: 必填，A股股票、ETF 或已登记指数的6位代码
 - name: 若图中有名称则必填（如 贵州茅台、银行ETF、证券ETF），与代码一一对应；仅当图中确实无名称时可省略
 - confidence: 必填，识别置信度，high=确定、medium=较确定、low=不确定
 
 示例（图中同时有名称和代码时）：
 - 个股：600519 贵州茅台、300750 宁德时代
-- 港股：00700 腾讯控股、09988 阿里巴巴
-- 美股：AAPL 苹果、TSLA 特斯拉
 - ETF：159887 银行ETF、512880 证券ETF、512000 券商ETF、512480 半导体ETF、515030 新能源车ETF
 
 输出示例：[{"code":"600519","name":"贵州茅台","confidence":"high"},{"code":"159887","name":"银行ETF","confidence":"high"}]
@@ -90,21 +88,16 @@ def _verify_image_magic_bytes(image_bytes: bytes, mime_type: str) -> None:
 
 
 def _normalize_code(raw: str) -> Optional[str]:
-    """Normalize and validate a single stock code. A-shares & HK: 5-6 digits; US: 1-5 letters."""
+    """Normalize and validate one A-share security code."""
     s = raw.strip().upper()
     if not s:
         return None
-    # A-shares & HK: 5-6 digit codes (600519, 00700, 09988)
-    if s.isdigit() and len(s) in (5, 6):
+    if s.isdigit() and len(s) == 6:
         return s
-    # US stocks: 1-5 letters, optionally with . (e.g. BRK.B)
-    if re.match(r"^[A-Z]{1,5}(\.[A-Z])?$", s):
-        return s
-    # 尝试去除 SH/SZ 后缀
-    for suffix in (".SH", ".SZ", ".SS"):
+    for suffix in (".SH", ".SZ", ".BJ", ".SS"):
         if s.endswith(suffix):
             base = s[: -len(suffix)].strip()
-            if base.isdigit() and len(base) in (5, 6):
+            if base.isdigit() and len(base) == 6:
                 return base
     return None
 
@@ -137,8 +130,8 @@ def _parse_codes_from_text(text: str) -> List[str]:
     except json.JSONDecodeError:
         pass
 
-    # 兜底：查找 5-6 位数字及美股代码
-    for m in re.finditer(r"\b([0-9]{5,6}|[A-Z]{1,5}(\.[A-Z])?)\b", text, re.IGNORECASE):
+    # 兜底：只查找六位 A 股证券代码
+    for m in re.finditer(r"\b([0-9]{6})\b", text):
         c = _normalize_code(m.group(1))
         if c and c not in seen and c not in _FAKE_CODES:
             seen.add(c)

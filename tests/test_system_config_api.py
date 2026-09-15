@@ -729,10 +729,10 @@ class SystemConfigApiTestCase(unittest.TestCase):
             self.assertEqual(import_ctx.exception.status_code, 401)
             self.assertEqual(import_ctx.exception.detail["error"], "env_backup_access_denied")
 
-    def test_config_env_endpoints_require_explicit_true_for_desktop_bypass(self) -> None:
+    def test_config_env_endpoints_reject_legacy_desktop_bypass(self) -> None:
         with patch.dict(
             os.environ,
-            {"DSA_DESKTOP_MODE": "desktop"},
+            {"DSA_DESKTOP_MODE": "true"},
             clear=False,
         ):
             self.env_path.write_text(

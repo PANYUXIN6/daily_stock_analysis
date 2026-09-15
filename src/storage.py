@@ -135,7 +135,7 @@ class StockDaily(Base):
     # 数据来源
     data_source = Column(String(50))  # 记录数据来源（如 AkshareFetcher）
 
-    # canonical_id：Phase 1 前缀格式的稳定分析目标键（如 sh000300 / sh600519 / AAPL）。
+    # canonical_id：前缀格式的稳定分析目标键（如 sh000300 / sh600519）。
     # Expand-Contract PR2：仅加列 + 双写，读路径仍用 ``code`` 列；PR3/PR4 再切读路径。
     # 可空：存量行由自愈式迁移 backfill；新写由 ``save_daily_data`` 推导或显式传入。
     # 普通索引（非唯一）：历史别名行可能共享同一 canonical_id + date，唯一索引会撞。
@@ -531,7 +531,7 @@ class PortfolioAccount(Base):
     owner_id = Column(String(64), index=True)
     name = Column(String(64), nullable=False)
     broker = Column(String(64))
-    market = Column(String(8), nullable=False, default='cn', index=True)  # cn/hk/us
+    market = Column(String(8), nullable=False, default='cn', index=True)
     base_currency = Column(String(8), nullable=False, default='CNY')
     is_active = Column(Boolean, nullable=False, default=True, index=True)
     created_at = Column(DateTime, default=datetime.now, index=True)

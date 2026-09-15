@@ -196,7 +196,7 @@ def _needs_frontend_build(frontend_dir: Path, force_build: bool) -> tuple[bool, 
     if force_build or not artifact_index.exists():
         return True, artifact_index
 
-    # Prebuilt Docker/desktop artifacts do not include the frontend source tree.
+    # Prebuilt Docker artifacts do not include the frontend source tree.
     # In that runtime layout there is nothing local to compare, so reuse the
     # artifact and trust the build-time validation.
     if not (frontend_dir / "package.json").exists():

@@ -147,7 +147,6 @@ Web 入口：
 - Web 只消费 Phase 1/2 已追加的可选字段和只读诊断接口；后端补齐 `src/core/pipeline.py`、`src/services/run_diagnostics.py`、`src/storage.py` 与 `src/services/history_service.py` 的诊断持久化与刷新逻辑，并通过 `api/v1/endpoints/history.py` 提供可读端点。
 - 后端变更范围包含任务编排、历史保存后补写、历史诊断查询与通知结果诊断记录；这些链路只追加 `context_snapshot.diagnostics` 诊断快照和摘要，不改变分析主流程、通知发送成败语义或历史报告主体字段。
 - 复制文本由后端生成并脱敏；前端只负责展示和复制。
-- Desktop 复用 Web 构建产物，未单独改动 Electron 主进程或打包脚本。
 - 运行时配置/模型/provider/base_url 兼容语义不调整：除诊断持久化链路外，不改 provider 优先级、LiteLLM 路由、运行时清理与配置回退逻辑。
 - 旧历史与旧配置兼容规则不变：历史诊断查询新增可选字段不影响既有历史查询响应解析；回退方式为移除本轮展示与相关前端查询路径，或按现有指南恢复模型和配置。
 - 回滚策略：优先回退前端展示与查询入口；若需完全隔离新增链路，可回滚本轮 PR（回退后保留历史记录原有响应，新增诊断端点不再在 Web 中展示）。

@@ -248,7 +248,7 @@ get_stock_backtest_summary_tool = ToolDefinition(
         ToolParameter(
             name="stock_code",
             type="string",
-            description="Stock code, e.g., '600519' (A-share), 'AAPL' (US), 'hk00700' (HK)",
+            description="Six-digit A-share stock code, e.g., '600519'",
         ),
         ToolParameter(
             name="eval_window_days",

@@ -6,25 +6,7 @@ This document compiles common issues encountered by users and their solutions.
 
 ## Data Related
 
-### Q1: US stock codes (e.g., AMD, AAPL) show incorrect prices during analysis?
-
-**Symptom**: After entering US stock codes, displayed prices are clearly wrong (e.g., AMD showing 7.33 yuan), or being misidentified as A-shares.
-
-**Cause**: Earlier version code matching logic prioritized A-share rules, causing code conflicts.
-
-**Solution**:
-1. Fixed in v2.3.0, system now supports automatic US stock code recognition
-2. If issues persist, set in `.env`:
-   ```bash
-   YFINANCE_PRIORITY=0
-   ```
-   This prioritizes Yahoo Finance data source for US stock data
-
-> Related Issue: [#153](https://github.com/ZhuLinsen/daily_stock_analysis/issues/153)
-
----
-
-### Q2: "Volume Ratio" field shows empty or N/A in reports?
+### Q1: "Volume Ratio" field shows empty or N/A in reports?
 
 **Symptom**: Volume ratio data missing in analysis reports, affecting AI's judgment on volume changes.
 
@@ -322,7 +304,6 @@ Work through the following 5 checkpoints in order:
 1. Docker publishing is driven by `.github/workflows/docker-publish.yml`, which only publishes release images for Git tags matching `v*.*.*` (for example, `v3.12.0`).
 2. So the Docker image version follows the **GitHub Release / Git tag**, rather than a fixed value in `main.py`, `server.py`, or another backend module.
 3. The `version` field in `apps/dsa-web/package.json` is currently a placeholder `0.0.0`. The WebUI version/build card is useful for checking whether frontend assets were rebuilt, but it is not the Docker release version.
-4. The desktop app has its own version in `apps/dsa-desktop/package.json`, and that only applies to the Electron desktop build, not the Docker image.
 
 **How to check your current Docker version**:
 1. **Check the image tag in your deploy command or Compose file**. For example, in `ghcr.io/zhulinsen/daily_stock_analysis:v3.12.0`, the deployed version is `v3.12.0`.
@@ -333,28 +314,6 @@ Work through the following 5 checkpoints in order:
 
 ---
 
-## Desktop App
-
-### Q15: macOS says the desktop app is damaged or cannot be opened?
-
-**Cause**: The current macOS DMG is not signed and notarized with an Apple Developer certificate. After a browser download, macOS Gatekeeper may attach the quarantine attribute and block startup.
-
-**Solution**:
-
-1. Download only from the project's [GitHub Releases](https://github.com/ZhuLinsen/daily_stock_analysis/releases), and select the package matching your Mac architecture. Do not bypass Gatekeeper for third-party copies or files from an untrusted source.
-2. Drag `Daily Stock Analysis` into Applications, then first try **System Settings → Privacy & Security → Open Anyway**.
-3. If it still does not start and you have verified that it came from the official project Release, remove quarantine only from this app and launch it:
-
-   ```bash
-   xattr -dr com.apple.quarantine "/Applications/Daily Stock Analysis.app"
-   open "/Applications/Daily Stock Analysis.app"
-   ```
-
-Replace the path if the app is not in `/Applications`. Never run `xattr` against the entire `/Applications` directory. This is a temporary way to allow a trusted unsigned app; it is not a substitute for signing or notarization. See the [desktop packaging guide](desktop-package.md#macos-提示应用已损坏无法打开) for the complete troubleshooting notes.
-
-> Related Issue: [#2113](https://github.com/ZhuLinsen/daily_stock_analysis/issues/2113)
-
----
 
 ## Other Issues
 

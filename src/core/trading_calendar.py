@@ -5,9 +5,9 @@
 ===================================
 
 职责：
-1. 按市场（A股/港股/美股/日股/韩股/台股）判断当日是否为交易日
-2. 按市场时区取“今日”日期，避免服务器 UTC 导致日期错误
-3. 支持 per-stock 过滤：只分析当日开市市场的股票
+1. 判断 A 股当日是否为交易日
+2. 按上海时区取“今日”日期，避免服务器 UTC 导致日期错误
+3. 支持按股票过滤交易日
 4. 提供 regular-session 市场阶段推断基线，不改变现有分析入口行为
 
 依赖：exchange-calendars（可选，交易日判断不可用时 fail-open，阶段推断不可用时 unknown）
@@ -21,8 +21,6 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from zoneinfo import ZoneInfo
 
 import pandas as pd
-
-from src.services.market_symbol_utils import get_suffix_market
 
 logger = logging.getLogger(__name__)
 
@@ -38,33 +36,15 @@ except ImportError:
     )
 
 # Market -> exchange code (exchange-calendars)
-MARKET_EXCHANGE = {"cn": "XSHG", "hk": "XHKG", "us": "XNYS", "jp": "XTKS", "kr": "XKRX", "tw": "XTAI"}
+MARKET_EXCHANGE = {"cn": "XSHG"}
 
 # Market -> IANA timezone for "today"
-MARKET_TIMEZONE = {
-    "cn": "Asia/Shanghai",
-    "hk": "Asia/Hong_Kong",
-    "us": "America/New_York",
-    "jp": "Asia/Tokyo",
-    "kr": "Asia/Seoul",
-    "tw": "Asia/Taipei",
-}
+MARKET_TIMEZONE = {"cn": "Asia/Shanghai"}
 
 # P0 market phase baseline (Issue #1386). This is an intentionally small
 # regular-session inference layer; it does not change existing fail-open
 # trading-day filtering or effective-date behavior.
-# tw: TWSE/TPEx run a 13:25-13:30 closing call auction (5 min). JP/KR use
-# regular-session closing auction windows before the 15:30 close (JP 5 min,
-# KR 10 min). Without an entry here .get(market, 0) yields a zero-width
-# window, so the last regular-session minutes stay INTRADAY until POSTMARKET.
-_CLOSING_AUCTION_WINDOW_MINUTES = {
-    "cn": 3,
-    "hk": 10,
-    "us": 5,
-    "jp": 5,
-    "kr": 10,
-    "tw": 5,
-}
+_CLOSING_AUCTION_WINDOW_MINUTES = {"cn": 3}
 _SUPPORTED_ANALYSIS_PHASES = {
     "auto",
     "premarket",
@@ -126,24 +106,15 @@ def get_market_for_stock(code: str) -> Optional[str]:
     """
     Infer market region for a stock code.
 
-    Returns:
-        'cn' | 'hk' | 'us' | 'jp' | 'kr' | 'tw' | None (None = unrecognized, fail-open: treat as open)
+    Returns ``cn`` for a recognized A-share/security code, otherwise ``None``.
     """
     if not code or not isinstance(code, str):
         return None
     code = (code or "").strip().upper()
 
-    from data_provider import is_us_stock_code, is_us_index_code, is_hk_stock_code
+    from src.services.stock_code_utils import normalize_code
 
-    if is_us_stock_code(code) or is_us_index_code(code):
-        return "us"
-    if is_hk_stock_code(code):
-        return "hk"
-    suffix_market = get_suffix_market(code)
-    if suffix_market:
-        return suffix_market
-    # A-share: 6-digit numeric
-    if code.isdigit() and len(code) == 6:
+    if normalize_code(code) is not None:
         return "cn"
     return None
 
@@ -155,7 +126,7 @@ def is_market_open(market: str, check_date: date) -> bool:
     Fail-open: returns True if exchange-calendars unavailable or date out of range.
 
     Args:
-        market: 'cn' | 'hk' | 'us'
+        market: 'cn'
         check_date: Date to check
 
     Returns:
@@ -604,48 +575,5 @@ def get_open_markets_today() -> Set[str]:
 def compute_effective_region(
     config_region: str, open_markets: Set[str]
 ) -> Optional[str]:
-    """
-    Compute effective market review region given config and open markets.
-
-    Args:
-        config_region: From MARKET_REVIEW_REGION ('cn' | 'hk' | 'us' | 'jp' | 'kr' | 'both' or comma subset)
-        open_markets: Markets open today
-
-    Returns:
-        None: caller uses config default (check disabled)
-        '': all relevant markets closed, skip market review
-        'cn' | 'hk' | 'us' | 'jp' | 'kr' | 'both': effective subset for today
-    """
-    markets = ("cn", "hk", "us", "jp", "kr")
-    normalized = (config_region or "cn").strip().lower()
-    if not normalized:
-        normalized = "cn"
-
-    requested = {
-        item.strip() for item in normalized.split(",") if item.strip()
-    }
-    if not requested:
-        requested = {"cn"}
-
-    if "both" in requested:
-        requested = set(markets)
-    else:
-        # Ignore invalid tokens and only keep known markets.
-        requested = {item for item in requested if item in markets}
-
-    if not requested:
-        # No valid market token left after filtering; follow parser fallback behavior.
-        requested = {"cn"}
-
-    # single explicit region: keep single-region return semantics (empty when closed)
-    if len(requested) == 1:
-        region = next(iter(requested))
-        return region if region in open_markets else ""
-
-    # multi-region subset: keep only markets open today, in canonical order
-    open_selected = [m for m in markets if m in requested and m in open_markets]
-    if not open_selected:
-        return ""
-    if len(open_selected) == 1:
-        return open_selected[0]
-    return ",".join(open_selected)
+    """Return ``cn`` when the A-share market is open, otherwise skip."""
+    return "cn" if "cn" in open_markets else ""

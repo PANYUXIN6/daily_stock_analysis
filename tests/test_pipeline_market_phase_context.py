@@ -71,7 +71,6 @@ def _make_pipeline(*, agent_mode: bool = False, save_context_snapshot: bool = Tr
     pipeline.progress_callback = None
     pipeline.analysis_skills = None
     pipeline.analysis_phase = "auto"
-    pipeline.social_sentiment_service = None
 
     pipeline.fetcher_manager = MagicMock()
     pipeline.fetcher_manager.get_stock_name.return_value = "贵州茅台"
@@ -109,60 +108,6 @@ def _make_pipeline(*, agent_mode: bool = False, save_context_snapshot: bool = Tr
 
 
 class PipelineMarketPhaseContextTestCase(unittest.TestCase):
-    def test_jp_kr_analysis_context_uses_daily_fetcher_when_db_context_missing(self):
-        pipeline = _make_pipeline()
-        pipeline.db.get_analysis_context.side_effect = [None, None]
-        pipeline.db.save_daily_data.return_value = 2
-        pipeline.db._analyze_ma_status.return_value = "短期向好"
-        daily_df = pd.DataFrame(
-            [
-                {
-                    "code": "7203.T",
-                    "date": "2026-06-17",
-                    "open": 2862.5,
-                    "high": 2863.5,
-                    "low": 2803.5,
-                    "close": 2810.0,
-                    "volume": 26726100,
-                    "amount": 75100341000.0,
-                    "pct_chg": -1.32,
-                    "ma5": 2816.6,
-                    "ma10": 2823.8,
-                    "ma20": 2898.08,
-                    "volume_ratio": 1.0,
-                },
-                {
-                    "code": "7203.T",
-                    "date": "2026-06-18",
-                    "open": 2800.0,
-                    "high": 2807.0,
-                    "low": 2774.5,
-                    "close": 2793.5,
-                    "volume": 27620900,
-                    "amount": 77158981500.0,
-                    "pct_chg": -0.59,
-                    "ma5": 2825.8,
-                    "ma10": 2819.3,
-                    "ma20": 2888.85,
-                    "volume_ratio": 1.03,
-                },
-            ]
-        )
-        pipeline.fetcher_manager.get_daily_data.return_value = (daily_df, "YfinanceFetcher")
-
-        context = pipeline._get_analysis_context_with_market_fallback("7203.T")
-
-        self.assertIsNotNone(context)
-        self.assertNotIn("data_missing", context)
-        self.assertEqual(context["code"], "7203.T")
-        self.assertEqual(context["date"], "2026-06-18")
-        self.assertEqual(context["today"]["close"], 2793.5)
-        self.assertEqual(context["yesterday"]["close"], 2810.0)
-        self.assertEqual(context["price_change_ratio"], -0.59)
-        self.assertEqual(context["ma_status"], "短期向好")
-        pipeline.fetcher_manager.get_daily_data.assert_called_once_with("7203.T", days=60)
-        pipeline.db.save_daily_data.assert_called_once_with(daily_df, "7203.T", "YfinanceFetcher")
-
     def test_process_single_stock_propagates_current_time_to_analyze_stock(self):
         pipeline = StockAnalysisPipeline.__new__(StockAnalysisPipeline)
         pipeline.query_id = None
@@ -507,10 +452,8 @@ class PipelineMarketPhaseContextTestCase(unittest.TestCase):
     def test_agent_pack_summary_uses_prefetched_news_context_when_present(self):
         pipeline = _make_pipeline(agent_mode=True, save_context_snapshot=True)
         pipeline._ensure_agent_history = MagicMock()
-        pipeline.social_sentiment_service = MagicMock()
-        pipeline.social_sentiment_service.is_available = True
-        pipeline.social_sentiment_service.get_social_context.return_value = (
-            "Social sentiment raw payload should stay in legacy news_context only."
+        pipeline._load_persisted_intelligence_context = MagicMock(
+            return_value="本地资讯原文只进入 news_context，不进入摘要。"
         )
 
         from src.agent.executor import AgentResult
@@ -520,7 +463,7 @@ class PipelineMarketPhaseContextTestCase(unittest.TestCase):
             success=True,
             content="{}",
             dashboard={
-                "stock_name": "Apple",
+                "stock_name": "贵州茅台",
                 "sentiment_score": 66,
                 "trend_prediction": "震荡",
                 "operation_advice": "持有",
@@ -531,24 +474,24 @@ class PipelineMarketPhaseContextTestCase(unittest.TestCase):
 
         with patch("src.agent.factory.build_agent_executor", return_value=executor):
             result = pipeline._analyze_with_agent(
-                code="AAPL",
+                code="600519",
                 report_type=ReportType.SIMPLE,
                 query_id="q-agent-news",
-                stock_name="Apple",
+                stock_name="贵州茅台",
                 realtime_quote=None,
                 chip_data=None,
-                fundamental_context={"market": "us"},
+                fundamental_context={"market": "cn"},
                 trend_result=None,
                 market_phase_context=_phase_payload(),
             )
 
         self.assertIsNotNone(result)
         run_context = executor.run.call_args.kwargs["context"]
-        self.assertIn("Social sentiment raw payload", run_context["news_context"])
+        self.assertIn("本地资讯原文", run_context["news_context"])
         summary = run_context["analysis_context_pack_summary"]
         self.assertIn("新闻: available", summary)
         self.assertNotIn("新闻: missing", summary)
-        self.assertNotIn("Social sentiment raw payload", summary)
+        self.assertNotIn("本地资讯原文", summary)
 
         save_kwargs = pipeline.db.save_analysis_history.call_args.kwargs
         self.assertNotIn("analysis_context_pack_summary", save_kwargs["context_snapshot"])

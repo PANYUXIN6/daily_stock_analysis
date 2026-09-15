@@ -43,15 +43,14 @@ class TestStockIndexLoader(unittest.TestCase):
     def tearDown(self):
         stock_index_loader._clear_stock_index_cache_for_tests()
 
-    def test_get_index_stock_name_supports_display_canonical_and_hk_keys(self):
+    def test_get_index_stock_name_supports_a_share_display_and_canonical_keys(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             index_path = Path(temp_dir) / "stocks.index.json"
             index_path.write_text(
                 json.dumps(
                     [
                         ["000001.SZ", "000001", "平安银行", "pinganyinhang", "payh", [], "CN", "stock", True, 100],
-                        ["00700.HK", "00700", "腾讯控股", "tengxunkonggu", "txkg", [], "HK", "stock", True, 100],
-                        ["AAPL", "AAPL", "苹果", "pingguo", "pg", [], "US", "stock", True, 100],
+                        ["000002.SZ", "000002", "万科A", "wanke", "wk", [], "CN", "stock", True, 100],
                     ],
                     ensure_ascii=False,
                 ),
@@ -61,10 +60,8 @@ class TestStockIndexLoader(unittest.TestCase):
             with patch.object(stock_index_loader, "get_stock_index_candidate_paths", return_value=(index_path,)):
                 self.assertEqual(stock_index_loader.get_index_stock_name("000001"), "平安银行")
                 self.assertEqual(stock_index_loader.get_index_stock_name("000001.SZ"), "平安银行")
-                self.assertEqual(stock_index_loader.get_index_stock_name("HK00700"), "腾讯控股")
-                self.assertEqual(stock_index_loader.get_index_stock_name("00700"), "腾讯控股")
-                self.assertEqual(stock_index_loader.get_index_stock_name("700.HK"), "腾讯控股")
-                self.assertEqual(stock_index_loader.get_index_stock_name("aapl"), "苹果")
+                self.assertEqual(stock_index_loader.get_index_stock_name("000002"), "万科A")
+                self.assertIsNone(stock_index_loader.get_index_stock_name("999999"))
 
     def test_default_candidate_paths_prefer_remote_cache(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -198,33 +195,6 @@ class TestStockIndexLoader(unittest.TestCase):
                 self.assertEqual(stock_index_loader.find_existing_stock_index_path(), bundled_path)
                 self.assertEqual(stock_index_loader.get_index_stock_name("000001"), "内置索引")
 
-    def test_resolve_index_stock_code_falls_through_to_bundled_jp_kr_pool(self):
-        with tempfile.TemporaryDirectory() as temp_dir:
-            remote_cache = Path(temp_dir) / "cache" / "stocks.index.json"
-            bundled_path = Path(temp_dir) / "apps" / "stocks.index.json"
-            _write_stock_index(remote_cache, "old remote", size=100)
-            bundled_path.parent.mkdir(parents=True, exist_ok=True)
-            bundled_path.write_text(
-                json.dumps(
-                    [
-                        ["005930.KS", "005930.KS", "Samsung", "samsung", "ss", [], "KR", "stock", True, 100],
-                        ["7203.T", "7203.T", "Toyota", "toyota", "tyt", [], "JP", "stock", True, 100],
-                    ],
-                    ensure_ascii=False,
-                ),
-                encoding="utf-8",
-            )
-            os.utime(remote_cache, (2_000, 2_000))
-            os.utime(bundled_path, (1_000, 1_000))
-
-            with patch.object(stock_index_loader, "get_remote_stock_index_cache_path", return_value=remote_cache), \
-                 patch.object(
-                     stock_index_loader,
-                     "get_stock_index_candidate_paths",
-                     return_value=(remote_cache, bundled_path),
-                 ):
-                self.assertEqual(stock_index_loader.resolve_index_stock_code("005930"), "005930.KS")
-                self.assertEqual(stock_index_loader.resolve_index_stock_code("7203"), "7203.T")
 
     def test_resolve_index_stock_code_rejects_cross_market_bare_alias(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -232,7 +202,7 @@ class TestStockIndexLoader(unittest.TestCase):
             bundled_path.write_text(
                 json.dumps(
                     [
-                        ["08035.HK", "08035", "HK 8035", "hk8035", "hk", [], "HK", "stock", True, 100],
+                        ["08035.HK", "08035", "HK 8035", "hk8035", "hk", [], "CN", "stock", True, 100],
                         ["8035.T", "8035.T", "JP 8035", "jp8035", "jp", [], "JP", "stock", True, 100],
                     ],
                     ensure_ascii=False,
@@ -256,7 +226,7 @@ class TestStockIndexLoader(unittest.TestCase):
             bundled_path = Path(temp_dir) / "stocks.index.json"
             bundled_path.write_text(
                 json.dumps(
-                    [["005930.KS", "005930.KS", "Samsung", "samsung", "ss", [], "KR", "stock", True, 100]],
+                    [["000858.SZ", "000858.SZ", "Samsung", "samsung", "ss", [], "CN", "stock", True, 100]],
                     ensure_ascii=False,
                 ),
                 encoding="utf-8",
@@ -265,8 +235,8 @@ class TestStockIndexLoader(unittest.TestCase):
             with patch.object(stock_index_loader, "get_remote_stock_index_cache_path", return_value=Path(temp_dir) / "missing.json"), \
                  patch.object(stock_index_loader, "get_stock_index_candidate_paths", return_value=(bundled_path,)), \
                  patch.object(stock_index_loader, "_load_stock_index_payload", wraps=stock_index_loader._load_stock_index_payload) as load_payload:
-                self.assertEqual(stock_index_loader.resolve_index_stock_code("005930"), "005930.KS")
-                self.assertEqual(stock_index_loader.resolve_index_stock_code("005930"), "005930.KS")
+                self.assertEqual(stock_index_loader.resolve_index_stock_code("000858"), "000858.SZ")
+                self.assertEqual(stock_index_loader.resolve_index_stock_code("000858"), "000858.SZ")
 
             self.assertEqual(load_payload.call_count, 1)
 
@@ -277,13 +247,13 @@ class TestStockIndexLoader(unittest.TestCase):
                 json.dumps(
                     [
                         [
-                            "005930.KS",
-                            "005930.KS",
+                            "000858.SZ",
+                            "000858.SZ",
                             "三星电子",
                             "samsung",
                             "ss",
                             [],
-                            "KR",
+                            "CN",
                             "stock",
                             False,
                             100,
@@ -315,7 +285,7 @@ class TestStockIndexLoader(unittest.TestCase):
                 "get_stock_index_candidate_paths",
                 return_value=(bundled_path,),
             ):
-                self.assertIsNone(stock_index_loader.resolve_index_stock_code("005930"))
+                self.assertIsNone(stock_index_loader.resolve_index_stock_code("000858"))
                 self.assertIsNone(stock_index_loader.resolve_index_stock_code("7203"))
 
     def test_resolve_index_stock_code_does_not_bare_resolve_tw_suffix_entries(self):

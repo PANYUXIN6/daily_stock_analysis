@@ -25,7 +25,7 @@ from src.services.screening.normalize import (
 
 def _normalize_code(value: object) -> str:
     # Pick codes and analyzer response code fields are structured, so
-    # US tickers may pass through (see normalize_code docstring).
+    # Structured candidate rows still pass through the shared A-share normalizer.
     return normalize_code(value, allow_ticker=True)
 
 SUPPORTED_POST_ANALYZERS = {"dsa", "scorecard", "external_http"}

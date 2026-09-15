@@ -10,11 +10,6 @@ import re
 
 _NULL_TEXT_VALUES = {"", "nan", "none", "<na>", "na", "null"}
 
-# US-style ticker: ASCII letters/digits with optional dot/dash separators,
-# at least one letter (pure digits are A-share codes).
-_TICKER_RE = re.compile(r"^(?=.*[A-Za-z])[A-Za-z0-9][A-Za-z0-9.\-]{0,19}$")
-
-
 def safe_text(value: object, *, max_len: int | None = None) -> str:
     """Return cleaned text, treating common null spellings as empty."""
     if value is None:
@@ -32,12 +27,8 @@ def safe_text(value: object, *, max_len: int | None = None) -> str:
 def normalize_code(value: object, *, width: int = 6, allow_ticker: bool = False) -> str:
     """Normalize A-share style stock codes from numeric, prefixed, or suffixed text.
 
-    A-share recognition always takes precedence and is unchanged. With
-    ``allow_ticker=True``, text with no embedded A-share code that looks like
-    a US-style ticker (AAPL, BRK-B) passes through uppercased instead of
-    normalizing to "". Only opt in for structured code fields (snapshot rows,
-    LLM ranking JSON, stored picks) — free-text mining paths must stay strict
-    so garbage tokens keep dropping to "".
+    ``allow_ticker`` remains as a compatibility argument for callers, but the
+    A-share-only runtime never accepts letter tickers.
     """
     text = safe_text(value, max_len=80)
     if not text:
@@ -49,8 +40,6 @@ def normalize_code(value: object, *, width: int = 6, allow_ticker: bool = False)
     match = re.search(r"(?<!\d)(\d{6})(?!\d)", text)
     if match:
         return match.group(1)
-    if allow_ticker and _TICKER_RE.match(text):
-        return text.upper()
     digits = "".join(ch for ch in text if ch.isdigit())
     return digits.zfill(width)[-width:] if digits else ""
 

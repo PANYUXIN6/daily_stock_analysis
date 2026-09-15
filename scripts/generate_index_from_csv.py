@@ -4,8 +4,7 @@
 Generate Stock Index from CSV File
 
 Input:
-  - Tushare format: data/stock_list_{a,hk,us}.csv
-  - Seed format: scripts/stock_index_seeds/stock_list_{jp,kr}.csv
+  - Tushare format: data/stock_list_a.csv
   - AkShare format: logs/stock_basic_*.csv
 
 Output: apps/dsa-web/public/stocks.index.json
@@ -90,7 +89,7 @@ def load_csv_data(csv_path: Path) -> List[Dict[str, Any]]:
 
 def load_tushare_data(data_dir: Path) -> List[Dict[str, Any]]:
     """
-    从 Tushare CSV 文件加载多市场股票数据
+    从 Tushare CSV 文件加载 A 股数据
 
     Args:
         data_dir: 数据目录路径
@@ -99,22 +98,8 @@ def load_tushare_data(data_dir: Path) -> List[Dict[str, Any]]:
         合并后的股票列表
     """
     all_stocks = []
-    seed_dir = Path(__file__).parent / 'stock_index_seeds'
-    default_data_dir = Path(__file__).parent.parent / 'data'
-    use_seed_fallback = data_dir.resolve() == default_data_dir.resolve()
-
-    def _csv_path(file_name: str) -> Path:
-        data_path = data_dir / file_name
-        if data_path.exists() or not use_seed_fallback:
-            return data_path
-        return seed_dir / file_name
-
     market_files = {
         'CN': data_dir / 'stock_list_a.csv',
-        'HK': data_dir / 'stock_list_hk.csv',
-        'US': data_dir / 'stock_list_us.csv',
-        'JP': _csv_path('stock_list_jp.csv'),
-        'KR': _csv_path('stock_list_kr.csv'),
     }
 
     for market_name, csv_file in market_files.items():
@@ -126,7 +111,6 @@ def load_tushare_data(data_dir: Path) -> List[Dict[str, Any]]:
 
         try:
             file_stocks = []
-            selected_us_stocks: Dict[str, tuple[Dict[str, Any], int]] = {}
             with open(csv_file, 'r', encoding='utf-8-sig') as f:
                 reader = csv.DictReader(f)
 
@@ -136,22 +120,9 @@ def load_tushare_data(data_dir: Path) -> List[Dict[str, Any]]:
                     if not parsed:
                         continue
 
-                    if market_name == 'US':
-                        # Tushare us_basic may include historical rows for a reused ticker.
-                        # Keep one deterministic row per ts_code before generating the index.
-                        delist_priority = get_us_delist_priority(row)
-                        existing = selected_us_stocks.get(parsed['ts_code'])
-                        if existing is None or delist_priority > existing[1]:
-                            selected_us_stocks[parsed['ts_code']] = (parsed, delist_priority)
-                        continue
-
                     if parsed:
                         all_stocks.append(parsed)
                         file_stocks.append(parsed)
-
-            if market_name == 'US':
-                file_stocks = [item for item, _priority in selected_us_stocks.values()]
-                all_stocks.extend(file_stocks)
 
             print(f"    ✓ {market_name} 市场读取完成：{len(file_stocks)} 只股票")
 
@@ -159,30 +130,6 @@ def load_tushare_data(data_dir: Path) -> List[Dict[str, Any]]:
             print(f"    [Error] 读取 {csv_file.name} 失败：{e}")
 
     return all_stocks
-
-
-def get_us_delist_priority(row: Dict[str, str]) -> int:
-    """
-    为复用 ticker 的美股记录生成去重优先级。
-
-    Tushare us_basic 导出的 delist_date 对当前记录并不总是稳定：
-    - 空字符串通常表示当前仍在使用的 ticker
-    - ``NaT`` 多见于历史记录或日期占位值
-    - 实际日期表示明确退市
-
-    因此前置去重时优先选择：
-    1. delist_date 为空
-    2. delist_date 为 NaT
-    3. delist_date 为实际日期
-
-    同优先级时保留 CSV 中最先出现的记录，避免在信息不足时随意切换名称。
-    """
-    delist_date = (row.get('delist_date') or '').strip()
-    if not delist_date:
-        return 2
-    if delist_date.upper() == 'NAT':
-        return 1
-    return 0
 
 
 def load_akshare_data(logs_dir: Path) -> List[Dict[str, Any]]:
@@ -296,64 +243,25 @@ def normalize_stock_name_for_index(name: str, market: str) -> str:
     stock-list update.
     """
     normalized = unicodedata.normalize('NFKC', str(name or '')).strip()
-    if market in {'CN', 'BSE'}:
+    if market == 'CN':
         normalized = re.sub(r'^(?:XD|XR|DR)\s*', '', normalized, flags=re.IGNORECASE)
     return normalized.strip()
 
 
 def extract_symbol_from_ts_code(ts_code: str, market: str) -> Optional[str]:
-    """
-    从 ts_code 提取 displayCode
-
-    - A股：000001.SZ → 000001
-    - 港股：00700.HK → 00700
-    - 美股：AAPL → AAPL
-    - 日股/韩股：7203.T / 005930.KS → 保留后缀，避免与其他市场裸代码冲突
-
-    Args:
-        ts_code: TS代码
-        market: 市场代码
-
-    Returns:
-        displayCode 或 None
-    """
-    if not ts_code:
+    """Extract a six-digit A-share display code from a Tushare code."""
+    if not ts_code or market != 'CN':
         return None
-
-    if market in {'US', 'JP', 'KR'}:
-        # 美股常见 class/share 后缀、日韩 Yahoo 后缀都是代码身份的一部分。
-        return ts_code
-
-    if '.' in ts_code:
-        # A股和港股：去除后缀
-        return ts_code.split('.')[0]
-
-    return ts_code
+    symbol = ts_code.split('.')[0]
+    return symbol if symbol.isdigit() and len(symbol) == 6 else None
 
 
 def get_stock_name(row: Dict[str, str], market: str) -> Optional[str]:
-    """
-    获取股票名称
-
-    - A股/港股/日股/韩股：使用 name 字段
-    - 美股：使用 enname 字段（英文名称）
-
-    Args:
-        row: CSV 行数据
-        market: 市场代码
-
-    Returns:
-        股票名称或 None
-    """
-    if market == 'US':
-        # 美股使用英文名称
-        name = row.get('enname', '').strip()
-        return name if name else None
-    else:
-        # A股和港股使用中文名称
-        name = row.get('name', '').strip()
-        name = normalize_stock_name_for_index(name, market)
-        return name if name else None
+    """Return the normalized Chinese name for an A-share row."""
+    if market != 'CN':
+        return None
+    name = normalize_stock_name_for_index(row.get('name', '').strip(), market)
+    return name if name else None
 
 
 def parse_aliases(row: Dict[str, str]) -> List[str]:
@@ -371,39 +279,15 @@ def parse_aliases(row: Dict[str, str]) -> List[str]:
 
 
 def parse_stock_row(row: Dict[str, str], preferred_market: Optional[str] = None) -> Optional[Dict[str, Any]]:
-    """
-    解析单行股票数据
-
-    - 美股 DUMMY 过滤（严格过滤）
-    - 空值校验
-    - 自动判断市场类型（当无法判断时使用 preferred_market）
-    - 返回统一格式的字典
-
-    Args:
-        row: CSV 行数据
-        preferred_market: 当 ts_code 无法判断市场时使用（如美股 DUMMY 记录）
-
-    Returns:
-        解析后的股票字典，无效数据返回 None
-    """
+    """Parse one A-share CSV row into the index's common structure."""
     ts_code = row.get('ts_code', '').strip()
 
     if not ts_code:
         return None
 
-    # 自动判断市场类型
     market = determine_market(ts_code)
-
-    # 如果 ts_code 没有后缀（无法准确判断），且提供了 preferred_market，则使用它
-    # 这主要用于处理美股的特殊格式（如 DUMMY 记录）
-    if '.' not in ts_code and preferred_market:
-        market = preferred_market
-
-    # 美股特殊处理：严格过滤 DUMMY 记录
-    if market == 'US':
-        enname = row.get('enname', '').strip()
-        if not enname or 'DUMMY' in enname.upper():
-            return None
+    if market != 'CN' or (preferred_market and preferred_market != 'CN'):
+        return None
 
     # 获取股票名称
     name = get_stock_name(row, market)
@@ -425,42 +309,10 @@ def parse_stock_row(row: Dict[str, str], preferred_market: Optional[str] = None)
 
 
 def determine_market(ts_code: str) -> str:
-    """
-    Determine market based on code
-
-    Args:
-        ts_code: Trading code (e.g., 000001.SZ, AAPL, BRK.B, 7203.T, 005930.KS)
-
-    Returns:
-        Market code (CN, HK, US, BSE, JP, KR)
-    """
-    if '.' in ts_code:
-        # 有后缀的情况
-        suffix = ts_code.split('.')[1]
-        # 检查是否为中国市场后缀
-        if suffix in ['SH', 'SZ']:
-            return 'CN'
-        elif suffix == 'HK':
-            return 'HK'
-        elif suffix == 'BJ':
-            return 'BSE'
-        elif suffix == 'T':
-            return 'JP'
-        elif suffix in ['KS', 'KQ']:
-            return 'KR'
-        # 有后缀但不是中国市场后缀，检查是否为美股
-        # 美股可能有点号后缀（如 BRK.B, GOOG.A, AAPL.U）
-        prefix = ts_code.split('.')[0]
-        if prefix.isalpha():
-            return 'US'
-    else:
-        # 无后缀的情况
-        # 纯字母代码为美股
-        if ts_code.isalpha():
-            return 'US'
-
-    # 默认为 A股
-    return 'CN'
+    """Return CN for a valid Tushare A-share code, otherwise unsupported."""
+    normalized = str(ts_code or '').strip().upper()
+    match = re.fullmatch(r'(\d{6})(?:\.(SH|SZ|BJ))?', normalized)
+    return 'CN' if match else ''
 
 
 def generate_aliases(name: str, market: str) -> List[str]:
@@ -503,43 +355,7 @@ def generate_aliases(name: str, market: str) -> List[str]:
         '中国石油': ['石油'],
     }
 
-    # 港股常见别名
-    hk_alias_map = {
-        '腾讯控股': ['腾讯', 'Tencent'],
-        '阿里巴巴-SW': ['阿里', '阿里巴巴', 'Alibaba'],
-        '美团-W': ['美团', 'Meituan'],
-        '小米集团-W': ['小米', 'Xiaomi'],
-        '京东集团-SW': ['京东', 'JD'],
-        '网易-S': ['网易', 'NetEase'],
-        '百度集团-SW': ['百度', 'Baidu'],
-        '中芯国际': ['中芯', 'SMIC'],
-        '中国移动': ['中移动', 'China Mobile'],
-        '中国海洋石油': ['中海油', 'CNOOC'],
-    }
-
-    # 美股常见别名
-    us_alias_map = {
-        'Apple Inc.': ['Apple', 'AAPL'],
-        'Microsoft Corporation': ['Microsoft', 'MSFT'],
-        'Amazon.com, Inc.': ['Amazon', 'AMZN'],
-        'Tesla Inc.': ['Tesla', 'TSLA'],
-        'Meta Platforms, Inc.': ['Meta', 'Facebook', 'META'],
-        'Alphabet Inc.': ['Google', 'Alphabet', 'GOOGL'],
-        'NVIDIA Corporation': ['NVIDIA', 'NVDA'],
-        'Netflix Inc.': ['Netflix', 'NFLX'],
-        'Intel Corporation': ['Intel', 'INTC'],
-        'Advanced Micro Devices': ['AMD', 'AMD'],
-    }
-
-    # 根据市场选择映射表
-    if market == 'CN':
-        alias_map = cn_alias_map
-    elif market == 'HK':
-        alias_map = hk_alias_map
-    elif market == 'US':
-        alias_map = us_alias_map
-    else:
-        alias_map = {}
+    alias_map = cn_alias_map if market == 'CN' else {}
 
     if name in alias_map:
         aliases.extend(alias_map[name])
@@ -579,8 +395,8 @@ def build_stock_index(stocks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 aliases.append(alias)
 
         index.append({
-            "canonicalCode": ts_code,    # Example: 000001.SZ, AAPL
-            "displayCode": symbol,       # Example: 000001, AAPL
+            "canonicalCode": ts_code,    # Example: 000001.SZ
+            "displayCode": symbol,       # Example: 000001
             "nameZh": name,
             "pinyinFull": pinyin_full,
             "pinyinAbbr": pinyin_abbr,

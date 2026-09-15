@@ -87,6 +87,7 @@ def _restore_resolver_state():
     db = dict(resolver_mod.stockDB)
     aliases = {code: set(names) for code, names in resolver_mod.stockAliases.items()}
     merged = resolver_mod._akshare_merged
+    resolver_mod.stockDB.update({"000002": "万科", "600938": "中国海洋石油"})
     yield
     resolver_mod.stockDB.clear()
     resolver_mod.stockDB.update(db)
@@ -104,7 +105,7 @@ def _restore_resolver_state():
 
 class TestSplitByCodes:
     """任意位裸数字在 _split_by_codes 阶段直接打 unknown_number；
-    带交易所前缀/后缀与美股 ticker 形态打 unknown_code。"""
+    带交易所前缀/后缀的代码形态打 unknown_code。"""
 
     def test_year_tag(self):
         assert _split_by_codes("2024") == [Token("2024", TAG_UNKNOWN_NUMBER)]
@@ -116,7 +117,7 @@ class TestSplitByCodes:
         assert _split_by_codes("0070") == [Token("0070", TAG_UNKNOWN_NUMBER)]
 
     def test_bare_5digit_tag(self):
-        assert _split_by_codes("00700") == [Token("00700", TAG_UNKNOWN_NUMBER)]
+        assert _split_by_codes("000001") == [Token("000001", TAG_UNKNOWN_NUMBER)]
 
     def test_bare_6digit_tag(self):
         assert _split_by_codes("600519") == [Token("600519", TAG_UNKNOWN_NUMBER)]
@@ -124,23 +125,14 @@ class TestSplitByCodes:
     def test_bare_7digit_tag(self):
         assert _split_by_codes("6005199") == [Token("6005199", TAG_UNKNOWN_NUMBER)]
 
-    def test_hk_suffix_still_unknown_code(self):
-        assert _split_by_codes("1234.HK") == [Token("1234.HK", TAG_UNKNOWN_CODE)]
 
     def test_sz_suffix_still_unknown_code(self):
         assert _split_by_codes("0070.SZ") == [Token("0070.SZ", TAG_UNKNOWN_CODE)]
 
-    def test_hk_prefix_still_unknown_code(self):
-        assert _split_by_codes("HK12") == [Token("HK12", TAG_UNKNOWN_CODE)]
 
     def test_sh_prefix_form(self):
         assert _split_by_codes("SH600519") == [Token("SH600519", TAG_UNKNOWN_CODE)]
 
-    def test_us_ticker_form(self):
-        assert _split_by_codes("BABA") == [Token("BABA", TAG_UNKNOWN_CODE)]
-
-    def test_us_suffix_case_insensitive(self):
-        assert _split_by_codes("aapl.us") == [Token("aapl.us", TAG_UNKNOWN_CODE)]
 
     def test_date_splits_into_three_number_tokens(self):
         tokens = _split_by_codes("2024-08-12")
@@ -149,9 +141,9 @@ class TestSplitByCodes:
         assert [t.text for t in tokens if not t.tag] == ["-", "-"]
 
     def test_overlapping_spans_merge_to_longest(self):
-        # "HK3294384923"：前缀正则 (0,12) 与裸数字正则 (2,12) 合并为最长 span
-        assert _split_by_codes("HK3294384923") == [
-            Token("HK3294384923", TAG_UNKNOWN_CODE),
+        # "SH3294384923"：前缀正则 (0,12) 与裸数字正则 (2,12) 合并为最长 span
+        assert _split_by_codes("SH3294384923") == [
+            Token("SH3294384923", TAG_UNKNOWN_CODE),
         ]
 
     def test_gap_text_preserved_as_untagged_token(self):
@@ -162,7 +154,7 @@ class TestSplitByCodes:
         ]
 
     def test_lowercase_words_not_code_candidates(self):
-        # 普通小写英文单词不是代码形候选（美股 ticker 要求大写/带 .us）
+        # 普通英文单词不是 A 股代码候选。
         assert _split_by_codes("tell us about") == [Token("tell us about")]
 
     def test_empty_text_returns_no_tokens(self):
@@ -255,85 +247,41 @@ class TestIdentifyStockCodes:
             Token("600519", TAG_STOCK_CODE, stocks=(Stock("600519", "贵州茅台", "a"),))
         ]
 
-    def test_hk_suffix_canonicalized(self):
-        assert self._identify("00700.HK") == [
-            Token("HK00700", TAG_STOCK_CODE, stocks=(Stock("HK00700", "腾讯控股", "hk"),))
-        ]
-
-    def test_hk_prefixed_bare_key_canonicalized(self):
-        assert self._identify("HK00700") == [
-            Token("HK00700", TAG_STOCK_CODE, stocks=(Stock("HK00700", "腾讯控股", "hk"),))
-        ]
-
-    def test_hk_short_suffix_padded_before_validation(self):
-        # 4 位短码后缀（1810.HK=小米）：构造 canonical 时先补零再过 5 位
-        # 闸门，token 文本用规范拼写 HK01810（对齐 stock_code_utils zfill(5)）
-        assert self._identify("1810.HK") == [
-            Token("HK01810", TAG_STOCK_CODE, stocks=(Stock("HK01810", "小米集团", "hk"),))
-        ]
-
-    def test_hk_short_suffix_with_leading_zero_padded(self):
-        assert self._identify("0700.HK") == [
-            Token("HK00700", TAG_STOCK_CODE, stocks=(Stock("HK00700", "腾讯控股", "hk"),))
-        ]
-
-    def test_hk_short_prefix_padded(self):
-        # 前缀短码同样补零：HK700 → HK00700 腾讯
-        assert self._identify("HK700") == [
-            Token("HK00700", TAG_STOCK_CODE, stocks=(Stock("HK00700", "腾讯控股", "hk"),))
-        ]
-
-    def test_hk_one_digit_suffix_padded(self):
-        # 单位极端例：700.HK → HK00700（与 stock_scope 正则 \d{1,5}\.HK 同口径）
-        assert self._identify("700.HK") == [
-            Token("HK00700", TAG_STOCK_CODE, stocks=(Stock("HK00700", "腾讯控股", "hk"),))
-        ]
-
-    def test_us_ticker_in_db(self):
-        assert self._identify("TSLA") == [
-            Token("TSLA", TAG_STOCK_CODE, stocks=(Stock("TSLA", "特斯拉", "us"),))
-        ]
-
-    def test_us_ticker_lowercase_suffix_canonicalized(self):
-        # aapl.us → 规范大写 AAPL（extract 的美股正则只认大写，回退大写拼写）
-        assert self._identify("aapl.us") == [
-            Token("AAPL", TAG_STOCK_CODE, stocks=(Stock("AAPL", "苹果", "us"),))
-        ]
 
     def test_prefixed_illegal_code_is_wrong_a(self):
         # 带前缀的非法代码（SH777777）与裸 777777 一样按 A 股形态进 wrong_a_code，
         # 不得因前缀形态被放行（形态非法由交易所静态规则断定，与库状态无关）
         assert self._identify("SH777777") == [Token("SH777777", wrong_code_tag("a"))]
 
-    def test_hk_bad_digit_count_is_wrong_hk(self):
-        # HK + 11 位：位数不符形态非法 → wrong_hk_code
-        assert self._identify("HK3294384923") == [
-            Token("HK3294384923", wrong_code_tag("hk"))
+    def test_exchange_prefix_rejects_invalid_digit_count(self):
+        # SH 前缀后位数非法。
+        assert self._identify("SH3294384923") == [
+            Token("SH3294384923", wrong_code_tag("a"))
         ]
 
-    def test_hk_prefix_with_ashare_digits_is_wrong_hk(self):
-        # HK 前缀 + 6 位（A 股位数）→ 与标注矛盾判 wrong_hk，
+    def test_foreign_prefix_cannot_be_reinterpreted_as_a_share(self):
+        # 境外前缀即使带六位数字也必须拒绝，
         # 不得静默解析成 A 股 600519 贵州茅台
         assert self._identify("HK600519") == [
-            Token("HK600519", wrong_code_tag("hk"))
+            Token("HK600519", wrong_code_tag("a"))
         ]
 
-    def test_sh_prefix_with_hk_digits_is_wrong_a(self):
-        # SH 前缀 + 5 位（港股位数）→ wrong_a，不得静默变 HK00700 腾讯
-        assert self._identify("SH00700") == [
-            Token("SH00700", wrong_code_tag("a"))
+    def test_sh_prefix_rejects_shenzhen_stock(self):
+        # 上海前缀不能用于深圳股票 000001。
+        assert self._identify("SH000001") == [
+            Token("SH000001", wrong_code_tag("a"))
         ]
 
-    def test_sz_suffix_with_hk_digits_is_wrong_a(self):
+    def test_sz_suffix_rejects_five_digit_code(self):
         assert self._identify("00700.SZ") == [
             Token("00700.SZ", wrong_code_tag("a"))
         ]
 
-    def test_hk_suffix_with_ashare_digits_is_wrong_hk(self):
-        # .HK 后缀 + 6 位 → wrong_hk：不得从数字中段截取片段与后缀拼接
+    def test_foreign_suffix_cannot_be_reinterpreted_as_a_share(self):
+        # 境外后缀不能被忽略，也不能从数字中段截取片段与后缀拼接
         # 解析（多候选只取首个的顺序依赖同样不允许）
         assert self._identify("600519.HK") == [
-            Token("600519.HK", wrong_code_tag("hk"))
+            Token("600519.HK", wrong_code_tag("a"))
         ]
 
     def test_sh_marker_with_sz_digits_is_wrong_a(self):
@@ -362,9 +310,9 @@ class TestIdentifyStockCodes:
         ]
 
     def test_marker_case_insensitive(self):
-        assert self._identify("hk00700") == [
-            Token("HK00700", TAG_STOCK_CODE,
-                  stocks=(Stock("HK00700", "腾讯控股", "hk"),))
+        assert self._identify("sz000001") == [
+            Token("000001", TAG_STOCK_CODE,
+                  stocks=(Stock("000001", "平安银行", "a"),))
         ]
         assert self._identify("sh600519") == [
             Token("600519", TAG_STOCK_CODE,
@@ -383,12 +331,6 @@ class TestIdentifyStockCodes:
                   stocks=(Stock("600519", "贵州茅台", "a"),))
         ]
 
-    def test_out_of_db_ticker_kept_unknown_us(self):
-        # SOFI 不在本地库：美股库永不视为全量，存疑 unknown_us_code 交下游 LLM
-        assert self._identify("SOFI") == [Token("SOFI", unknown_code_tag("us"))]
-
-    def test_plain_english_word_kept_unknown_us(self):
-        assert self._identify("OK") == [Token("OK", unknown_code_tag("us"))]
 
     def test_absent_ashare_code_before_extension_unknown(self, monkeypatch):
         # A 股库未扩展（_akshare_merged 为 None）：格式合法但库未命中 → 存疑
@@ -404,9 +346,6 @@ class TestIdentifyStockCodes:
         monkeypatch.setattr(resolver_mod, "_akshare_merged", {"贵州茅台": "600519"})
         assert self._identify("SH603999") == [Token("SH603999", wrong_code_tag("a"))]
 
-    def test_hk_absent_code_always_unknown(self):
-        # 港股本地库永不视为全量：格式合法但库未命中（HK39999）→ 存疑
-        assert self._identify("HK39999") == [Token("HK39999", unknown_code_tag("hk"))]
 
     def test_mock_akshare_merge_makes_code_matched(self):
         # mock 的 AkShare 全量并入后：SZ000799（酒鬼酒，深市代码配深市标注）
@@ -435,12 +374,6 @@ class TestFullNameScan:
         assert name_token.tag == TAG_STOCK_NAME
         assert [s.code for s in name_token.stocks] == ["600519"]
 
-    def test_cross_market_same_name_carries_candidates(self):
-        # 阿里巴巴 → hk 09988 / us BABA 同名多只，token 携带多候选
-        tokens = _split_by_stock_entities("阿里巴巴")
-        assert len(tokens) == 1
-        assert tokens[0].tag == TAG_STOCK_NAME
-        assert {s.code for s in tokens[0].stocks} == {"HK09988", "BABA"}
 
     def test_abbreviation_not_matched_here(self):
         # 一对一缩写（茅台）非全名，Step 1 不做匹配，交由 Step 6 承接
@@ -471,15 +404,15 @@ class TestFullNameScan:
         assert [s.code for s in tokens[0].stocks] == ["000858"]
 
     def test_pure_ascii_short_circuit(self):
-        # 纯英文段直接原样返回（交 Step 6 拼音/美股代码兜底）
-        assert _split_by_stock_entities("TSLA") == [Token("TSLA")]
+        # 纯英文段直接原样返回（交 Step 6 拼音/A股代码兜底）
+        assert _split_by_stock_entities("000858") == [Token("000858")]
 
     def test_two_char_full_name_matched(self):
-        # 8~2 窗口契约（原"2 字名不扫描"已反转）：2 字全名（美团=03690）
+        # 8~2 窗口契约（原"2 字名不扫描"已反转）：2 字全名（万科=03690）
         # 整名精确命中，不再依赖 Step 6 模糊路径
-        tokens = _split_by_stock_entities("美团")
-        assert [(t.text, t.tag) for t in tokens] == [("美团", TAG_STOCK_NAME)]
-        assert [s.code for s in tokens[0].stocks] == ["HK03690"]
+        tokens = _split_by_stock_entities("万科")
+        assert [(t.text, t.tag) for t in tokens] == [("万科", TAG_STOCK_NAME)]
+        assert [s.code for s in tokens[0].stocks] == ["000002"]
 
     def test_six_char_full_name_matched_whole(self):
         # 6 字全名（中国海洋石油=00883）整名命中：不再落给 DFS 拆成
@@ -489,7 +422,7 @@ class TestFullNameScan:
             ("中国海洋石油", TAG_STOCK_NAME),
             ("怎么样", ""),
         ]
-        assert [s.code for s in tokens[0].stocks] == ["HK00883"]
+        assert [s.code for s in tokens[0].stocks] == ["600938"]
 
     def test_spaced_six_char_name_matched_whole(self):
         # 单空格书写的 6 字全名（raw 11 字符，超压缩长度上限 8）：空白收敛
@@ -499,7 +432,7 @@ class TestFullNameScan:
             ("中国海洋石油", TAG_STOCK_NAME),
             ("怎么样", ""),
         ]
-        assert [s.code for s in tokens[0].stocks] == ["HK00883"]
+        assert [s.code for s in tokens[0].stocks] == ["600938"]
 
     def test_spaced_long_name_pipeline_resolves(self):
         # 全管道：带空格 6 字全名整名命中——Step 2 按空白切分会把名撕裂成
@@ -509,7 +442,7 @@ class TestFullNameScan:
             ("中国海洋石油", TAG_STOCK_NAME),
             ("怎么样", TAG_QUESTION),
         ]
-        assert [s.code for s in tokens[0].stocks] == ["HK00883"]
+        assert [s.code for s in tokens[0].stocks] == ["600938"]
 
     def test_multi_space_and_tab_separated_name_matched(self):
         # 多空格/tab/连续空白分隔的全名同样整名命中：入口把空白收敛为单空格，
@@ -524,19 +457,19 @@ class TestFullNameScan:
 
 
 # =========================================================================
-# 港股代码身份不变量 — 名称路径与代码路径共享同一拼写
+# A股代码身份不变量 — 名称路径与代码路径共享同一拼写
 # =========================================================================
 
-class TestHkCodeIdentityInvariant:
-    """token 层代码身份契约：a=6 位裸数字、hk=HK+5 位、us=大写 ticker
+class TestAShareCodeIdentityInvariant:
+    """token 层代码身份契约：A 股使用六位数字代码
     （单一定义点 _canonical_stock_code）。名称路径（Step 1 实体/别名扫描、
     Step 6 子串/拼音匹配）与代码路径（_identify_stock_codes）产出必须一致，
     否则同一股票跨轮次出现多重身份（recent_stocks 去重/事件比较失效）。
-    stockDB 港股键为裸 5 位，归一化只在 token 层发生，resolver 契约不变。"""
+    stockDB 和 token 均使用六位代码。"""
 
     @pytest.mark.parametrize("name, code", [
-        ("腾讯控股", "HK00700"),
-        ("美团", "HK03690"),
+        ("平安银行", "000001"),
+        ("万科", "000002"),
     ])
     def test_name_path_matches_code_path(self, name, code):
         # P1-1 回归：同一条消息里名称指称与代码指称必须解析到同一代码拼写
@@ -551,42 +484,33 @@ class TestHkCodeIdentityInvariant:
         # Step 1 别名分支：命中展示当前规范名 + canonical 拼写
         from src.services import name_to_code_resolver as resolver_mod
 
-        resolver_mod.stockAliases.setdefault("00700", set()).add("老腾讯名")
+        resolver_mod.stockAliases.setdefault("000001", set()).add("老平安名")
         resolver_mod._names_cache[:] = [None, None, None]
         try:
-            tokens = _split_by_stock_entities("老腾讯名怎么样")
+            tokens = _split_by_stock_entities("老平安名怎么样")
             assert [(t.text, t.tag) for t in tokens] == [
-                ("老腾讯名", TAG_STOCK_NAME), ("怎么样", "")
+                ("老平安名", TAG_STOCK_NAME), ("怎么样", "")
             ]
-            assert [s.code for s in tokens[0].stocks] == ["HK00700"]
-            assert tokens[0].stocks[0].name == "腾讯控股"
+            assert [s.code for s in tokens[0].stocks] == ["000001"]
+            assert tokens[0].stocks[0].name == "平安银行"
         finally:
-            resolver_mod.stockAliases["00700"].discard("老腾讯名")
-            if not resolver_mod.stockAliases["00700"]:
-                del resolver_mod.stockAliases["00700"]
+            resolver_mod.stockAliases["000001"].discard("老平安名")
+            if not resolver_mod.stockAliases["000001"]:
+                del resolver_mod.stockAliases["000001"]
             resolver_mod._names_cache[:] = [None, None, None]
 
     def test_dfs_cjk_substring_path_canonical(self):
-        # Step 6 CJK 循环经 resolver 子串命中港股（腾讯 ⊂ 腾讯控股）
-        _, tokens = _preprocess_text("腾讯怎么样")
+        # Step 6 CJK 循环经 resolver 子串命中A股（平安 ⊂ 平安银行）
+        _, tokens = _preprocess_text("平安怎么样")
         assert [s.code for t in tokens if t.tag == TAG_STOCK_NAME
-                for s in (t.stocks or ())] == ["HK00700"]
+                for s in (t.stocks or ())] == ["000001", "601318"]
 
     def test_dfs_alpha_pinyin_path_canonical(self):
-        # Step 6 alpha 路径经拼音命中港股（tengxun ⊂ tengxunkonggu）
-        _, tokens = _preprocess_text("tengxun怎么样")
+        # Step 6 alpha 路径经拼音命中A股（pingan ⊂ pingankonggu）
+        _, tokens = _preprocess_text("pingan怎么样")
         assert [s.code for t in tokens if t.tag == TAG_STOCK_NAME
-                for s in (t.stocks or ())] == ["HK00700"]
+                for s in (t.stocks or ())] == ["000001", "601318"]
 
-    def test_no_bare_hk_code_in_any_token(self):
-        # 不变量扫描：任何 token 的 stocks 不得出现 market=="hk" 且纯数字 code
-        # （跨市场名"理想汽车"= LI + 02015 同 token 内按市场逐候选归一）
-        for msg in ["腾讯控股和美团对比", "阿里巴巴vs贵州茅台", "港股腾讯控股",
-                    "分析hk00700和腾讯控股", "理想汽车怎么样"]:
-            _, tokens = _preprocess_text(msg)
-            for t in tokens:
-                for s in (t.stocks or ()):
-                    assert not (s.market == "hk" and s.code.isdigit()), (msg, s)
 
 
 # =========================================================================
@@ -594,7 +518,7 @@ class TestHkCodeIdentityInvariant:
 # =========================================================================
 
 class TestAsciiContainedFullName:
-    """P1-1 回归：库内全名含形同美股 ticker 的大写 ASCII 子串（"TCL科技"
+    """P1-1 回归：库内全名含大写 ASCII 子串（"TCL科技"
     的 "TCL"）时，Step 1 实体扫描（管道首步，入口先扩展）必须整名消费。
     旧序（代码形提取先于实体扫描）会把 "TCL" 撕成 unknown_code、把
     "科技" 误打成 sector_name——实体丢失且产出错误的行业/市场信号，
@@ -642,20 +566,20 @@ class TestAsciiContainedFullName:
         ]
 
     def test_market_keyword_coexists(self):
-        tokens = self._run("美股TCL科技怎么样")
+        tokens = self._run("A股TCL科技怎么样")
         assert [(t.text, t.tag) for t in tokens] == [
-            ("美股", TAG_SUBJECT_MARKET),
+            ("A股", TAG_SUBJECT_MARKET),
             ("TCL科技", TAG_STOCK_NAME),
             ("怎么样", TAG_QUESTION),
         ]
 
     def test_out_of_db_ascii_name_degrades_gracefully(self):
-        # 已知限制：库外含 ASCII 名（如港股 "TCL电子"）不在库中，Step 1
-        # 无法整名消费，"TCL" 照旧降级为 unknown_us_code 交下游 LLM 兜底
-        # （形态层面本质歧义：大写字母后接 CJK 一律放行会误伤 "TSLA怎么样"）
+        # 已知限制：库外含 ASCII 名（如A股 "TCL电子"）不在库中，Step 1
+        # 无法整名消费，整段保留为未识别文本交下游处理
+        # （形态层面本质歧义：大写字母后接 CJK 一律放行会误伤 "000858怎么样"）
         tokens = self._run("TCL电子怎么样")
         pairs = [(t.text, t.tag) for t in tokens]
-        assert ("TCL", unknown_code_tag("us")) in pairs
+        assert ("TCL电子", "") in pairs
 
 
 # =========================================================================
@@ -695,54 +619,23 @@ class TestCaseInsensitiveKeywordClassification:
 # 字母.交易所后缀代码 — 后缀与主体整体成 span
 # =========================================================================
 
-class TestSuffixedUsTicker:
-    """BRK.B / AAPL.N / TSLA.N 形态（与 extract_stock_codes 的美股正则
-    同构）：后缀与主体必须整体成 span，不得撕成 "BRK" + ".B" 两段——
-    旧正则会把库外代码文本撕残（unknown_us_code 只剩 "BRK"）。"""
-
-    def test_step3_keeps_suffix_whole(self):
-        assert _split_by_codes("BRK.B") == [Token("BRK.B", TAG_UNKNOWN_CODE)]
-        assert _split_by_codes("AAPL.N") == [Token("AAPL.N", TAG_UNKNOWN_CODE)]
-        assert _split_by_codes("TSLA.N怎么样") == [
-            Token("TSLA.N", TAG_UNKNOWN_CODE),
-            Token("怎么样"),
-        ]
-
-    def test_identify_in_db_ticker_with_suffix(self):
-        # 库内 ticker：取主体规范化大写拼写（AAPL.N → AAPL）
-        assert _identify_stock_codes([Token("AAPL.N", TAG_UNKNOWN_CODE)]) == [
-            Token("AAPL", TAG_STOCK_CODE, stocks=(Stock("AAPL", "苹果", "us"),))
-        ]
-
-    def test_identify_out_of_db_keeps_text_intact(self):
-        # 库外带后缀代码：文本保持完整交下游确认（不再残缺成 "BRK"+".B"）
-        assert _identify_stock_codes([Token("BRK.B", TAG_UNKNOWN_CODE)]) == [
-            Token("BRK.B", unknown_code_tag("us"))
-        ]
-
-    def test_us_suffix_pattern_unaffected(self):
-        # .us 后缀（大小写不敏感）行为不变
-        assert _split_by_codes("aapl.us") == [Token("aapl.us", TAG_UNKNOWN_CODE)]
-        assert _split_by_codes("BABA.US") == [Token("BABA.US", TAG_UNKNOWN_CODE)]
-
-
 # =========================================================================
 # Step 4 — 市场词提取
 # =========================================================================
 
 class TestMarketTokenSplit:
-    """"股"后接"份"（股票名后缀）时跳过，避免"大港股份"中的"港股"被误提取。"""
+    """"股"后接"份"（股票名后缀）时跳过，避免公司名称被误提取为市场词。"""
 
     def test_market_word_tagged(self):
-        tokens = _split_market_tokens("港股")
-        assert [(t.text, t.tag) for t in tokens] == [("港股", TAG_SUBJECT_MARKET)]
+        tokens = _split_market_tokens("A股")
+        assert [(t.text, t.tag) for t in tokens] == [("A股", TAG_SUBJECT_MARKET)]
 
     def test_ascii_market_case_insensitive(self):
         tokens = _split_market_tokens("A股")
         assert [(t.text, t.tag) for t in tokens] == [("A股", TAG_SUBJECT_MARKET)]
 
     def test_market_suffix_company_name_not_split(self):
-        # "大港股份"中的"港股"子串后接"份"→ 跳过，整段保留
+        # 公司名称应保持完整，不作为市场词。
         assert _split_market_tokens("大港股份") == [Token("大港股份")]
 
     def test_broad_market_keyword(self):
@@ -750,8 +643,8 @@ class TestMarketTokenSplit:
         assert ("行情", TAG_SUBJECT_MARKET_BROAD) in [(t.text, t.tag) for t in tokens]
 
     def test_gap_untagged(self):
-        tokens = _split_market_tokens("看看港股走势")
-        assert [t.text for t in tokens] == ["看看", "港股", "走势"]
+        tokens = _split_market_tokens("看看A股走势")
+        assert [t.text for t in tokens] == ["看看", "A股", "走势"]
         assert tokens[1].tag == TAG_SUBJECT_MARKET
 
 
@@ -911,23 +804,23 @@ class TestMultiMatch:
         assert [s.code for s in tokens[0].stocks] == ["600519"]
 
     def test_generic_corp_suffix_not_fabricated(self):
-        # "苹果公司"不得拆成 苹果+公司 双 stock_name："公司"是零区分度通用
+        # "茅台公司"不得拆成 茅台+公司 双 stock_name："公司"是零区分度通用
         # 后缀（extend 词池 corp_suffix），子串命中中微公司是噪声非信号——
-        # 苹果精确命中、"公司"打 corp_suffix tag 参与 DFS 全覆盖
-        tokens = _multi_match("苹果公司")
+        # 茅台精确命中、"公司"打 corp_suffix tag 参与 DFS 全覆盖
+        tokens = _multi_match("茅台公司")
         assert [(t.text, t.tag) for t in tokens] == [
-            ("苹果", TAG_STOCK_NAME), ("公司", TAG_CORP_SUFFIX)
+            ("茅台", TAG_STOCK_NAME), ("公司", TAG_CORP_SUFFIX)
         ]
-        assert [s.code for s in tokens[0].stocks] == ["AAPL"]
+        assert [s.code for s in tokens[0].stocks] == ["600519"]
 
     def test_suffix_tag_enables_full_coverage(self):
-        # 后缀 corp_suffix 使 DFS 全覆盖成立："腾讯公司"→腾讯(腾讯控股)+
+        # 后缀 corp_suffix 使 DFS 全覆盖成立："平安公司"→平安(平安银行)+
         # 公司(corp_suffix)，不再整段放弃交下游（空 tag 方案下无法覆盖）
-        tokens = _multi_match("腾讯公司")
+        tokens = _multi_match("平安公司")
         assert [(t.text, t.tag) for t in tokens] == [
-            ("腾讯", TAG_STOCK_NAME), ("公司", TAG_CORP_SUFFIX)
+            ("平安", TAG_STOCK_NAME), ("公司", TAG_CORP_SUFFIX)
         ]
-        assert [s.code for s in tokens[0].stocks] == ["HK00700"]
+        assert [s.code for s in tokens[0].stocks] == ["000001", "601318"]
 
     def test_bare_generic_suffix_tagged_corp_suffix(self):
         # 纯通用后缀单独成词：不做全库扫描，打 corp_suffix tag（原实现解析
@@ -935,45 +828,45 @@ class TestMultiMatch:
         assert _multi_match("集团") == [Token("集团", TAG_CORP_SUFFIX)]
 
     def test_generic_suffix_pipeline_not_injected(self):
-        # 全管道回归：分析 苹果公司 走势 → 只产出苹果(AAPL)，不注入 688012
-        _, tokens = _preprocess_text("分析 苹果公司 走势")
+        # 全管道回归：分析 茅台公司 走势 → 只产出茅台(600519)，不注入 688012
+        _, tokens = _preprocess_text("分析 茅台公司 走势")
         assert [(t.text, t.tag) for t in tokens] == [
             ("分析", TAG_REQUEST),
-            ("苹果", TAG_STOCK_NAME),
+            ("茅台", TAG_STOCK_NAME),
             ("公司", TAG_CORP_SUFFIX),
             ("走势", TAG_SUBJECT_RESEARCH),
         ]
         assert [s.code for t in tokens if t.tag == TAG_STOCK_NAME
-                for s in (t.stocks or ())] == ["AAPL"]
+                for s in (t.stocks or ())] == ["600519"]
 
     def test_suffix_containing_full_name_still_matched(self):
         # 防过度拦截：含后缀词头但非纯后缀的全名（中芯国际）照常整名命中，
-        # 跨市场同名双候选各按 canonical 拼写（a=688981、hk=HK00981）
+        # 名称包含通用后缀时，仍应保留完整 A 股身份。
         tokens = _multi_match("中芯国际")
         assert [(t.text, t.tag) for t in tokens] == [("中芯国际", TAG_STOCK_NAME)]
-        assert {s.code for s in tokens[0].stocks} == {"688981", "HK00981"}
+        assert {s.code for s in tokens[0].stocks} == {"688981"}
 
     def test_space_separated_ascii_words_resolved(self):
         # 空白是词界、Step 1 切分——空格分隔的小写多词与逗号分隔同构
         # （原整段失败交 LLM；≤4 字余词靠"带空格模糊命中"侥幸通过且 token
         # 文本残留前导空格的偶然边界一并消除）
-        _, tokens = _preprocess_text("tsla aapl")
+        _, tokens = _preprocess_text("wuliangye maotai")
         assert [(t.text, t.tag) for t in tokens] == [
-            ("tsla", TAG_STOCK_NAME), ("aapl", TAG_STOCK_NAME)
+            ("wuliangye", TAG_STOCK_NAME), ("maotai", TAG_STOCK_NAME)
         ]
-        assert [s.code for t in tokens for s in (t.stocks or ())] == ["TSLA", "AAPL"]
+        assert [s.code for t in tokens for s in (t.stocks or ())] == ["000858", "600519"]
 
     def test_space_equivalent_to_comma(self):
         # 空格与逗号产出同构：独立 token、无前导空格残留
-        _, spaced = _preprocess_text("tsla amd")
-        _, commaed = _preprocess_text("tsla,amd")
+        _, spaced = _preprocess_text("wuliangye amd")
+        _, commaed = _preprocess_text("wuliangye,amd")
         assert [(t.text, t.tag) for t in spaced] == [(t.text, t.tag) for t in commaed]
 
     def test_space_separated_word_failure_not_contagious(self):
         # 词间独立：垃圾词空 tag 交 LLM，不连坐拖垮相邻已解析词
-        _, tokens = _preprocess_text("tsla jkl")
+        _, tokens = _preprocess_text("wuliangye jkl")
         assert [(t.text, t.tag) for t in tokens] == [
-            ("tsla", TAG_STOCK_NAME), ("jkl", "")
+            ("wuliangye", TAG_STOCK_NAME), ("jkl", "")
         ]
 
     def test_cjk_with_spaces_deterministic(self):
@@ -983,14 +876,6 @@ class TestMultiMatch:
             ("茅台", TAG_STOCK_NAME), ("和", TAG_FILLER), ("五粮液", TAG_STOCK_NAME)
         ]
 
-    def test_alpha_path_ascii_name_dedup(self):
-        # 名称恰等于 ticker 的 ASCII 名美股（AMD）：resolver 精确名匹配与
-        # US ticker 匹配双源各出一份，拼接须按 (code, market) 去重，
-        # 否则 stocks 重复会被下游误判名称歧义
-        tokens = _multi_match("amd")
-        assert len(tokens) == 1
-        assert tokens[0].tag == TAG_STOCK_NAME
-        assert [(s.code, s.market) for s in tokens[0].stocks] == [("AMD", "us")]
 
     def test_full_pinyin_resolves(self):
         tokens = _multi_match("guizhoumaotai")
@@ -1008,16 +893,16 @@ class TestMultiMatch:
         assert _multi_match("你好股份") == [Token("你好股份")]
 
     def test_cjk_with_particle_not_pinyin_matched(self):
-        # 回归：扩展库并入中大力德（拼音 zhongdalide）后，"阿里的"（拼音
+        # 回归：扩展库并入中大力德（拼音 zhongdalide）后，"茅台的"（拼音
         # alide ⊂ zhongdalide）不得经拼音子串层误命中；DFS 最长优先的
-        # 3 字路径落空后必须回退到 2 字"阿里"子串 + "的"filler 的正确组合
+        # 3 字路径落空后必须回退到 2 字"茅台"子串 + "的"filler 的正确组合
         resolver_name_to_code_list("酒鬼酒")  # CJK 触发 mock AkShare 并入
-        tokens = _multi_match("阿里的")
+        tokens = _multi_match("茅台的")
         assert [(t.text, t.tag) for t in tokens] == [
-            ("阿里", "stock_name"),
+            ("茅台", "stock_name"),
             ("的", "filler"),
         ]
-        assert [s.code for s in tokens[0].stocks] == ["HK09988", "BABA"]
+        assert [s.code for s in tokens[0].stocks] == ["600519"]
 
 
 # =========================================================================
@@ -1300,11 +1185,11 @@ class TestCrossValidation:
 
     def test_step3_releases_ascii_keywords_case_insensitive(self):
         # 关键词形态的 ASCII 片段不作代码候选（大小写不敏感）——
-        # 大写形态被 ticker 正则抠走会让 keyword 语义丢失、误入美股辨认
+        # 大写关键词不得被误提取为股票代码。
         assert _split_by_codes("茅台PK五粮液") == [Token("茅台PK五粮液")]
         assert _split_by_codes("BUY") == [Token("BUY")]
         # 非关键词的大写词仍照常作为代码候选（宽口径不变）
-        assert _split_by_codes("ROE") == [Token("ROE", TAG_UNKNOWN_CODE)]
+        assert _split_by_codes("ROE") == [Token("ROE")]
 
     def test_uppercase_ascii_keyword_pipeline(self):
         # 全管道：大写关键词与实体共存，语义与实体两全
@@ -1336,17 +1221,12 @@ class TestCrossValidation:
 class TestExtractMarketsFromTokens:
     def test_market_tag_mapped(self):
         assert _extract_markets_from_tokens(
-            [Token("港股", TAG_SUBJECT_MARKET)]
-        ) == [Market.HK]
+            [Token("A股", TAG_SUBJECT_MARKET)]
+        ) == [Market.A]
         assert _extract_markets_from_tokens(
             [Token("A股", TAG_SUBJECT_MARKET)]
         ) == [Market.A]
 
-    def test_ascii_market_shorthand(self):
-        # "HK" Step 3 会被标成 unknown_code，但文本形态仍是市场提示
-        assert _extract_markets_from_tokens([Token("HK", TAG_UNKNOWN_CODE)]) == [Market.HK]
-        # 小写简写需 CJK 语境：中文消息里的独立 "us" 是市场提示
-        assert _extract_markets_from_tokens([Token("看看"), Token("us")]) == [Market.US]
 
     def test_english_pronoun_us_not_market(self):
         # 纯英文消息里的小写 "us" 是代词（"tell us about…"），不是市场提示
@@ -1354,14 +1234,14 @@ class TestExtractMarketsFromTokens:
             Token("tell"), Token("us"), Token("about"),
         ]) == []
         # 大写简写是刻意形态，不受语境限制
-        assert _extract_markets_from_tokens([Token("US")]) == [Market.US]
+        assert _extract_markets_from_tokens([Token("US")]) == []
 
     def test_dedup(self):
         markets = _extract_markets_from_tokens([
-            Token("港股", TAG_SUBJECT_MARKET),
-            Token("香港", TAG_SUBJECT_MARKET),
+            Token("A股", TAG_SUBJECT_MARKET),
+            Token("沪深", TAG_SUBJECT_MARKET),
         ])
-        assert markets == [Market.HK]
+        assert markets == [Market.A]
 
 
 class TestIsIdentifiedToken:
@@ -1384,11 +1264,11 @@ class TestMarketOfCode:
     @pytest.mark.parametrize("code,expected", [
         ("600519", "a"),
         ("000799", "a"),
-        ("00700", "hk"),
-        ("09988", "hk"),
-        ("AAPL", "us"),
-        ("AAPL.N", "us"),   # 单字母交易所后缀（NYSE/NASDAQ 简写）
-        ("AAPL.US", ""),    # 双字母后缀不在单字母推断契约内
+        ("00700", ""),
+        ("09988", ""),
+        ("AAPL", ""),
+        ("AAPL.N", ""),   # 境外代码不推断为 A 股
+        ("600519.US", ""),    # 六位数字带境外后缀同样拒绝
         ("77", ""),
         ("", ""),
     ])

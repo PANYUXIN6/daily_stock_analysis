@@ -23,7 +23,6 @@ EfinanceFetcher - 优先数据源 (Priority 0)
 import logging
 import os
 import random
-import re
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass, field
@@ -63,7 +62,6 @@ from .base import (
     is_st_stock,
     is_kc_cy_stock,
     normalize_stock_code,
-    _is_hk_market,
     _is_etf_code as _is_a_share_etf_code,
 )
 from .realtime_types import (
@@ -177,18 +175,6 @@ def _build_eastmoney_etf_secid(stock_code: str) -> str:
     if code.startswith(_ETF_SZ_PREFIXES):
         return f"0.{code}"
     raise DataFetchError(f"无法确定 ETF {stock_code} 的 Eastmoney 市场前缀")
-
-
-def _is_us_code(stock_code: str) -> bool:
-    """
-    判断代码是否为美股
-    
-    美股代码规则：
-    - 1-5个大写字母，如 'AAPL', 'TSLA'
-    - 可能包含 '.'，如 'BRK.B'
-    """
-    code = stock_code.strip().upper()
-    return bool(re.match(r'^[A-Z]{1,5}(\.[A-Z])?$', code))
 
 
 def _ef_call_with_timeout(func, *args, timeout=None, **kwargs):
@@ -365,27 +351,17 @@ class EfinanceFetcher(BaseFetcher):
         """
         从 efinance 获取原始数据
         
-        根据代码类型自动选择 API：
-        - 美股：不支持，抛出异常让 DataFetcherManager 切换到其他数据源
+        根据 A 股代码类型自动选择 API：
         - 普通股票：使用 ef.stock.get_quote_history()
         - ETF 基金：使用 ef.stock.get_quote_history()（ETF 是交易所证券，使用股票 K 线接口）
         
         流程：
-        1. 判断代码类型（美股/股票/ETF）
+        1. 判断代码类型（股票/ETF）
         2. 设置随机 User-Agent
         3. 执行速率限制（随机休眠）
         4. 调用对应的 efinance API
         5. 处理返回数据
         """
-        # 美股不支持，抛出异常让 DataFetcherManager 切换到 AkshareFetcher/YfinanceFetcher
-        if _is_us_code(stock_code):
-            raise DataFetchError(f"EfinanceFetcher 不支持美股 {stock_code}，请使用 AkshareFetcher 或 YfinanceFetcher")
-
-        # efinance 的历史 K 线接口在港股代码上可能返回非预期市场数据，
-        # 明确跳过并交给 AkShare/Tushare/YFinance/Longbridge 等港股路径兜底。
-        if _is_hk_market(stock_code):
-            raise DataFetchError(f"EfinanceFetcher 不支持港股日线 {stock_code}，请使用 AkshareFetcher 或其他港股数据源")
-        
         # 根据代码类型选择不同的获取方法
         if _is_etf_code(stock_code):
             return self._fetch_etf_data(stock_code, start_date, end_date)

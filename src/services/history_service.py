@@ -195,18 +195,6 @@ class HistoryService:
             add(raw_code)
             return candidates
 
-        def add_hk_variants(digits: str) -> None:
-            if not digits or not digits.isdigit():
-                return
-
-            normalized_digits = digits.zfill(5)
-            add(f"HK{normalized_digits}")
-            add(f"{normalized_digits}.HK")
-
-            unpadded_digits = digits.lstrip("0")
-            if unpadded_digits:
-                add(f"{unpadded_digits}.HK")
-
         resolved = resolve_index_stock_code(raw_canonical) or resolve_index_stock_code(normalized)
         resolved_normalized = ""
         if resolved:
@@ -223,11 +211,7 @@ class HistoryService:
         add(raw_canonical)
         add(normalized)
 
-        if normalized.startswith("HK") and normalized[2:].isdigit():
-            add_hk_variants(normalized[2:])
-        elif normalized.isdigit() and len(normalized) == 5:
-            add_hk_variants(normalized)
-        elif normalized.isdigit() and len(normalized) == 6:
+        if normalized.isdigit() and len(normalized) == 6:
             exchange = None
             if is_bse_code(normalized):
                 exchange = "BJ"
@@ -402,7 +386,9 @@ class HistoryService:
             # case fold for API/task/report codes — they must never guess a
             # canonical from prefixes/suffixes.
             return target.canonical_id
-        return resolve_index_stock_code(code) or code
+        if target.asset_type == ParseStatus.STOCK:
+            return target.normalized_code or code
+        return code
 
     def _display_market_phase_summary(self, stock_code: str, context_snapshot: Any) -> Any:
         return rebuild_market_phase_summary_for_stock_code(

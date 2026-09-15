@@ -58,14 +58,14 @@ class _TradeContext:
                 self.positions_by_account.get(kwargs["acc_id"], [])
             )
         return 0, pd.DataFrame([
-            {"code": "US.AAPL", "qty": 10, "position_side": "LONG"},
+            {"code": "SH.600036", "qty": 10, "position_side": "LONG"},
             {"code": "US.DRAM", "qty": 3, "position_side": "LONG"},
             {
-                "code": "US.AAPL261218C200000",
+                "code": "SH.600036261218C200000",
                 "qty": -1,
                 "position_side": "LONG",
             },
-            {"code": "HK.00700", "qty": 20, "position_side": "LONG"},
+            {"code": "SZ.000002", "qty": 20, "position_side": "LONG"},
             {"code": "SH.600519", "qty": 0, "position_side": "LONG"},
             {"code": "SZ.000001", "qty": 8, "position_side": "LONG"},
         ])
@@ -79,10 +79,10 @@ class _QuoteContext:
         self.closed = False
         self.open_arguments = {"host": host, "port": port}
         self.stock_types = {
-            "US.AAPL": "STOCK",
+            "SH.600036": "STOCK",
             "US.DRAM": "ETF",
-            "US.AAPL261218C200000": "DRVT",
-            "HK.00700": "STOCK",
+            "SH.600036261218C200000": "DRVT",
+            "SZ.000002": "STOCK",
             "SZ.000001": "STOCK",
             "JP.7203": "STOCK",
             "JP.130A": "STOCK",
@@ -197,7 +197,7 @@ class FutuPortfolioServiceTest(unittest.TestCase):
         ):
             service._load_futu_api()
 
-    def test_load_futu_stock_codes_keeps_only_supported_a_hk_us_stocks(self):
+    def test_load_futu_stock_codes_keeps_only_supported_a_share_stocks(self):
         trade_contexts = []
         quote_contexts = []
         api = _fake_api(trade_contexts, quote_contexts)
@@ -209,7 +209,7 @@ class FutuPortfolioServiceTest(unittest.TestCase):
         ), patch.object(service, "_load_futu_api", return_value=api):
             result = service.load_futu_stock_codes()
 
-        self.assertEqual(result, ["AAPL", "HK00700", "000001"])
+        self.assertEqual(result, ["600036", "000002", "000001"])
         position_contexts = [ctx for ctx in trade_contexts if ctx.position_queries]
         self.assertEqual(len(position_contexts), 1)
         self.assertEqual(
@@ -259,7 +259,7 @@ class FutuPortfolioServiceTest(unittest.TestCase):
             accounts=[_account(1001, "NORMAL")],
             positions_by_account={
                 1001: [
-                    {"code": "US.AAPL", "qty": 10, "position_side": "LONG"},
+                    {"code": "SH.600036", "qty": 10, "position_side": "LONG"},
                     {"code": "JP.7203", "qty": 5, "position_side": "LONG"},
                 ]
             },
@@ -276,7 +276,7 @@ class FutuPortfolioServiceTest(unittest.TestCase):
         ), self.assertLogs(service.logger, level="WARNING") as captured:
             result = service.load_futu_stock_codes()
 
-        self.assertEqual(result, ["AAPL"])
+        self.assertEqual(result, ["600036"])
         self.assertIn("JP.7203", "\n".join(captured.output))
 
     def test_load_futu_stock_codes_rejects_stock_code_outside_analysis_contract(self):
@@ -288,10 +288,10 @@ class FutuPortfolioServiceTest(unittest.TestCase):
             accounts=[_account(1001, "NORMAL")],
             positions_by_account={
                 1001: [
-                    {"code": "HK.BAD", "qty": 3, "position_side": "LONG"},
+                    {"code": "SH.BAD", "qty": 3, "position_side": "LONG"},
                 ]
             },
-            stock_types={"HK.BAD": "STOCK"},
+            stock_types={"SH.BAD": "STOCK"},
         )
 
         with patch.dict(
@@ -304,7 +304,7 @@ class FutuPortfolioServiceTest(unittest.TestCase):
             return_value=api,
         ), self.assertRaisesRegex(
             service.FutuPortfolioError,
-            "无法转换.*HK.BAD",
+            "无法转换.*SH.BAD",
         ):
             service.load_futu_stock_codes()
 
@@ -317,13 +317,13 @@ class FutuPortfolioServiceTest(unittest.TestCase):
             accounts=[_account(1001, "NORMAL")],
             positions_by_account={
                 1001: [
-                    {"code": "US.AAPL", "qty": 10, "position_side": "LONG"},
+                    {"code": "SH.600036", "qty": 10, "position_side": "LONG"},
                     {"code": "SH.900901", "qty": 5, "position_side": "LONG"},
                     {"code": "SZ.200012", "qty": 8, "position_side": "LONG"},
                 ]
             },
             stock_types={
-                "US.AAPL": "STOCK",
+                "SH.600036": "STOCK",
                 "SH.900901": "STOCK",
                 "SZ.200012": "STOCK",
             },
@@ -343,7 +343,7 @@ class FutuPortfolioServiceTest(unittest.TestCase):
         ) as captured:
             result = service.load_futu_stock_codes()
 
-        self.assertEqual(result, ["AAPL"])
+        self.assertEqual(result, ["600036"])
         warning_text = "\n".join(captured.output)
         self.assertIn("SH.900901", warning_text)
         self.assertIn("SZ.200012", warning_text)
@@ -357,11 +357,11 @@ class FutuPortfolioServiceTest(unittest.TestCase):
             accounts=[_account(1001, "NORMAL")],
             positions_by_account={
                 1001: [
-                    {"code": "US.AAPL", "qty": 10, "position_side": "LONG"},
-                    {"code": "US.MSFT", "qty": 4, "position_side": "LONG"},
+                    {"code": "SH.600036", "qty": 10, "position_side": "LONG"},
+                    {"code": "SH.601318", "qty": 4, "position_side": "LONG"},
                 ]
             },
-            stock_types={"US.AAPL": "STOCK"},
+            stock_types={"SH.600036": "STOCK"},
         )
 
         with patch.dict(
@@ -374,7 +374,7 @@ class FutuPortfolioServiceTest(unittest.TestCase):
             return_value=api,
         ), self.assertRaisesRegex(
             service.FutuPortfolioError,
-            "无法确认证券类型.*US.MSFT",
+            "无法确认证券类型.*SH.601318",
         ):
             service.load_futu_stock_codes()
 
@@ -387,11 +387,11 @@ class FutuPortfolioServiceTest(unittest.TestCase):
             accounts=[_account(1001, "NORMAL")],
             positions_by_account={
                 1001: [
-                    {"code": "US.AAPL", "qty": 10, "position_side": "LONG"},
-                    {"code": "US.MSFT", "qty": 4, "position_side": "LONG"},
+                    {"code": "SH.600036", "qty": 10, "position_side": "LONG"},
+                    {"code": "SH.601318", "qty": 4, "position_side": "LONG"},
                 ]
             },
-            stock_types={"US.AAPL": "STOCK", "US.MSFT": "N/A"},
+            stock_types={"SH.600036": "STOCK", "SH.601318": "N/A"},
         )
 
         with patch.dict(
@@ -404,7 +404,7 @@ class FutuPortfolioServiceTest(unittest.TestCase):
             return_value=api,
         ), self.assertRaisesRegex(
             service.FutuPortfolioError,
-            "无法确认证券类型.*US.MSFT",
+            "无法确认证券类型.*SH.601318",
         ):
             service.load_futu_stock_codes()
 
@@ -420,7 +420,7 @@ class FutuPortfolioServiceTest(unittest.TestCase):
             ],
             positions_by_account={
                 1001: [
-                    {"code": "US.AAPL", "qty": 10, "position_side": "LONG"},
+                    {"code": "SH.600036", "qty": 10, "position_side": "LONG"},
                 ]
             },
         )
@@ -457,7 +457,7 @@ class FutuPortfolioServiceTest(unittest.TestCase):
                     positions_by_account={
                         1001: [
                             {
-                                "code": "US.AAPL",
+                                "code": "SH.600036",
                                 "qty": 10,
                                 "position_side": "LONG",
                             }
@@ -491,13 +491,13 @@ class FutuPortfolioServiceTest(unittest.TestCase):
             accounts=[_account(1001, "NORMAL")],
             positions_by_account={
                 1001: [
-                    {"code": "US.AAPL", "qty": 10, "position_side": "LONG"},
-                    {"code": "US.MSFT", "qty": "bad", "position_side": "LONG"},
+                    {"code": "SH.600036", "qty": 10, "position_side": "LONG"},
+                    {"code": "SH.601318", "qty": "bad", "position_side": "LONG"},
                 ]
             },
             stock_types={
-                "US.AAPL": "STOCK",
-                "US.MSFT": "STOCK",
+                "SH.600036": "STOCK",
+                "SH.601318": "STOCK",
             },
         )
 
@@ -511,7 +511,7 @@ class FutuPortfolioServiceTest(unittest.TestCase):
             return_value=api,
         ), self.assertRaisesRegex(
             service.FutuPortfolioError,
-            "持仓数量无效.*US.MSFT",
+            "持仓数量无效.*SH.601318",
         ):
             service.load_futu_stock_codes()
 
@@ -526,7 +526,7 @@ class FutuPortfolioServiceTest(unittest.TestCase):
             accounts=[_account(1001, "NORMAL")],
             positions_by_account={
                 1001: [
-                    {"code": "US.AAPL", "qty": 10, "position_side": "LONG"},
+                    {"code": "SH.600036", "qty": 10, "position_side": "LONG"},
                     {"code": "", "qty": 5, "position_side": "LONG"},
                 ]
             },
@@ -557,7 +557,7 @@ class FutuPortfolioServiceTest(unittest.TestCase):
                 [_account(1001, "NORMAL")],
                 {
                     1001: [
-                        {"code": "US.AAPL", "qty": 10, "position_side": "LONG"},
+                        {"code": "SH.600036", "qty": 10, "position_side": "LONG"},
                         {"qty": 5, "position_side": "LONG"},
                     ]
                 },
@@ -572,14 +572,14 @@ class FutuPortfolioServiceTest(unittest.TestCase):
                 [_account(1001, "NORMAL")],
                 {
                     1001: [
-                        {"code": "US.AAPL", "qty": 10, "position_side": "LONG"},
-                        {"code": "AAPL", "qty": 5, "position_side": "LONG"},
+                        {"code": "SH.600036", "qty": 10, "position_side": "LONG"},
+                        {"code": "600036", "qty": 5, "position_side": "LONG"},
                     ]
                 },
             )
 
     def test_load_futu_stock_codes_rejects_non_string_nonzero_long_codes(self):
-        for invalid_code in (True, 123, b"US.AAPL"):
+        for invalid_code in (True, 123, b"SH.600036"):
             with self.subTest(code=invalid_code), self.assertRaisesRegex(
                 service.FutuPortfolioError,
                 "非零持仓返回了无效证券代码",
@@ -589,7 +589,7 @@ class FutuPortfolioServiceTest(unittest.TestCase):
                     {
                         1001: [
                             {
-                                "code": "US.AAPL",
+                                "code": "SH.600036",
                                 "qty": 10,
                                 "position_side": "LONG",
                             },
@@ -651,7 +651,7 @@ class FutuPortfolioServiceTest(unittest.TestCase):
             ],
             positions_by_account={
                 1001: [
-                    {"code": "US.AAPL", "qty": 10, "position_side": "LONG"}
+                    {"code": "SH.600036", "qty": 10, "position_side": "LONG"}
                 ]
             },
         )
@@ -663,7 +663,7 @@ class FutuPortfolioServiceTest(unittest.TestCase):
         ), patch.object(service, "_load_futu_api", return_value=api):
             result = service.load_futu_stock_codes()
 
-        self.assertEqual(result, ["AAPL"])
+        self.assertEqual(result, ["600036"])
         self.assertEqual(
             trade_contexts[0].open_arguments["security_firm"],
             "FUTUSG",
@@ -764,7 +764,7 @@ class FutuPortfolioServiceTest(unittest.TestCase):
                     positions_by_account={
                         1001: [
                             {
-                                "code": "US.AAPL",
+                                "code": "SH.600036",
                                 "qty": 10,
                                 "position_side": "LONG",
                             }
@@ -790,12 +790,12 @@ class FutuPortfolioServiceTest(unittest.TestCase):
             [_account(3003, "MASTER")],
             {
                 3003: [
-                    {"code": "US.AAPL", "qty": 10, "position_side": "LONG"}
+                    {"code": "SH.600036", "qty": 10, "position_side": "LONG"}
                 ],
             },
         )
 
-        self.assertEqual(result, ["AAPL"])
+        self.assertEqual(result, ["600036"])
         position_contexts = [ctx for ctx in trade_contexts if ctx.position_queries]
         self.assertEqual(len(position_contexts), 1)
         self.assertEqual(position_contexts[0].position_queries[0]["acc_id"], 3003)
@@ -805,16 +805,16 @@ class FutuPortfolioServiceTest(unittest.TestCase):
             [_account(1001, "NORMAL"), _account(3003, "MASTER")],
             {
                 1001: [
-                    {"code": "US.AAPL", "qty": 10, "position_side": "LONG"}
+                    {"code": "SH.600036", "qty": 10, "position_side": "LONG"}
                 ],
                 3003: [
-                    {"code": "US.AAPL", "qty": 10, "position_side": "LONG"},
-                    {"code": "HK.00700", "qty": 20, "position_side": "LONG"},
+                    {"code": "SH.600036", "qty": 10, "position_side": "LONG"},
+                    {"code": "SZ.000002", "qty": 20, "position_side": "LONG"},
                 ],
             },
         )
 
-        self.assertEqual(result, ["AAPL", "HK00700"])
+        self.assertEqual(result, ["600036", "000002"])
         queried_account_ids = [
             context.position_queries[0]["acc_id"]
             for context in trade_contexts
@@ -827,16 +827,16 @@ class FutuPortfolioServiceTest(unittest.TestCase):
             [_account(1001, "NORMAL"), _account(3003, "MASTER")],
             {
                 1001: [
-                    {"code": "US.AAPL", "qty": 10, "position_side": "SHORT"},
-                    {"code": "HK.00700", "qty": 20, "position_side": "SHORT"},
+                    {"code": "SH.600036", "qty": 10, "position_side": "SHORT"},
+                    {"code": "SZ.000002", "qty": 20, "position_side": "SHORT"},
                 ],
                 3003: [
-                    {"code": "US.AAPL", "qty": 10, "position_side": "LONG"}
+                    {"code": "SH.600036", "qty": 10, "position_side": "LONG"}
                 ],
             },
         )
 
-        self.assertEqual(result, ["AAPL"])
+        self.assertEqual(result, ["600036"])
         queried_account_ids = [
             context.position_queries[0]["acc_id"]
             for context in trade_contexts
@@ -851,20 +851,20 @@ class FutuPortfolioServiceTest(unittest.TestCase):
                 1001: [
                     {"qty": "bad", "position_side": "SHORT"},
                     {"qty": None, "position_side": "N/A"},
-                    {"code": "US.AAPL", "qty": 10, "position_side": "LONG"},
+                    {"code": "SH.600036", "qty": 10, "position_side": "LONG"},
                 ]
             },
         )
 
-        self.assertEqual(result, ["AAPL"])
+        self.assertEqual(result, ["600036"])
 
     def test_load_futu_stock_codes_skips_unknown_position_sides(self):
         result, _ = _load_codes_for_accounts(
             [_account(1001, "NORMAL")],
             {
                 1001: [
-                    {"code": "US.AAPL", "qty": 10, "position_side": "N/A"},
-                    {"code": "HK.00700", "qty": 20},
+                    {"code": "SH.600036", "qty": 10, "position_side": "N/A"},
+                    {"code": "SZ.000002", "qty": 20},
                     {"code": "JP.7203", "qty": 5, "position_side": "NONE"},
                 ],
             },
@@ -876,14 +876,14 @@ class FutuPortfolioServiceTest(unittest.TestCase):
         for quantity in (float("nan"), float("inf"), float("-inf"), None, True):
             with self.subTest(quantity=quantity), self.assertRaisesRegex(
                 service.FutuPortfolioError,
-                "持仓数量无效.*US.AAPL",
+                "持仓数量无效.*SH.600036",
             ):
                 _load_codes_for_accounts(
                     [_account(1001, "NORMAL")],
                     {
                         1001: [
                             {
-                                "code": "US.AAPL",
+                                "code": "SH.600036",
                                 "qty": quantity,
                                 "position_side": "LONG",
                             }
@@ -896,15 +896,15 @@ class FutuPortfolioServiceTest(unittest.TestCase):
             [_account(1001, "NORMAL"), _account(4004, "IPO")],
             {
                 1001: [
-                    {"code": "US.AAPL", "qty": 10, "position_side": "LONG"}
+                    {"code": "SH.600036", "qty": 10, "position_side": "LONG"}
                 ],
                 4004: [
-                    {"code": "HK.00700", "qty": 20, "position_side": "LONG"}
+                    {"code": "SZ.000002", "qty": 20, "position_side": "LONG"}
                 ],
             },
         )
 
-        self.assertEqual(result, ["AAPL"])
+        self.assertEqual(result, ["600036"])
         queried_account_ids = [
             context.position_queries[0]["acc_id"]
             for context in trade_contexts
@@ -934,10 +934,10 @@ class FutuPortfolioServiceTest(unittest.TestCase):
 
     def test_to_analysis_code(self):
         cases = [
-            ("US.MSFT", "MSFT"),
-            ("US.BRK.B", "BRK.B"),
-            ("HK.01810", "HK01810"),
-            ("HK.700", "HK00700"),
+            ("US.MSFT", None),
+            ("US.BRK.B", None),
+            ("HK.01810", None),
+            ("HK.700", None),
             ("SZ.000001", "000001"),
             ("SH.600519", "600519"),
             ("HK.123456", None),

@@ -477,37 +477,37 @@ class TestStorage(unittest.TestCase):
 
         DatabaseManager.reset_instance()
         temp_dir.cleanup()
-    
+
     def test_parse_sniper_value(self):
         """测试解析狙击点位数值"""
-        
+
         # 1. 正常数值
         self.assertEqual(DatabaseManager._parse_sniper_value(100), 100.0)
         self.assertEqual(DatabaseManager._parse_sniper_value(100.5), 100.5)
         self.assertEqual(DatabaseManager._parse_sniper_value("100"), 100.0)
         self.assertEqual(DatabaseManager._parse_sniper_value("100.5"), 100.5)
-        
+
         # 2. 包含中文描述和"元"
         self.assertEqual(DatabaseManager._parse_sniper_value("建议在 100 元附近买入"), 100.0)
         self.assertEqual(DatabaseManager._parse_sniper_value("价格：100.5元"), 100.5)
-        
+
         # 3. 包含干扰数字（修复的Bug场景）
         # 之前 "MA5" 会被错误提取为 5.0，现在应该提取 "元" 前面的 100
         text_bug = "无法给出。需等待MA5数据恢复，在股价回踩MA5且乖离率<2%时考虑100元"
         self.assertEqual(DatabaseManager._parse_sniper_value(text_bug), 100.0)
-        
+
         # 4. 更多干扰场景
         text_complex = "MA10为20.5，建议在30元买入"
         self.assertEqual(DatabaseManager._parse_sniper_value(text_complex), 30.0)
-        
+
         text_multiple = "支撑位10元，阻力位20元" # 应该提取最后一个"元"前面的数字，即20，或者更复杂的逻辑？
         # 当前逻辑是找最后一个冒号，然后找之后的第一个"元"，提取中间的数字。
         # 测试没有冒号的情况
         self.assertEqual(DatabaseManager._parse_sniper_value("30元"), 30.0)
-        
+
         # 测试多个数字在"元"之前
         self.assertEqual(DatabaseManager._parse_sniper_value("MA5 10 20元"), 20.0)
-        
+
         # 5. Fallback: no "元" character — extracts last non-MA number
         self.assertEqual(DatabaseManager._parse_sniper_value("102.10-103.00（MA5附近）"), 103.0)
         self.assertEqual(DatabaseManager._parse_sniper_value("97.62-98.50（MA10附近）"), 98.5)
@@ -1257,7 +1257,7 @@ class TestStorage(unittest.TestCase):
                     [
                         ("sh000300", "2026-01-01", 4000.0, "legacy"),
                         ("600519", "2026-01-01", 1600.0, "legacy"),
-                        ("AAPL", "2026-01-01", 150.0, "legacy"),
+                        ("000858", "2026-01-01", 150.0, "legacy"),
                     ],
                 )
 
@@ -1275,11 +1275,11 @@ class TestStorage(unittest.TestCase):
             self.assertIn("canonical_id", columns)
             # sh000300 is a registered index alias → sh000300
             self.assertEqual(rows["sh000300"], "sh000300")
-            # 600519 bare A-share → sh600519 (contract: bare codes default stock,
+            # 600519 bare A-share → 600519 (contract: bare codes default stock,
             # classifier routes 6-prefixed to SH)
-            self.assertEqual(rows["600519"], "sh600519")
-            # AAPL bare US ticker → AAPL (canonical US form, no prefix)
-            self.assertEqual(rows["AAPL"], "AAPL")
+            self.assertEqual(rows["600519"], "600519")
+            # 000858 bare US ticker → 000858 (canonical US form, no prefix)
+            self.assertEqual(rows["000858"], "000858")
         finally:
             DatabaseManager.reset_instance()
             Config.reset_instance()
@@ -1304,7 +1304,7 @@ class TestStorage(unittest.TestCase):
                 first_pass = conn.execute(
                     "SELECT canonical_id FROM stock_daily WHERE code='600519'"
                 ).fetchone()[0]
-            self.assertEqual(first_pass, "sh600519")
+            self.assertEqual(first_pass, "600519")
 
             DatabaseManager.reset_instance()
             # Second run: must not raise, must not duplicate the column.
@@ -1316,7 +1316,7 @@ class TestStorage(unittest.TestCase):
                 ).fetchone()[0]
 
             self.assertEqual(columns.count("canonical_id"), 1)
-            self.assertEqual(second_pass, "sh600519")
+            self.assertEqual(second_pass, "600519")
         finally:
             DatabaseManager.reset_instance()
             Config.reset_instance()
@@ -1366,7 +1366,7 @@ class TestStorage(unittest.TestCase):
         """``_derive_canonical_id`` no longer reads
         ``matched_index.canonical_id``. A bare ``000300`` (which collides with
         the CSI-300 index) now derives to the stock-path canonical_id
-        ``sz000300`` — the parser contract says bare codes are always stock.
+        ``000300`` — the parser contract says bare codes are always stock.
         The index conflict is surfaced via ``matched_index`` only, never used
         to override the canonical_id."""
         DatabaseManager.reset_instance()
@@ -1388,7 +1388,7 @@ class TestStorage(unittest.TestCase):
                 ).fetchone()[0]
 
             # Bare code resolves to the stock-path canonical_id.
-            self.assertEqual(canonical_id, "sz000300")
+            self.assertEqual(canonical_id, "000300")
         finally:
             DatabaseManager.reset_instance()
             Config.reset_instance()
@@ -1397,7 +1397,7 @@ class TestStorage(unittest.TestCase):
     def test_canonical_id_backfill_bare_non_index_code_stays_stock(self):
         """Index-aware backfill does not affect bare non-index codes: ``600519``
         has no registry hit (``matched_index is None``) and backfills to the
-        stock-path canonical_id ``sh600519`` (contract #2 — bare → stock)."""
+        stock-path canonical_id ``600519`` (contract #2 — bare → stock)."""
         DatabaseManager.reset_instance()
         db_dir, db_path = self._make_temp_db_path()
 
@@ -1416,7 +1416,7 @@ class TestStorage(unittest.TestCase):
                     "SELECT canonical_id FROM stock_daily WHERE code='600519'"
                 ).fetchone()[0]
 
-            self.assertEqual(canonical_id, "sh600519")
+            self.assertEqual(canonical_id, "600519")
         finally:
             DatabaseManager.reset_instance()
             Config.reset_instance()
@@ -1481,8 +1481,8 @@ class TestStorage(unittest.TestCase):
                     """INSERT INTO stock_daily (code, date, close) VALUES (?, ?, ?)""",
                     [
                         ("!!broken!!", "2026-01-01", 1.0),
-                        ("sh600519", "2026-01-01", 1700.0),
-                        ("AAPL", "2026-01-01", 210.0),
+                        ("600519", "2026-01-01", 1700.0),
+                        ("000858", "2026-01-01", 210.0),
                     ],
                 )
 
@@ -1500,8 +1500,8 @@ class TestStorage(unittest.TestCase):
                 )
 
             self.assertIsNone(rows["!!broken!!"])
-            self.assertEqual(rows["sh600519"], "sh600519")
-            self.assertEqual(rows["AAPL"], "AAPL")
+            self.assertEqual(rows["600519"], "600519")
+            self.assertEqual(rows["000858"], "000858")
         finally:
             DatabaseManager.reset_instance()
             Config.reset_instance()
@@ -1527,7 +1527,7 @@ class TestStorage(unittest.TestCase):
                     """INSERT INTO stock_daily (code, date, close) VALUES (?, ?, ?)""",
                     [
                         ("!!empty!!", "2026-01-01", 1.0),
-                        ("sh600519", "2026-01-01", 1700.0),
+                        ("600519", "2026-01-01", 1700.0),
                     ],
                 )
 
@@ -1545,7 +1545,7 @@ class TestStorage(unittest.TestCase):
                 )
 
             self.assertIsNone(rows["!!empty!!"])
-            self.assertEqual(rows["sh600519"], "sh600519")
+            self.assertEqual(rows["600519"], "600519")
         finally:
             DatabaseManager.reset_instance()
             Config.reset_instance()
@@ -1620,7 +1620,7 @@ class TestStorage(unittest.TestCase):
                     }
                 ]
             )
-            # Main path: bare A-share → sh600519.
+            # Main path: bare A-share → 600519.
             db.save_daily_data(df, code="600519", data_source="test")
             with db.get_session() as session:
                 row = session.execute(
@@ -1628,7 +1628,7 @@ class TestStorage(unittest.TestCase):
                         and_(StockDaily.code == "600519", StockDaily.date == date(2026, 4, 1))
                     )
                 ).scalar_one()
-            self.assertEqual(row.canonical_id, "sh600519")
+            self.assertEqual(row.canonical_id, "600519")
 
             # Degraded path: parser failure on re-save must NOT overwrite a
             # previously backfilled non-NULL canonical_id with NULL (review
@@ -1645,7 +1645,7 @@ class TestStorage(unittest.TestCase):
                         and_(StockDaily.code == "600519", StockDaily.date == date(2026, 4, 1))
                     )
                 ).scalar_one()
-            self.assertEqual(row.canonical_id, "sh600519")
+            self.assertEqual(row.canonical_id, "600519")
         finally:
             DatabaseManager.reset_instance()
             self._cleanup_temp_dir(db_dir)
@@ -1675,7 +1675,7 @@ class TestStorage(unittest.TestCase):
                         and_(StockDaily.code == "600519", StockDaily.date == date(2026, 4, 3))
                     )
                 ).scalar_one()
-            self.assertEqual(row.canonical_id, "sh600519")
+            self.assertEqual(row.canonical_id, "600519")
         finally:
             DatabaseManager.reset_instance()
             self._cleanup_temp_dir(db_dir)
@@ -1715,7 +1715,7 @@ class TestStorage(unittest.TestCase):
 
     def test_save_daily_data_derives_stock_canonical_id_for_bare_index_collision(self):
         """``save_daily_data(df, code="000300")`` with no explicit
-        canonical_id writes ``sz000300`` (stock-path canonical_id), NOT
+        canonical_id writes ``000300`` (stock-path canonical_id), NOT
         ``sh000300`` (the index canonical_id). Bare codes are always stock."""
         DatabaseManager.reset_instance()
         db_dir, db_path = self._make_temp_db_path()
@@ -1739,7 +1739,7 @@ class TestStorage(unittest.TestCase):
                         and_(StockDaily.code == "000300", StockDaily.date == date(2026, 4, 5))
                     )
                 ).scalar_one()
-            self.assertEqual(row.canonical_id, "sz000300")
+            self.assertEqual(row.canonical_id, "000300")
         finally:
             DatabaseManager.reset_instance()
             self._cleanup_temp_dir(db_dir)
@@ -1747,7 +1747,7 @@ class TestStorage(unittest.TestCase):
     def test_save_daily_data_explicit_index_forms_derive_index_canonical_id(self):
         """Explicit index forms (``sh000300`` / ``000300.SH``)
         derive to the index canonical_id ``sh000300``, while the bare code
-        ``000300`` derives to the stock-path ``sz000300``. Explicit index and
+        ``000300`` derives to the stock-path ``000300``. Explicit index and
         bare stock are intentionally different buckets."""
         DatabaseManager.reset_instance()
         db_dir, db_path = self._make_temp_db_path()
@@ -1776,7 +1776,7 @@ class TestStorage(unittest.TestCase):
             self.assertEqual(
                 {row.code: row.canonical_id for row in rows},
                 {
-                    "000300": "sz000300",
+                    "000300": "000300",
                     "sh000300": "sh000300",
                     "000300.SH": "sh000300",
                 },
@@ -1836,8 +1836,8 @@ class TestStorage(unittest.TestCase):
         DatabaseManager.reset_instance()
         db = DatabaseManager(db_url="sqlite:///:memory:")
         try:
-            self.assertEqual(db._derive_canonical_id("000016"), "sz000016")
-            self.assertEqual(db._derive_canonical_id("930955"), "bj930955")
+            self.assertEqual(db._derive_canonical_id("000016"), "000016")
+            self.assertEqual(db._derive_canonical_id("930955"), "930955")
             self.assertEqual(db._derive_canonical_id("sh000016"), "sh000016")
             self.assertEqual(db._derive_canonical_id("930955.CSI"), "csi930955")
         finally:
@@ -1881,9 +1881,9 @@ class TestStorage(unittest.TestCase):
                         ("sh000016", "2026-01-05", 5.0, "sh000016"),
                         ("930955.CSI", "2026-01-06", 6.0, "csi930955"),
                         # Correct stock row — must NOT be modified.
-                        ("600519", "2026-01-07", 7.0, "sh600519"),
+                        ("600519", "2026-01-07", 7.0, "600519"),
                         # Unrelated row — must NOT be modified.
-                        ("AAPL", "2026-01-08", 8.0, "AAPL"),
+                        ("000858", "2026-01-08", 8.0, "000858"),
                     ],
                 )
 
@@ -1896,16 +1896,16 @@ class TestStorage(unittest.TestCase):
                     ).fetchall()
                 )
 
-            self.assertEqual(rows["000001"], "sz000001")
-            self.assertEqual(rows["000016"], "sz000016")
-            self.assertEqual(rows["000688"], "sz000688")
-            self.assertEqual(rows["930955"], "bj930955")
+            self.assertEqual(rows["000001"], "000001")
+            self.assertEqual(rows["000016"], "000016")
+            self.assertEqual(rows["000688"], "000688")
+            self.assertEqual(rows["930955"], "930955")
             # Explicit index rows preserved.
             self.assertEqual(rows["sh000016"], "sh000016")
             self.assertEqual(rows["930955.CSI"], "csi930955")
             # Correct stock + unrelated rows preserved.
-            self.assertEqual(rows["600519"], "sh600519")
-            self.assertEqual(rows["AAPL"], "AAPL")
+            self.assertEqual(rows["600519"], "600519")
+            self.assertEqual(rows["000858"], "000858")
         finally:
             DatabaseManager.reset_instance()
             Config.reset_instance()
@@ -1930,7 +1930,7 @@ class TestStorage(unittest.TestCase):
                 first = conn.execute(
                     "SELECT canonical_id FROM stock_daily WHERE code='000016'"
                 ).fetchone()[0]
-            self.assertEqual(first, "sz000016")
+            self.assertEqual(first, "000016")
 
             DatabaseManager.reset_instance()
             with self.assertLogs("src.storage", level="INFO") as logs:
@@ -1998,7 +1998,7 @@ class TestStorage(unittest.TestCase):
                 if code == "000016":
                     with sqlite3.connect(db_path) as conn:
                         conn.execute(
-                            "UPDATE stock_daily SET canonical_id='sz000016' "
+                            "UPDATE stock_daily SET canonical_id='000016' "
                             "WHERE code='000016'"
                         )
                         conn.commit()
@@ -2014,7 +2014,7 @@ class TestStorage(unittest.TestCase):
                 canonical_id = conn.execute(
                     "SELECT canonical_id FROM stock_daily WHERE code='000016'"
                 ).fetchone()[0]
-            self.assertEqual(canonical_id, "sz000016")
+            self.assertEqual(canonical_id, "000016")
         finally:
             DatabaseManager.reset_instance()
             Config.reset_instance()
@@ -2037,8 +2037,8 @@ class TestStorage(unittest.TestCase):
                         # Mis-bucketed bare code — must be repaired.
                         ("000016", "2026-01-01", 2.0, "sh000016"),
                         # Unrelated canonical — must NOT be touched.
-                        ("600519", "2026-01-02", 7.0, "sh600519"),
-                        ("AAPL", "2026-01-03", 8.0, "AAPL"),
+                        ("600519", "2026-01-02", 7.0, "600519"),
+                        ("000858", "2026-01-03", 8.0, "000858"),
                         # Explicit index row — must NOT be touched.
                         ("sh000016", "2026-01-04", 5.0, "sh000016"),
                     ],
@@ -2053,9 +2053,9 @@ class TestStorage(unittest.TestCase):
                     ).fetchall()
                 )
             # Only the mis-bucketed bare code is repaired.
-            self.assertEqual(rows["000016"], "sz000016")
-            self.assertEqual(rows["600519"], "sh600519")
-            self.assertEqual(rows["AAPL"], "AAPL")
+            self.assertEqual(rows["000016"], "000016")
+            self.assertEqual(rows["600519"], "600519")
+            self.assertEqual(rows["000858"], "000858")
             self.assertEqual(rows["sh000016"], "sh000016")
         finally:
             DatabaseManager.reset_instance()

@@ -41,8 +41,7 @@ docs/
 *.md
 !README.md
 
-# 忽略不参与 Docker 镜像构建的前端/桌面端产物
-apps/dsa-desktop/
+# 忽略不参与 Docker 镜像构建的前端产物
 node_modules/
 dist/
 build/

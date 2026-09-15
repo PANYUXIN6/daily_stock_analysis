@@ -57,19 +57,19 @@ Go to your forked repo → `Settings` → `Secrets and variables` → `Actions` 
 
 | Secret Name | Description | Required |
 |------------|------|:----:|
-| `ANSPIRE_API_KEYS` | [Anspire](https://open.anspire.cn/?share_code=QFBC0FYC) API key, one key for popular LLMs and Chinese-optimized web search with free quota for this project | Recommended |
-| `AIHUBMIX_KEY` | [AIHubMix](https://inferera.com/?aff=CfMq) API key, one key for multiple model families and a 10% top-up discount for this project | Recommended |
+| `ANSPIRE_API_KEYS` | [Anspire](https://open.anspire.cn/) API key for its model gateway and Chinese-optimized web search | Optional |
+| `AIHUBMIX_KEY` | [AIHubMix](https://aihubmix.com/) API key for its OpenAI-compatible model channel | Optional |
 | `GEMINI_API_KEY` | Get free key from [Google AI Studio](https://aistudio.google.com/) | Optional |
 | `ANTHROPIC_API_KEY` | Anthropic Claude API Key | Optional |
 | `OPENAI_API_KEY` | OpenAI-compatible API Key (supports DeepSeek, Qwen, etc.) | Optional |
 | `OPENAI_BASE_URL` | OpenAI-compatible API endpoint (e.g., `https://api.deepseek.com`) | Optional |
 | `OPENAI_MODEL` | Model name (e.g., `deepseek-v4-flash`) | Optional |
 
-> *Note: Configure at least one model key or channel. Anspire or AIHubMix is the simplest starting point for one-key multi-model access. Startup validation reports a clear error when no usable AI model key or model channel is configured.
+> *Note: Configure at least one model key or channel. Startup validation reports a clear error when no usable AI model key or model channel is configured.
 
 #### Notification Channels (Multiple can be configured, all will receive notifications)
 
-> The notification channel matrix, minimal/advanced key split, generated Actions mapping, `--check-notify` CLI behavior, Web one-click notification test, and local / Docker / GitHub Actions / Desktop setup notes are tracked in [Notification Guide](notifications.md).
+> The notification channel matrix, minimal/advanced key split, generated Actions mapping, `--check-notify` CLI behavior, Web one-click notification test, and local / Docker / GitHub Actions setup notes are tracked in [Notification Guide](notifications.md).
 
 | Secret Name | Description | Required |
 |------------|------|:----:|
@@ -149,12 +149,12 @@ Go to your forked repo → `Settings` → `Secrets and variables` → `Actions` 
 
 | Secret Name | Description | Required |
 |------------|------|:----:|
-| `STOCK_LIST` | Watchlist codes, e.g., `600519,300750,002594,7203.T,005930.KS`; English commas are recommended, while pasted Chinese commas, enumeration commas, semicolons, spaces, and newlines are recognized and normalized to English commas | ✅ |
+| `STOCK_LIST` | A-share watchlist codes, e.g., `600519,300750,002594`; English commas are recommended, while pasted Chinese commas, enumeration commas, semicolons, spaces, and newlines are normalized | ✅ |
 | `ANSPIRE_API_KEYS` | [Anspire AI Search](https://aisearch.anspire.cn/) optimized for Chinese content; the same key can also be used for Anspire LLM fallback scenarios (example model: `Doubao-Seed-2.0-lite`) | Recommended |
 | `SERPAPI_API_KEYS` | [SerpAPI](https://serpapi.com/github-daily-stock-analysis) search-engine results for realtime financial news | Recommended |
 | `TAVILY_API_KEYS` | [Tavily](https://tavily.com/) Search API (for news search) | Optional |
 | `BOCHA_API_KEYS` | [Bocha Search](https://open.bocha.cn/) Web Search API (Chinese search optimized, supports AI summaries, multiple keys comma-separated) | Optional |
-| `BRAVE_API_KEYS` | [Brave Search](https://brave.com/search/api/) API (privacy-first, US-stock news enrichment, comma-separated for multiple keys) | Optional |
+| `BRAVE_API_KEYS` | [Brave Search](https://brave.com/search/api/) API (privacy-first, comma-separated for multiple keys) | Optional |
 | `MINIMAX_API_KEYS` | [MiniMax](https://platform.minimax.io/) Coding Plan Web Search (structured search results) | Optional |
 | `SEARXNG_BASE_URLS` | SearXNG self-hosted instances (quota-free fallback, enable format: json in settings.yml); when empty, `searx.space` discovery is used only if public instances are explicitly enabled | Optional |
 | `SEARXNG_PUBLIC_INSTANCES_ENABLED` | Auto-discover public SearXNG instances from `searx.space` when `SEARXNG_BASE_URLS` is empty (default `false`). Public instances are commonly rate-limited or do not return JSON, so enabling this can add 30-60s per run and still yield no news | Optional |
@@ -163,7 +163,7 @@ Go to your forked repo → `Settings` → `Secrets and variables` → `Actions` 
 | `TUSHARE_HTTP_URL` | Tushare Pro HTTP endpoint; when unset/empty defaults to the official `http://api.tushare.pro`. Set to a `http://` or `https://` URL only when routing through a corporate proxy, cross-border network, or a self-hosted mirror | Optional |
 | `TICKFLOW_API_KEY` | [TickFlow](https://tickflow.org) API key for optional A-share daily K-lines, realtime quotes, stock list/name lookup, and CN market review enhancement; permission or entitlement failures fall back to existing providers | Optional |
 
-> **GitHub Actions:** The bundled `00-daily-analysis.yml` maps `TUSHARE_TOKEN`, `TICKFLOW_API_KEY` / `TICKFLOW_*`, and the documented `LONGBRIDGE_*` variables into the job environment. Store `TICKFLOW_API_KEY` in **Secrets**; non-sensitive TickFlow priority, adjustment, and batch switches can live in **Variables** or **Secrets**. Longbridge OAuth still requires a client id plus `LONGBRIDGE_OAUTH_TOKEN_CACHE_B64` for headless Actions runs, while the legacy `LONGBRIDGE_APP_KEY` / `LONGBRIDGE_APP_SECRET` / `LONGBRIDGE_ACCESS_TOKEN` triplet remains supported.
+> **GitHub Actions:** The bundled `00-daily-analysis.yml` maps `TUSHARE_TOKEN`, `TICKFLOW_API_KEY`, and the related `TICKFLOW_*` variables into the job environment. Store API keys in **Secrets**; non-sensitive priority, adjustment, and batch switches can live in **Variables**.
 
 > **`TUSHARE_HTTP_URL` mapping in the daily workflow:** `00-daily-analysis.yml` maps `TUSHARE_HTTP_URL` with `vars.TUSHARE_HTTP_URL || secrets.TUSHARE_HTTP_URL` — the same vars-first precedence used for `TICKFLOW_PRIORITY` and other non-sensitive knobs. The endpoint is an "address" rather than a credential, so **Variables** is preferred for team review and audit visibility. Note that the real precedence is "vars wins when non-empty": a **Secrets** entry with the same name is **not** a tamper fallback that overrides a non-empty Variable — Secrets is only selected when the Variable is empty. Build your threat model on that actual semantics. GitHub exposes Variables and Secrets as two independent write-permission models: anyone (human or automation) with write access to repository Variables can set a non-empty Variable and silently reroute the runtime endpoint — including `TUSHARE_TOKEN` and the full request body to an attacker-controlled URL — without reading or modifying any Secret. Secrets only protect value confidentiality; they do **not** provide "endpoint integrity" or "priority override" guarantees. If you need stronger access control over the endpoint, use GitHub Environment protection rules, CODEOWNERS, branch protection, or a dedicated deployment approval flow — **do not treat "put it in Secrets and leave Variables empty" as a tamper guard**. Leaving it unset or empty preserves the default `http://api.tushare.pro` endpoint — the fetcher does not error when this variable is missing.
 
@@ -204,7 +204,7 @@ Default schedule: Every weekday at **18:00 (Beijing Time)** automatic execution.
 
 > Full details: [LLM Config Guide](LLM_CONFIG_GUIDE_EN.md) (three-tier config, channels, Vision, Agent, troubleshooting).
 > Compatibility note for Issue #1306: this change only persists and exposes existing market-review output via history paths, and does not alter model name, provider, base URL, LiteLLM cleanup rules, or `.env` runtime migration semantics. Rollback is to revert this change set. Runtime compatibility references are `requirements.txt` (`litellm` constraints), `docs/LLM_CONFIG_GUIDE_EN.md`, and regression tests in `tests/test_analysis_api_contract.py`, `tests/test_analysis_history.py`, `tests/test_market_review.py`; official references: [LiteLLM OpenAI-compatible](https://docs.litellm.ai/docs/providers/openai_compatible), [OpenAI Chat Completion API](https://platform.openai.com/docs/api-reference/chat).
-> Phase 3 compatibility note for #1815: this change only narrows JP/KR vs Market Light runtime boundaries. It does not add new provider/model/base URL migration logic, and it does not change `.env` model persistence semantics. `MarketSymbol`, alert market enums, and snapshot `data_quality/limitations` are boundary-contract updates only.
+> The A-share-only market boundary does not change provider/model/base URL migration logic or `.env` model persistence semantics.
 
 | Variable | Description | Default | Required |
 |--------|------|--------|:----:|
@@ -236,8 +236,8 @@ Default schedule: Every weekday at **18:00 (Beijing Time)** automatic execution.
 | `LITELLM_CONFIG` | Advanced model routing YAML path (expert use) | - | No |
 | `LLM_USAGE_HMAC_SECRET` | Secret for LLM usage telemetry message HMACs; leave empty to use a generated local data-dir secret file | - | No |
 | `LLM_USAGE_HMAC_KEY_VERSION` | Version label for the LLM usage HMAC key; update it when rotating the secret | `local-v1` | No |
-| `ANSPIRE_API_KEYS` | [Anspire](https://open.anspire.cn/?share_code=QFBC0FYC) API key, one key for the LLM gateway and search | - | Optional |
-| `AIHUBMIX_KEY` | [AIHubMix](https://inferera.com/?aff=CfMq) API key, one key for multiple model families | - | Optional |
+| `ANSPIRE_API_KEYS` | [Anspire](https://open.anspire.cn/) API key for its model gateway and search | - | Optional |
+| `AIHUBMIX_KEY` | [AIHubMix](https://aihubmix.com/) API key for its OpenAI-compatible model channel | - | Optional |
 | `GEMINI_API_KEY` | Google Gemini API Key | - | Optional |
 | `GEMINI_MODEL` | Primary model name (legacy, `LITELLM_MODEL` preferred) | `gemini-3.1-pro-preview` | No |
 | `GEMINI_MODEL_FALLBACK` | Fallback model (legacy) | `gemini-3-flash-preview` | No |
@@ -251,7 +251,7 @@ Default schedule: Every weekday at **18:00 (Beijing Time)** automatic execution.
 
 > Generation backend status note: the Web settings quick check only reads config, drafts, and executable visibility; it does not send a real model request. JSON smoke test is a separate explicit action that sends one real request with a server-owned fixed JSON prompt/schema. `health_status` and `last_error_code/message` describe only the current status computation or smoke result, not persisted historical health.
 
-> `AGENT_BACKEND=codex_app_server` is an experimental option only for the existing ask-stock Chat. Install and sign in to Codex on the device running DSA, then open **Settings → Agent → Ask-stock method**, keep `AGENT_ARCH=single`, and set a positive overall timeout. Settings checks only whether the configuration, Codex command, and required protocol allow an attempt; it does not sign in, call a model, or read stock data. After saving, ask directly in Chat—the first question is the first real execution. Codex can currently read only saved analysis context and backtest summaries; use **Default model** for live quotes, news, market hotspots, technical-indicator recalculation, per-stock backtest details, or portfolio tools. After the user clicks Stop, the page shows **Stopping** and reports **Stopped** only after both the Codex turn and its current tool task have exited. It currently supports macOS, Linux, and a complete DSA backend running inside WSL; native Windows is not supported, while the Phase 2 `codex_cli` generation path remains unchanged. Codex Multi Agent and Codex Deep Research are not supported; existing LiteLLM Multi Agent, Deep Research, regular reports, and scheduled analysis stay unchanged. Codex is not an offline model, and services configured in Codex may process stock questions and redacted tool results. DSA does not read or store Codex credentials. Docker, remote servers, and Desktop must each expose Codex on the backend process PATH. See the [LLM Config Guide](LLM_CONFIG_GUIDE_EN.md#codex-local-agent-phase-6-experimental-prototype).
+> `AGENT_BACKEND=codex_app_server` is an experimental option only for the existing ask-stock Chat. Install and sign in to Codex on the device running DSA, then open **Settings → Agent → Ask-stock method**, keep `AGENT_ARCH=single`, and set a positive overall timeout. Settings checks only whether the configuration, Codex command, and required protocol allow an attempt; it does not sign in, call a model, or read stock data. After saving, ask directly in Chat—the first question is the first real execution. Codex can currently read only saved analysis context and backtest summaries; use **Default model** for live quotes, news, market hotspots, technical-indicator recalculation, per-stock backtest details, or portfolio tools. After the user clicks Stop, the page shows **Stopping** and reports **Stopped** only after both the Codex turn and its current tool task have exited. It currently supports macOS, Linux, and a complete DSA backend running inside WSL; native Windows is not supported, while the Phase 2 `codex_cli` generation path remains unchanged. Codex Multi Agent and Codex Deep Research are not supported; existing LiteLLM Multi Agent, Deep Research, regular reports, and scheduled analysis stay unchanged. Codex is not an offline model, and services configured in Codex may process stock questions and redacted tool results. DSA does not read or store Codex credentials. Docker, remote servers must each expose Codex on the backend process PATH. See the [LLM Config Guide](LLM_CONFIG_GUIDE_EN.md#codex-local-agent-phase-6-experimental-prototype).
 
 > *Note: Configure at least one of `ANSPIRE_API_KEYS`, `AIHUBMIX_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `OLLAMA_API_BASE`, or `LLM_CHANNELS` / `LITELLM_CONFIG`. `ANSPIRE_API_KEYS` and `AIHUBMIX_KEY` are auto-adapted without an `OPENAI_BASE_URL`.
 
@@ -333,14 +333,12 @@ For the notification baseline, diagnostics, and deployment notes, see [Notificat
 | `SERPAPI_API_KEYS` | SerpAPI search-engine results for realtime financial news | Recommended |
 | `TAVILY_API_KEYS` | Tavily Search API Key | Optional |
 | `BOCHA_API_KEYS` | Bocha Search API Key (Chinese optimized) | Optional |
-| `BRAVE_API_KEYS` | Brave Search API Key (US stocks optimized) | Optional |
+| `BRAVE_API_KEYS` | Brave Search API Key | Optional |
 | `MINIMAX_API_KEYS` | MiniMax Coding Plan Web Search (structured results) | Optional |
-| `SOCIAL_SENTIMENT_API_KEY` | Stock Sentiment API Key (Reddit / X / Polymarket, US stocks optional) | Optional |
-| `SOCIAL_SENTIMENT_API_URL` | Stock Sentiment API endpoint (default `https://api.adanos.org`) | Optional |
 | `SEARXNG_BASE_URLS` | SearXNG self-hosted instances (quota-free fallback, enable format: json in settings.yml); when empty, `searx.space` discovery is used only if public instances are explicitly enabled | Optional |
 | `SEARXNG_PUBLIC_INSTANCES_ENABLED` | Auto-discover public SearXNG instances from `searx.space` when `SEARXNG_BASE_URLS` is empty (default `false`). Public instances are commonly rate-limited or do not return JSON, so enabling this can add 30-60s per run and still yield no news | Optional |
 
-> Behavior note: Search and social sentiment are optional enhancement services. If either service fails to initialize, the system logs a warning and degrades gracefully by skipping that stage without blocking the core analysis flow.
+> Search services are optional enhancements. If search is unavailable, the system logs a warning and continues within the available capability boundary.
 
 ### Futu Portfolio Import Configuration
 
@@ -365,7 +363,6 @@ For the notification baseline, diagnostics, and deployment notes, see [Notificat
 | `TICKFLOW_BATCH_SIZE` | Maximum symbols per TickFlow batch request. | `100` | Optional |
 | `FUTU_OPEND_HOST` | Futu OpenD address; use an IPv4 address or an IPv4-resolvable hostname. Leave empty to disable Futu market data. | empty | Optional |
 | `FUTU_OPEND_PORT` | Futu OpenD TCP port, from `1` to `65535`. | `11111` | Optional |
-| `FUTU_HK_REALTIME_SOURCE_PRIORITY` | HK realtime source order: `futu`, `longbridge`, `akshare`, or `yfinance`, comma-separated. Failed sources fall back automatically. | `futu,longbridge,akshare,yfinance` | Optional |
 | `ENABLE_REALTIME_QUOTE` | Enable real-time quotes (if disabled, uses historical closing prices for analysis) | `true` | Optional |
 | `ENABLE_REALTIME_TECHNICAL_INDICATORS` | Intraday real-time technicals: Calculate MA5/MA10/MA20 and bull trends using real-time prices when enabled (Issue #234); uses yesterday's close if disabled. | `true` | Optional |
 | `ENABLE_CHIP_DISTRIBUTION` | Enable chip distribution analysis (this API is unstable, recommended to disable for cloud deployment). GitHub Actions users must set `ENABLE_CHIP_DISTRIBUTION=true` in Repository Variables to enable; disabled by default in workflows. | `true` | Optional |
@@ -381,16 +378,13 @@ For the notification baseline, diagnostics, and deployment notes, see [Notificat
 > **Behavior Notes:**
 > - **A-shares**: Returns aggregated capabilities by `valuation/growth/earnings/institution/capital_flow/dragon_tiger/boards`.
 > - **ETFs**: Returns available items, marks missing capabilities as `not_supported`, and does not affect the original flow overall.
-> - **US/HK stocks**: Returns `valuation/growth/earnings/belong_boards` (sourced from `info.sector`/`info.industry`) via the yfinance adapter; `institution/capital_flow/dragon_tiger/boards` stay `not_supported` because no offshore data feed exists today. Falls back to a full `not_supported` block if yfinance is unavailable or returns empty payloads. Still fail-open.
-> - **Japanese/Korean stocks**: Current MVP uses Yfinance daily/basic quote coverage only; `institution`, `capital_flow`, `dragon_tiger`, and `boards` are not fully supported and degrade to `not_supported` (see [market boundaries](market-support.md)).
-> - **Taiwan stocks**: On top of the US/HK offshore base path, the `institution` block additionally surfaces raw 三大法人 (institutional) net buy/sell figures (TWSE T86 / TPEx, default-on, fail-open — stays `not_supported` when data is unavailable); `capital_flow`, `dragon_tiger`, and `boards` remain `not_supported`.
 > - Any exception uses fail-open logic, only logs errors without affecting the main technical/news/chip pipeline.
 > - **Field contracts**:
->   - `fundamental_context.belong_boards` = related board list for the stock; A-shares are sourced from AkShare board membership, US/HK from yfinance `info.sector`/`info.industry`, `[]` when unavailable;
->   - `fundamental_context.boards.data` = `sector_rankings` (sector rise/fall leaderboard, structure `{top, bottom}`; not provided for US/HK today);
+>   - `fundamental_context.belong_boards` = related A-share board list, `[]` when unavailable;
+>   - `fundamental_context.boards.data` = `sector_rankings` (sector rise/fall leaderboard, structure `{top, bottom}`);
 >   - `fundamental_context.concept_boards.data` = `concept_rankings` (concept/theme rise/fall leaderboard, structure `{top, bottom}`; currently A-share only and omitted or empty on fail-open);
->   - `fundamental_context.earnings.data.financial_report.currency` = financial statement currency (`info.financialCurrency`; HK ADRs commonly report CNY here);
->   - `fundamental_context.earnings.data.dividend.currency` = trading / dividend currency (`info.currency`; HK ADRs use HKD here even when the statement currency is CNY). The renderer reads each block's own currency rather than assuming a single global currency;
+>   - `fundamental_context.earnings.data.financial_report.currency` = financial statement currency;
+>   - `fundamental_context.earnings.data.dividend.currency` = dividend currency;
 >   - `fundamental_context.earnings.data.dividend.ttm_dividend_yield_pct` = `ttm_cash_dividend_per_share / latest_price * 100`, both sides in the trading currency. Falls back to `info.trailingAnnualDividendYield` (decimal) or `info.dividendYield` (already-percent passthrough) only when TTM cash or latest price is unavailable;
 >   - `get_stock_info.belong_boards` = list of sectors the individual stock belongs to;
 >   - `get_stock_info.boards` is a compatibility alias, value is identical to `belong_boards` (removal considered only in major version updates);
@@ -411,7 +405,7 @@ For the notification baseline, diagnostics, and deployment notes, see [Notificat
 | `MAX_WORKERS` | Concurrent threads | `3` |
 | `MARKET_REVIEW_ENABLED` | Enable market review | `true` |
 | `DAILY_MARKET_CONTEXT_ENABLED` | Inject the daily market context into stock-analysis prompts and soften aggressive buy advice in high-risk/risk-off markets; enabled by default, and market review can still run when this is set to `false` | `true` |
-| `MARKET_REVIEW_REGION` | Market review region: cn (A-shares), hk (HK stocks), us (US stocks), jp (JP stocks), kr (KR stocks), both (all five markets) | `cn` |
+| `MARKET_REVIEW_REGION` | Market review region; the A-share edition is fixed to `cn` | `cn` |
 | `MARKET_REVIEW_COLOR_SCHEME` | Index change color style in market reviews: `green_up` = green gains/red losses (default), `red_up` = red gains/green losses | `green_up` |
 | `SCHEDULE_ENABLED` | Enable scheduled tasks | `false` |
 | `SCHEDULE_TIME` | Scheduled execution time | `18:00` |
@@ -427,8 +421,8 @@ For the notification baseline, diagnostics, and deployment notes, see [Notificat
 
 > Behavior notes:
 > - When `TICKFLOW_API_KEY` is configured, TickFlow is instantiated as an optional A-share daily K-line data source and CN market-review enhancer. `TICKFLOW_PRIORITY` only affects the generic A-share daily K-line/provider fallback chain. Realtime quote priority is controlled separately by `REALTIME_SOURCE_PRIORITY`; TickFlow realtime quotes are used only when that list explicitly includes `tickflow`, and any source listed before `tickflow` is tried first.
-> - All SH/SZ indices currently registered in `IndexRegistry` (the `sh`/`sz`/`csi` prefixes; see the [Index watchlist configuration](#index-watchlist-configuration) registry notes and `scripts/stock_index_seeds/index_registry.csv` for the full list) bypass generic priority sorting when given as explicit-market inputs (exchange-suffix forms such as `000016.SH` are also accepted) and use the fixed Tencent → AkShare → TickFlow → YFinance fallback chain; unconfigured or unavailable providers are skipped. Bare `000016`-style inputs remain stocks and do not enter the index chain. This fixed chain ignores `EFINANCE_PRIORITY`, `AKSHARE_PRIORITY`, `TUSHARE_PRIORITY`, `TICKFLOW_PRIORITY`, `PYTDX_PRIORITY`, `BAOSTOCK_PRIORITY`, `YFINANCE_PRIORITY`, and `TENCENT_PRIORITY`. Existing stock and realtime-quote ordering is unchanged.
-> - Registered index names normally come from the local registry. Only an invalid registry name triggers the Tencent → AkShare → TickFlow name fallback; YFinance is not part of the name chain. If all four daily providers fail, an index request returns an empty result with a summary warning, while ordinary stocks retain the existing final `DataFetchError` contract.
+> - Registered SH/SZ/CSI indices use the fixed Tencent → AkShare → TickFlow fallback chain; unconfigured or unavailable providers are skipped. Bare six-digit inputs remain securities and do not enter the index chain.
+> - Registered index names normally come from the local registry. If all index providers fail, the request returns an empty result with a summary warning, while ordinary stocks retain the existing final `DataFetchError` contract.
 > - TickFlow daily K-lines default to `TICKFLOW_KLINE_ADJUST=none`; daily `volume` is converted from lots to shares, while `amount` remains in yuan.
 > - TickFlow daily K-line range requests pass explicit `start_time` / `end_time` / `count`. Because the official quickstart documents that time-range queries are still limited by `count`, non-empty count-capped responses whose first returned trading date is later than the requested start trading date are rejected before normalization or cache writes, allowing manager fallback to continue.
 > - Batch analysis can warm the per-process TickFlow daily K-line cache through `prefetch_daily_klines()` before per-stock `get_daily_data()` calls. Only validated frames are cached; batch permission failures are negative-cached and degrade to single-stock requests or existing providers.
@@ -438,7 +432,7 @@ For the notification baseline, diagnostics, and deployment notes, see [Notificat
 > - TickFlow currently returns `change_pct` / `amplitude` / `turnover_rate` as ratio values; this integration normalizes them to the project's percent convention so they match AkShare / Tushare / efinance semantics.
 > - In scheduler mode, if runtime env explicitly sets `RUN_IMMEDIATELY` but does not set `SCHEDULE_RUN_IMMEDIATELY`, the scheduler keeps inheriting the legacy runtime override instead of being pulled back to a persisted `.env` alias value.
 
-> Compatibility note (Issue #1815): `MARKET_REVIEW_REGION=cn|hk|us|jp|kr|both` only expands the market set used by market review; `jp`/`kr` are for recap scope and do not open JP/KR for Market Light alerts.
+> `MARKET_REVIEW_REGION` only accepts `cn` in the A-share edition.
 > - Changes in `src/config.py`, `src/core/config_registry.py`, and `src/services/system_config_service.py` are configuration-contract updates only, and do not alter runtime provider/model/base URL routing semantics or trigger provider migration/cleanup logic.
 > - Affected config keys are `MARKET_REVIEW_REGION` and `MARKET_REVIEW_COLOR_SCHEME`; existing model/runtime keys (`LITELLM_MODEL`, `AGENT_LITELLM_MODEL`, `LITELLM_FALLBACK_MODELS`, `VISION_MODEL`, `OPENAI_BASE_URL`, etc.) remain unchanged under the existing atomic upsert semantics and are not silently cleared when this scope is changed.
 > - Verifiable evidence summary: official provider / Base URL / model-name sources remain the [LLM Config Guide](LLM_CONFIG_GUIDE_EN.md#official-references-for-provider-presets--base-urls--model-naming), and the locked runtime dependency window remains `litellm>=1.80.10,!=1.82.7,!=1.82.8,<1.99.0` in `requirements.txt`; this scope adds no migration script or cleanup branch, and save/import still writes only submitted keys. `tests/test_system_config_service.py::SystemConfigServiceTestCase::test_update_market_review_region_does_not_trigger_runtime_model_cleanup` covers saving `MARKET_REVIEW_REGION` without clearing or rewriting existing `LITELLM_CONFIG`, `LLM_CHANNELS`, `LLM_OPENAI_*`, `LITELLM_MODEL`, `AGENT_LITELLM_MODEL`, `LITELLM_FALLBACK_MODELS`, `VISION_MODEL`, `OPENAI_*`, and related runtime settings.
@@ -628,11 +622,11 @@ docker run -d \
 ### Install Dependencies
 
 ```bash
-# Python 3.10+ recommended
+# Python 3.11+ recommended
 pip install -r requirements.txt
 
 # Or use conda
-conda create -n stock python=3.10
+conda create -n stock python=3.11
 conda activate stock
 pip install -r requirements.txt
 ```
@@ -686,7 +680,7 @@ Web autocomplete and search now expose registered indices: searching a registry 
 
 The API `/analyze` endpoint builds a structured `AnalysisTarget` for explicit index inputs: `sh000016` is enqueued as `asset_type=INDEX` with `canonical_id=sh000016`, and `930955.CSI`/`csi930955` converge to `csi930955`. Indices and same-digit stocks (e.g. `sh000016` vs `000016`) are deduplicated independently and never collapse. An unregistered CSI input (e.g. `930956.CSI`) returns an explicit 4xx for a single async or sync request, and in an async batch only that target enters the response `rejected` list while the rest of the batch is enqueued normally. Chinese-name inputs (e.g. `贵州茅台`) keep the existing stock-name resolution path and never enter index classification.
 
-Bot `/analyze` now accepts registered-index explicit codes (`sh000016`), CSI aliases (`930955.CSI`), and registered Chinese names (`上证50`). The registry canonical and structured `AnalysisTarget` flow into the same Pipeline used by CLI/API; unregistered CSI forms, unknown names, and ambiguous registered names return an explicit error without submitting a task. Existing A/HK/US codes and stock names keep the legacy-code path.
+Bot `/analyze` accepts six-digit A-share codes, registered-index explicit codes (`sh000016`), CSI aliases (`930955.CSI`), and registered Chinese names (`上证50`). Unregistered CSI forms, unknown names, and ambiguous registered names return an explicit error without submitting a task.
 
 ### GitHub Actions index entry (Phase 2 PR3)
 
@@ -705,7 +699,6 @@ The GitHub Actions daily workflow (`.github/workflows/00-daily-analysis.yml`) an
 | Shanghai (SSE / CSI series listed on SH) | `sh` + 6 digits | `{code}.SH` (plus cross-family aliases such as `sz399300` → `sh000300`) | `sh000016`, `000016.SH` (SSE 50) |
 | Shenzhen (SZSE / CNI series) | `sz` + 6 digits | `{code}.SZ` | `sz399006`, `399006.SZ` (ChiNext); `sz399365`, `399365.SZ` (CNI Grain) |
 | CSI (CSI index code ranges) | `csi` + 6 digits | `{code}.CSI` | `csi930606`, `930606.CSI` (CSI Steel); `csi930955`, `930955.CSI` (CSI Dividend Low Vol 100) |
-| US indices | not in the CN registry | bare code as-is | `NDX` (Nasdaq 100), `SPX`, `DJI` |
 
 > The full list is defined by `scripts/stock_index_seeds/index_registry.csv`; the bundled `apps/dsa-web/public/stocks.index.json` is generated from it (`python scripts/generate_index_from_csv.py --index-only`). For SH/SZ families the exchange-suffix form is equivalent to the canonical; for the `csi` family the canonical is `csi930606` and the equivalent explicit form is `930606.CSI` (both converge to the same index).
 
@@ -714,7 +707,6 @@ The GitHub Actions daily workflow (`.github/workflows/00-daily-analysis.yml`) an
 - **Use a registered code in its explicit form** (prefix or exchange suffix); do not write unregistered code ranges (the whole batch is rejected, or the token is treated as a stock). Matching is case-insensitive: `930955.csi`, `CSI930955`, and `930955.CSI` are equivalent; the canonical and the explicit alias/display of the same index are equivalent (`csi930606` ≡ `930606.CSI`, `sz399365` ≡ `399365.SZ`). A wrong exchange suffix (e.g. `399365.SH`) is rejected as unsupported (that suffix does not accept that base code), while a bare 6-digit code falls back to the stock path.
 - **An unregistered `.CSI` target rejects the whole batch (only at the `--stocks` and GitHub Actions entries)**: a one-shot `--stocks` or a GitHub Actions daily-workflow `STOCK_LIST` containing an unregistered `.CSI` (e.g. `930956.CSI`, or any CSI range other than the registered ones) is rejected as a whole — none of the targets run. The local `.env`/Docker no-arg default path does not classify indices, so this whole-batch rejection does not apply there. Web/API async batches reject only that target and sync/single requests return 4xx (see the Web/API index entry section below for the rejected-list semantics). A wrong exchange suffix (e.g. `399365.SH`) is likewise rejected as unsupported.
 - **Bare codes are never auto-promoted to indices**: a bare 6-digit code such as `399365` / `930606` / `000016` is always treated on the stock path (the "bare code defaults to stock" contract stays); only an ambiguity note is logged. Note: for SZ-family indices (e.g. `sz399365`) the stock canonical and the index canonical share the same `sz{code}` prefixed form, so the same-code bare stock and the index live in the same persistence key domain — mind the fold semantics in the canonical-isolation section below when mixing them in one watchlist.
-- **For US indices such as `NDX`, the bare code is already the correct form**: they use the dedicated `us_index_mapping` US-index route; do **not** add CN prefixes/suffixes (e.g. `NDX.US`, `usNDX`), which could push them onto the stock path.
 - **ETFs (e.g. 159934 gold ETF, XOP) are not in the index registry**: they keep the stock-path ETF semantics, unrelated to any index sharing the same digits; write the bare code directly — an index prefix is neither needed nor supported.
 
 **Example `STOCK_LIST` (comma-separated):**
@@ -723,13 +715,13 @@ The GitHub Actions daily workflow (`.github/workflows/00-daily-analysis.yml`) an
 600519,sh000016,930606.CSI,sz399365,159934,NDX
 ```
 
-This mixes a stock (600519 Kweichow Moutai), an SSE index (sh000016), a CSI index (930606.CSI), an SZ index (sz399365), an A-share ETF (159934 — stock path) and a US index (NDX — US-index route). Because a batch containing an unregistered `.CSI` does not run at all, **check each index against the registry before configuring it**.
+This mixes an A-share stock (600519 Kweichow Moutai), an SSE index (sh000016), a CSI index (930606.CSI), an SZ index (sz399365), and an A-share ETF (159934 — stock path). Check each index against the registry before configuring it.
 
 ### Index vs stock Dashboard canonical isolation (PR #2312)
 
 Registered indices are persisted under their lowercase canonical identity (`sh000016` / `sz399001` / `csi930955`). History filtering, delete-by-code, counts, and the stock bar now all use the parser for asset typing, so index records and the same-code bare stock (e.g. `000016`) are strictly isolated and never collapse. Exception: for SZ-family indices (e.g. `sz399365`) the bare-stock canonical and the index canonical share the same `sz{code}` prefixed form (a bare `399365` parsed as a stock already canonicalizes to `sz399365`), so they naturally share one key; same-code bare stocks and indices in that family are outside the isolation scope and fold together when mixed in a watchlist:
 
-- **History candidates**: index queries (`sh000016`, `SH000016`, `000016.SH`, `sz399001`, `csi930955`, `930955.CSI` and other explicit forms) reach records persisted under the lowercase canonical, the legacy uppercase canonical, or an explicit alias — but **never** the bare same-code stock record; a bare query (`000016` / `930955`) likewise never reaches index records. Stock aliases, HK, and offshore markets keep their existing equivalence semantics.
+- **History candidates**: index queries (`sh000016`, `SH000016`, `000016.SH`, `sz399001`, `csi930955`, `930955.CSI` and other explicit forms) reach records persisted under the lowercase canonical, the legacy uppercase canonical, or an explicit alias — but **never** the bare same-code stock record; a bare query (`000016` / `930955`) likewise never reaches index records.
 - **Delete and count**: `DELETE /api/v1/history/by-code/{code}` and history totals converge every explicit index form; a code with no records still returns `deleted=0` (no breaking 404).
 - **Stock bar**: legacy index records (`sh000016` / `SH000016` / `000016.SH`) merge into one `/history/stocks` row whose count covers all explicit forms, and that row sits beside the bare `000016` stock row without merging. Stock-bar typing derives from the persisted `record.code`, never from the display code.
 - **API `stock_code` output is canonical**: history list, history detail, and stock-bar always surface the parser canonical for registered indices — including legacy uppercase / explicit-alias persisted records such as `SZ399300` or `000300.CSI` (both output `sh000300`) — so the frontend never has to derive a canonical from aliases.
@@ -738,7 +730,7 @@ Registered indices are persisted under their lowercase canonical identity (`sh00
 
 ### Use real Futu holdings as the analysis list
 
-Standard source installs (`pip install -r requirements.txt`), official Docker images, and Windows/macOS Desktop backends already include the pinned `futu-api==10.8.6808`. Install it manually from the [Futu OpenAPI SDK guide](https://openapi.futunn.com/futu-api-doc/en/intro/intro.html) only when using a reduced custom Python environment. After starting and signing in to Futu OpenD, run:
+Standard source installs (`pip install -r requirements.txt`), official Docker images,  already include the pinned `futu-api==10.8.6808`. Install it manually from the [Futu OpenAPI SDK guide](https://openapi.futunn.com/futu-api-doc/en/intro/intro.html) only when using a reduced custom Python environment. After starting and signing in to Futu OpenD, run:
 
 ```bash
 # Only reduced custom environments need the next line
@@ -749,7 +741,7 @@ python main.py --portfolio futu
 
 `--portfolio futu` only reads `REAL` securities accounts whose status is explicitly `ACTIVE`, and refreshes positions with `refresh_cache=True` before each analysis run. Accounts with a missing, `N/A`, unknown, or `DISABLED` status are rejected. Without `FUTU_ACC_ID`, it merges all usable `NORMAL` and `MASTER` securities accounts and deduplicates symbols; when set, only that positive integer account ID is read. Per the [Futu `get_acc_list` account-role contract](https://openapi.futunn.com/futu-api-doc/en/trade/get-acc-list.html), `MASTER` means the master-account role rather than a read-only attribute, and Malaysian `IPO` accounts are not portfolio sources. The integration is read-only because it calls only query APIs.
 
-Only non-zero positions whose direction is explicitly `LONG` and whose Futu static type is `STOCK` are analyzed. `SHORT`, unknown-direction, option, ETF, warrant, futures, and other non-stock positions are excluded. Futu portfolio conversion is limited to Shanghai/Shenzhen A-shares, HK stocks, and US stocks. Shanghai/Shenzhen B-shares, JP holdings, and holdings from other Futu markets are logged with their codes and skipped; this does not change the market support for manually configured stock lists. An invalid eligible account ID, an invalid quantity on a `LONG` position, an invalid or missing code on a non-zero `LONG` position, a missing or unknown static type, or a confirmed stock code that cannot be converted to the analysis format fails the whole import instead of returning a silently truncated result.
+Only non-zero `LONG` positions whose Futu static type is `STOCK` and whose code converts to an A-share are analyzed. Other markets, `SHORT`, unknown-direction, option, ETF, warrant, futures, and other non-stock positions are excluded.
 
 OpenD defaults to `127.0.0.1:11111`; override it with `FUTU_OPEND_HOST` / `FUTU_OPEND_PORT`. The pinned `futu-api==10.8.6808` networking layer uses IPv4 sockets, so `FUTU_OPEND_HOST` must be an IPv4 address or a hostname that resolves to IPv4; IPv6 addresses such as `::1` are unsupported. Inside a Docker container, `127.0.0.1` refers to the container itself. When OpenD runs on the host, set `FUTU_OPEND_HOST=host.docker.internal` on macOS or Windows; on Linux, add a `host.docker.internal:host-gateway` mapping to the container before using that hostname. Cross-host connections carry real account and position data, and [Futu recommends protocol encryption for real-trading connections](https://openapi.futunn.com/futu-api-doc/en/ftapi/protocol.html). This integration does not modify process-wide SDK encryption settings; prefer running OpenD on the same host, or use a trusted network or local port forwarding. When `FUTU_SECURITY_FIRM` is unset, discovery makes one call with the Futu SDK's official `SecurityFirm.NONE` auto-detection mode; it does not enumerate brokers or silently combine partial probe results. Set the variable explicitly when a fixed broker is required.
 
@@ -792,7 +784,7 @@ crontab -e
 
 > Note: Scheduled mode reloads the saved `STOCK_LIST` before each run. If you also pass `--stocks`, it will not pin future scheduled executions to the startup snapshot; use a normal one-off run when you want to analyze a temporary stock list.
 >
-> When the built-in scheduler is started via `python main.py --schedule` or an equivalent CLI-only mode, saving a new `SCHEDULE_TIME` / `SCHEDULE_TIMES` from the WebUI will rebind the daily jobs on the next scheduler poll without restarting the process. The previous trigger times are removed instead of being kept alongside the new ones. `python main.py --serve --schedule` is owned by the Web/API runtime scheduler, so long-running WebUI/API/Desktop processes start, stop, or rebuild the runtime scheduler after saving `SCHEDULE_ENABLED`, `SCHEDULE_TIME`, or `SCHEDULE_TIMES`. Restarting `python main.py --serve-only` or Desktop restores enabled daily jobs, while service startup itself never runs an immediate analysis.
+> When the built-in scheduler is started via `python main.py --schedule` or an equivalent CLI-only mode, saving a new `SCHEDULE_TIME` / `SCHEDULE_TIMES` from the WebUI will rebind the daily jobs on the next scheduler poll without restarting the process. The previous trigger times are removed instead of being kept alongside the new ones. `python main.py --serve --schedule` is owned by the Web/API runtime scheduler, so long-running WebUI/API processes start, stop, or rebuild the runtime scheduler after saving `SCHEDULE_ENABLED`, `SCHEDULE_TIME`, or `SCHEDULE_TIMES`. Restarting `python main.py --serve-only` restores enabled daily jobs, while service startup itself never runs an immediate analysis.
 >
 > The Web/API runtime scheduler run-now endpoint only accepts a request when no analysis is already running; if an analysis is in progress, it returns a busy response instead of reporting a queued run.
 
@@ -807,7 +799,7 @@ The phase labels describe regular-session state:
 | `premarket` | Before the regular session opens; does not mean extended-hours quotes were fetched |
 | `intraday` | Inside the regular session and outside lunch break or the near-close window |
 | `lunch_break` | Lunch break window supplied by the market calendar; markets without lunch breaks skip this phase |
-| `closing_auction` | Near-close heuristic window: 3 minutes for CN, 10 minutes for HK, 5 minutes for US, and 5 minutes for TW (13:25–13:30); this is not a full exchange auction model |
+| `closing_auction` | Three-minute near-close heuristic window for A-shares; this is not a full exchange auction model |
 | `postmarket` | After the regular session closes; does not mean post-market quotes were fetched |
 | `non_trading` | The current market-local date is not a trading session |
 | `unknown` | Unknown market, calendar unavailable, or calendar error, so the phase cannot be inferred reliably |
@@ -867,7 +859,7 @@ Market-phase context construction still supports the legacy internal `analysis_i
 
 P4b completes the Web visibility slice without adding a phase override selector. The in-progress TaskPanel only shows the requested `analysis_phase` echoed by P4a; in the current task-panel UI, `auto` is explicitly labeled as the requested automatic phase (`请求阶段: 自动阶段`) and is not presented as the final inferred phase. The final report page renders the actual market phase from `report.meta.market_phase_summary.phase`, and shows a `Partial bar` marker when `is_partial_bar=true`.
 
-Data-quality visibility continues to reuse `report.details.analysis_context_pack_overview.data_quality` and the existing `AnalysisContextSummary` component. The Web UI only displays the phase label alongside the low-sensitivity data-quality summary; it does not expose the full `AnalysisContextPack`, prompt summary, raw payloads, or stripped snapshot internals. History-list fields, Bot, schedule, GitHub Actions, Desktop, notification summaries, and advanced phase override UI remain follow-up work.
+Data-quality visibility continues to reuse `report.details.analysis_context_pack_overview.data_quality` and the existing `AnalysisContextSummary` component. The Web UI only displays the phase label alongside the low-sensitivity data-quality summary; it does not expose the full `AnalysisContextPack`, prompt summary, raw payloads, or stripped snapshot internals. History-list fields, Bot, schedule, GitHub Actions, notification summaries, and advanced phase override UI remain follow-up work.
 
 ### AnalysisContextPack Prompt Summary (Issue #1389 P3)
 
@@ -879,7 +871,7 @@ P3 itself did not add API/Web/Bot parameters, persist fields into history/task s
 
 Before `DecisionAgent` runs, the multi-agent pipeline builds an internal low-sensitivity `agent_disagreement_summary` that summarizes directional disagreement across prior Agent opinions, risk-override evidence, whether risk override is enabled by the current `AGENT_RISK_OVERRIDE` setting, and non-critical stage degradation. The summary only contains agent name, signal, confidence, conflict type, decision path hint, low-sensitivity risk-control state, and degraded-stage markers. It does not include reasoning, raw data, raw error text, tokens, or private payloads.
 
-This is currently only internal Prompt input plumbing for `DecisionAgent`: the summary is stored in runtime `ctx.meta`, is not injected through Agent pre-fetched data, and does not add public API fields, Web/Desktop display, history/task-status/report metadata, dashboard schema, or final explanation fields. `risk_level=high` is risk evidence only and does not trigger override by itself; the summary and final `_apply_risk_override()` share the same override predicate and respect `AGENT_RISK_OVERRIDE=false`. Non-critical degraded stages reuse the orchestrator contract for `intel`, `risk`, and specialist/skill agents, so a remaining single directional opinion is not described as multi-agent consensus. User-visible final explanation output for #1904 remains a later phase.
+This is currently only internal Prompt input plumbing for `DecisionAgent`: the summary is stored in runtime `ctx.meta`, is not injected through Agent pre-fetched data, and does not add public API fields, Web display, history/task-status/report metadata, dashboard schema, or final explanation fields. `risk_level=high` is risk evidence only and does not trigger override by itself; the summary and final `_apply_risk_override()` share the same override predicate and respect `AGENT_RISK_OVERRIDE=false`. Non-critical degraded stages reuse the orchestrator contract for `intel`, `risk`, and specialist/skill agents, so a remaining single directional opinion is not described as multi-agent consensus. User-visible final explanation output for #1904 remains a later phase.
 
 `AgentResult.runtime_facts` is an optional internal field for facts collected during the current Orchestrator run: base Agent opinions, degradation events, Pipeline termination, and the actual risk application. A degradation event uses `DURING_STAGE` for a stage failure and `BEFORE_STAGE` when that stage did not start because of the Pipeline deadline or budget guard. A completed stage is not recorded as a timeout degradation when the deadline check fires afterward. `pipeline_termination.last_completed_stage` is taken from the latest actual `COMPLETED` result in `AgentRunStats.stage_results` and may be empty.
 
@@ -887,13 +879,13 @@ A structured Orchestrator dashboard is processed as input preparation, one risk 
 
 After a Multi-Agent result enters `StockAnalysisPipeline`, the Pipeline completes the structure and capital-flow, market-phase, and daily-market-context guardrails. After every step that can change the public action, it uses the same resolver as the DecisionSignal builder and records real eight-state `from_action` / `to_action` transitions in execution order. It deterministically generates the optional `dashboard.agent_disagreement_explanation` from `AgentResult.runtime_facts` only when the adjustment-chain start, every intermediate action, and the final action are uniquely resolved by the shared rules. The payload starts at `pipeline_start_action` and uses `final_action` as its only authoritative final conclusion; that value equals the report action, persisted history action, and `DecisionSignal.action`. The three-state `decision_type` is no longer an explanation final result. `risk_control.post_risk_signal` remains only a statistical background fact from the Agent risk stage.
 
-Any model-authored explanation at the top-level or nested dashboard location is removed at the shared Agent dashboard parsing boundary, so only the Pipeline constructs the final field. Invalid Agent signals follow the existing strategy-opinion validity rules and are excluded from runtime facts and public disagreement counts instead of being silently converted to `hold`. If free-form advice cannot resolve uniquely to an eight-state action, the shared resolver remains fail-closed: the report and history retain `action=None`, no explanation is generated, and no DecisionSignal is created; the Pipeline does not synthesize an action from `decision_type`. When a canonical action exists, the field is persisted with the dashboard in report history and completed before DecisionSignal extraction. Legacy reports, single-Agent/non-Agent paths, and compatibility callers without `runtime_facts` do not require this field. This phase does not add dedicated Web/Desktop rendering, a full trace, or the P2-P4 weighting and audit features.
+Any model-authored explanation at the top-level or nested dashboard location is removed at the shared Agent dashboard parsing boundary, so only the Pipeline constructs the final field. Invalid Agent signals follow the existing strategy-opinion validity rules and are excluded from runtime facts and public disagreement counts instead of being silently converted to `hold`. If free-form advice cannot resolve uniquely to an eight-state action, the shared resolver remains fail-closed: the report and history retain `action=None`, no explanation is generated, and no DecisionSignal is created; the Pipeline does not synthesize an action from `decision_type`. When a canonical action exists, the field is persisted with the dashboard in report history and completed before DecisionSignal extraction. Legacy reports, single-Agent/non-Agent paths, and compatibility callers without `runtime_facts` do not require this field. This phase does not add dedicated Web rendering, a full trace, or the P2-P4 weighting and audit features.
 
 ### AnalysisContextPack Low-Sensitivity Visibility (Issue #1389 P4)
 
 P4 adds `report.details.analysis_context_pack_overview`. History detail and completed `/api/v1/analysis/status/{task_id}` responses read the same low-sensitivity overview from the persisted `context_snapshot`; sync analysis responses also extract the overview from the just-persisted `analysis_history.context_snapshot`, so new records do not guarantee this field when `SAVE_CONTEXT_SNAPSHOT=false`. The Web report page renders a collapsed data-block summary after Strategy and News, with available/missing counts, non-zero other status counts, and trigger source in the header and data-block status, source, warnings, missing reasons, status counts, and news result count after expansion. API `details.context_snapshot` strips the top-level `analysis_context_pack_overview` so the raw snapshot panel does not duplicate the public overview.
 
-The overview does not include the full pack, the `analysis_context_pack_summary` prompt string, `items.value`, news body text, `trend_result`, chip, or fundamentals raw payloads. When `SAVE_CONTEXT_SNAPSHOT=false`, the full `analysis_history.context_snapshot` is not persisted, so new history records cannot provide the overview; older records without the overview keep returning an empty field and the report still loads. This phase does not cover pending/processing TaskPanel, in-progress SSE events, notification summaries, Bot/Desktop-specific rendering, `market_review` overview, or data-quality scoring.
+The overview does not include the full pack, the `analysis_context_pack_summary` prompt string, `items.value`, news body text, `trend_result`, chip, or fundamentals raw payloads. When `SAVE_CONTEXT_SNAPSHOT=false`, the full `analysis_history.context_snapshot` is not persisted, so new history records cannot provide the overview; older records without the overview keep returning an empty field and the report still loads. This phase does not cover pending/processing TaskPanel, in-progress SSE events, notification summaries, Bot-specific rendering, `market_review` overview, or data-quality scoring.
 
 ### AnalysisContextPack Data Quality Scoring and Prompt Limitations (Issue #1389 P5)
 
@@ -950,7 +942,7 @@ Normalization functions are explicitly called in `_parse_response()` and `parse_
 
 P6 reuses the existing `market_phase_summary` and `analysis_context_pack_overview` across alerts, portfolio, history, backtesting, and notifications. It does not introduce a new phase/pack protocol and does not require a database migration. Alert trigger rows keep using the existing text `diagnostics` field; when diagnostics can be represented as JSON, the worker merges `analysis_visibility.market_phase_summary`, `analysis_visibility.analysis_context_pack_overview`, and `analysis_visibility.source` into triggered rows. Legacy plain-text diagnostics remain readable; Alert API derived fields stay empty and `analysis_visibility_source=legacy_text`.
 
-Alert phase summaries are generated from trigger-time context: symbol targets infer the stock market, `target_scope=market` uses the `cn|hk|us|jp|kr` region directly, and account-level targets that cannot map to a single market may fall back to `unknown`. The pack overview only comes from an evaluator-provided overview or a recent low-sensitivity history snapshot from the last 30 days. Missing data returns `null`; the alert worker does not fabricate packs and does not automatically run a lightweight LLM analysis. Public source values are `alert_trigger_market_context`, `analysis_history_snapshot`, `evaluator_snapshot`, `legacy_text`, or `null`.
+Alert phase summaries are generated from trigger-time A-share context, and `target_scope=market` uses `cn`. The pack overview only comes from an evaluator-provided overview or a recent low-sensitivity history snapshot from the last 30 days. Missing data returns `null`; the alert worker does not fabricate packs or automatically run a lightweight LLM analysis.
 
 The portfolio page adds a manual per-position analysis action backed by `POST /api/v1/portfolio/positions/{symbol}/analysis`. The request accepts `account_id`, `analysis_phase=auto|premarket|intraday|postmarket`, and `force`. Only non-zero current holdings can be submitted; missing holdings return 404, and the same symbol held in multiple accounts without `account_id` returns `400 ambiguous_position_account`. The endpoint keeps the existing async accepted / duplicate semantics, and `force` only controls refresh behavior; it does not bypass in-flight duplicate detection. The backend passes only a low-sensitivity `portfolio_context` internally into the pipeline and into an optional context-pack `portfolio` block. That block does not affect the six existing data-quality weights and is not exposed through task lists or SSE payloads.
 
@@ -1018,7 +1010,7 @@ FEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/your_hook_token
    - **IP allowlist enabled**: make sure the outbound IP of your runtime (local / Docker / GitHub Actions each have different IPs) is on the allowlist.
 4. `FEISHU_APP_ID` / `FEISHU_APP_SECRET` are for Feishu app / Stream Bot / cloud document flows only. They do **not** trigger group webhook notifications and must not be used alone instead of `FEISHU_WEBHOOK_URL`.
 5. If `FEISHU_APP_ID` / `FEISHU_APP_SECRET` are configured together with `FEISHU_CHAT_ID`, the Feishu App Bot can push notifications directly to a specified chat or user, no group webhook required. `FEISHU_RECEIVE_ID_TYPE` defaults to `chat_id`; set it to `open_id` for P2P delivery. This uses the Feishu OpenAPI Bot session route, independent of the group webhook path.
-6. The App Bot send path reuses the existing `lark-oapi>=1.0.0` dependency already listed in `requirements.txt`; standard source installs, Docker, the GitHub Actions daily workflow, and desktop builds all install it through `pip install -r requirements.txt`. References: [Feishu message create OpenAPI](https://open.feishu.cn/document/server-docs/im-v1/message/create), [lark-oapi PyPI](https://pypi.org/project/lark-oapi/), [SDK repo](https://github.com/larksuite/oapi-sdk-python).
+6. The App Bot send path reuses the existing `lark-oapi>=1.0.0` dependency already listed in `requirements.txt`; standard source installs, Docker, the GitHub Actions daily workflow all install it through `pip install -r requirements.txt`. References: [Feishu message create OpenAPI](https://open.feishu.cn/document/server-docs/im-v1/message/create), [lark-oapi PyPI](https://pypi.org/project/lark-oapi/), [SDK repo](https://github.com/larksuite/oapi-sdk-python).
 
 **Common failure causes:**
 - Only `FEISHU_APP_ID` / `FEISHU_APP_SECRET` were set, with neither `FEISHU_WEBHOOK_URL` nor the App Bot active-delivery target `FEISHU_CHAT_ID` configured
@@ -1055,10 +1047,10 @@ Configure `STOCK_GROUP_N` and `EMAIL_GROUP_N` to route different stock groups to
 > GitHub Actions limitation: as of 2026-03-29, the repository's default `00-daily-analysis.yml` does not auto-import arbitrary numbered `STOCK_GROUP_N` / `EMAIL_GROUP_N` variables. If you only add them in repository Secrets / Variables without extending the workflow `env:` block, they will not reach the runtime process.
 
 ```bash
-STOCK_LIST=600519,300750,002594,AAPL
+STOCK_LIST=600519,300750,002594,000001
 STOCK_GROUP_1=600519,300750
 EMAIL_GROUP_1=user1@example.com
-STOCK_GROUP_2=002594,AAPL
+STOCK_GROUP_2=002594,000001
 EMAIL_GROUP_2=user2@example.com
 ```
 
@@ -1246,34 +1238,9 @@ System defaults to AkShare (free), also supports other data sources:
 - Free, no configuration needed
 - Used as backup data source
 
-### YFinance
-- Free, no configuration needed
-- Supports US/HK stock data
-- US stock historical and real-time data both use YFinance exclusively to avoid technical indicator errors from akshare's US stock adjustment issues
-
-### Longbridge
-- Optional fallback for US/HK stocks, mainly used to supplement fields that YFinance may miss
-- New integrations should use Longbridge OAuth 2.0: the client id is read from `LONGBRIDGE_OAUTH_CLIENT_ID`, or from `LONGBRIDGE_APP_KEY` when no Legacy Access Token is configured; run `python scripts/generate_longbridge_oauth_token.py --client-id <client_id>` once on an interactive machine to generate the SDK token cache
-- For GitHub Actions / Docker headless runs, base64 the local `~/.longbridge/openapi/tokens/<client_id>` file and store it as `LONGBRIDGE_OAUTH_TOKEN_CACHE_B64`
-- OAuth runtime support requires SDK APIs `OAuthBuilder` and `Config.from_oauth`; if a Linux/Docker environment can only install the older SDK, the app logs a clear warning and skips Longbridge while keeping YFinance / AkShare fallback available
-- Legacy API Key remains supported with `LONGBRIDGE_APP_KEY`, `LONGBRIDGE_APP_SECRET`, and `LONGBRIDGE_ACCESS_TOKEN`; this Access Token is the legacy API-key credential, not an OAuth access token
-- Optional knobs: `LONGBRIDGE_STATIC_INFO_TTL_SECONDS` (default `86400`) and `LONGBRIDGE_CONNECTION_COOLDOWN_SECONDS` (default `15`)
-- If credentials are absent, the optional Longbridge fetcher is not instantiated
-- When runtime errors such as `client is closed`, `context closed`, or `connection closed` occur, Longbridge enters a short cooldown window and US/HK daily or realtime requests automatically fall back to YFinance / AkShare instead of reconnecting on every request
-
 ---
 
 ## Advanced Features
-
-### Hong Kong Stock Support
-
-Use `hk` prefix for HK stock codes:
-
-```bash
-STOCK_LIST=600519,hk00700,hk01810
-```
-
-HK daily history skips efinance, pytdx, baostock, and other built-in providers that do not support HK daily data, avoiding mismatches between HK symbols and non-HK market data. AkShare/Tushare/YFinance/Longbridge continue to provide HK fallback paths. If Longbridge is inside its connection cooldown window, the route temporarily skips it and continues with the remaining HK-capable fallbacks.
 
 ### Multi-Model Switching
 
@@ -1376,7 +1343,7 @@ Automatic extraction consumes structured fields from the completed report only. 
 
 For P2 automatic extraction, `market_phase` first reads `market_phase_summary.phase` from the saved context snapshot and then falls back to `AnalysisResult.market_phase_summary.phase`; data quality first reads `analysis_context_pack_overview.data_quality` from the saved context snapshot and then falls back to `AnalysisResult.analysis_context_pack_overview.data_quality`. Price-plan extraction reuses the same sniper-point parser used by history persistence, mapping `dashboard.battle_plan.sniper_points.ideal_buy/secondary_buy/stop_loss/take_profit` to `entry_low/entry_high/stop_loss/target_price`; `ideal_buy` alone writes `entry_low`, `secondary_buy` alone writes `entry_high`, and when both are present they are sorted into `entry_low <= entry_high`. Missing stop-loss or target prices only lower the service-computed `plan_quality` instead of inventing fields. `watch_conditions` first reads `dashboard.phase_decision.watch_conditions` and then falls back to `dashboard.battle_plan.action_checklist`. `catalyst_summary` is written only when `dashboard.intelligence.positive_catalysts` exists and is a list. `confidence` uses a conservative report-level mapping: `高/high=0.8`, `中/medium/mid=0.6`, `低/low=0.4`; the original report confidence level remains in `metadata`.
 
-Starting with P3, `DecisionSignalService` owns lifecycle defaults. Explicit `horizon` / `expires_at` values always win. When `horizon` is omitted, `alert` or `premarket/intraday/lunch_break/closing_auction` defaults to `intraday`, while `postmarket/non_trading/unknown` or missing phase context defaults to `3d`. When `expires_at` is omitted, `intraday` first uses `metadata.market_phase_summary.minutes_to_close/minutes_to_open`; without context it uses deterministic TTL fallback values (CN 4h, HK 5.5h, US 6.5h, unknown 4h). `1d/3d/5d/10d` use natural days, and `swing/long` do not auto-expire. The fallback TTL is only a no-context degradation path, not an exchange-calendar close time. Automatic extraction writes only low-sensitive `market_phase_summary.phase/session_date/minutes_to_open/minutes_to_close` hints into `metadata.market_phase_summary`; final `horizon/expires_at` values are still computed by the service.
+Starting with P3, `DecisionSignalService` owns lifecycle defaults. Explicit `horizon` / `expires_at` values always win. When `horizon` is omitted, intraday phases default to `intraday`, while post-market or missing phase context defaults to `3d`. Without market context, A-share intraday signals use a deterministic four-hour TTL fallback.
 
 Core fields include `stock_code`, `stock_name`, `market`, `source_type`, `source_agent`, `source_report_id`, `trace_id`, `decision_profile`, `market_phase`, `trigger_source`, `action`, `action_label`, `confidence`, `score`, `horizon`, `entry_low`, `entry_high`, `stop_loss`, `target_price`, `invalidation`, `watch_conditions`, `reason`, `risk_summary`, `catalyst_summary`, `evidence`, `data_quality_summary`, `plan_quality`, `status`, `expires_at`, `created_at`, `updated_at`, and `metadata`. `action` reuses the eight-state action taxonomy; `decision_profile` supports `conservative|balanced|aggressive`, while database `NULL` means legacy/unknown only; `market_phase` reuses the market phase enum; `source_type` supports `analysis|agent|alert|market_review|manual`; `status` supports `active|expired|invalidated|closed|archived`; `horizon` supports `intraday|1d|3d|5d|10d|swing|long`.
 
@@ -1396,7 +1363,7 @@ New API endpoints:
 - `PATCH /api/v1/decision-signals/{signal_id}/status`: update a valid status and optional `metadata`; omitting metadata preserves the stored value, explicit `null` clears it to SQL `NULL`, and an object replaces the whole value. A non-null formal `decision_profile` overwrites a conflicting metadata profile; for a legacy formal `NULL`, the profile key is removed from the request object and the formal field is not promoted. `expired/invalidated/closed/archived` terminal states cannot be patched directly back to `active`; expired renewal still requires re-posting active data with a future `expires_at`.
 - `GET /api/v1/decision-signals/latest/{stock_code}`: return latest active signals for a stock, default `limit=1`.
 
-Read paths lazily expire active signals whose `expires_at` has passed before list, detail, and latest queries; creating an already expired active signal stores it as `expired`; the same-source expired signal can only be extended by re-posting active data with a future `expires_at`, and `PATCH /status` does not accept `expires_at`. `expired|invalidated|closed|archived` cannot be patched directly back to active, and `closed|invalidated|archived` are not reactivated by the create path. Automatic opposite-signal invalidation merges these fields into the old signal metadata: `invalidated_by_signal_id`, `invalidated_reason`, `invalidated_at`, and `previous_status`. A non-null formal profile is synchronized into metadata; a legacy formal `NULL` preserves the existing legacy metadata profile and does not promote the formal field. If old metadata JSON is corrupt or not an object, it is replaced with invalidation metadata plus the corresponding replacement marker, and the new signal creation is not blocked. Time fields are normalized to UTC naive datetimes for storage and comparison; timezone-aware inputs are converted to UTC and stripped of `tzinfo`, naive inputs are treated as UTC, and API responses continue to return ISO strings without timezone suffixes. Stock codes are normalized deterministically by `market`: CN variants such as `600519`, `SH600519`, and `600519.SH` match the same stored code; HK variants such as `00700`, `HK00700`, and `00700.HK` match `HK00700`; US tickers are uppercased. `holding_only=true` reads only cached `portfolio_positions` rows with `quantity > 0` under active accounts and matches signals by the held `(market, stock_code)`, optionally scoped by an active `account_id`; it does not call portfolio snapshot replay. When no cache exists, it returns an empty result and callers should refresh the cache through the portfolio snapshot API first.
+Read paths lazily expire active signals whose `expires_at` has passed. A-share code variants such as `600519`, `SH600519`, and `600519.SH` match the same stored code. `holding_only=true` reads only cached active-account positions with `quantity > 0`.
 
 `source_report_id` is nullable and is not required to reference an existing history row; deleting history records explicitly removes only history-bound signals with `source_type=analysis` whose `source_report_id` matches actually deleted IDs, so `manual/agent/alert/market_review` weak-reference signals are not deleted solely because of an ID collision. The list endpoint supports typed filters for `source_report_id` and `trace_id`. Follow-up association fields such as `task_id` and `alert_trigger_id` should be stored in `metadata` for P1; P1 does not add dedicated columns or typed filters for them, which are deferred to the later integration phase. JSON fields, long text fields, and public short text fields (`stock_name/source_agent/trigger_source/action_label`) are sanitized before persistence with a signal-specific sanitizer that redacts sensitive keys, Bearer values, Authorization/Cookie headers or assignments, token-like strings, other sensitive assignments, webhook URLs, URL userinfo, and URLs with sensitive query or fragment parameters. Ordinary evidence URLs are preserved for source traceability, and long text does not use the diagnostics 300-character truncation. `trace_id` is a same-source identity field; if it contains sensitive credentials that would be redacted, the API rejects the request instead of storing a lossy redacted value.
 
@@ -1412,7 +1379,7 @@ P5 extends the existing Web `/decision-signals` page instead of adding a new nav
 
 #1758 adds `profile_calibration` to the same `GET /api/v1/decision-signals/outcomes/stats` response. It returns structured groups for decision profile, profile + action, profile + horizon, profile + market phase, profile + frozen data quality, and profile source. Every group independently requires `completed >= 30`; below that threshold it keeps counts while all five descriptive metrics are `null`, and the Web shows sample counts with “Insufficient sample size; for observation only.” It never ranks or recommends profiles. Hit and miss rates use `hit + miss` as their denominator, while the unable rate uses total. Maximum adverse move is derived only from persisted outcome `start_price/min_low/max_high` values and never triggers a market-data read. `decision_profile` and metadata-backed `profile_source` are current attribution values joined from the signal at query time; action, horizon, market phase, and data quality remain frozen outcome values. A new outcome falls back to normalized metadata data quality only when its summary has no explicit level, and existing outcomes are not silently rewritten. The Web reuses the original stats request and card, exposing only Conservative/Balanced/Aggressive plus by-action/by-horizon views; legacy servers without the new field keep the original stats card usable. See [DecisionSignal Topic](decision-signals.md) for the full contract.
 
-The portfolio page loads AI signals as a non-blocking enhancement: portfolio snapshots and risk cards render first, then the page calls `GET /api/v1/decision-signals/latest/{stock_code}?market=<market>&limit=1` for each unique holding in the current snapshot to read the latest active signal. It no longer scans the generic `holding_only=true` list endpoint and has no fixed page-count cutoff. If a single latest lookup fails, the page keeps other loaded signals and shows a visible degradation warning; rows without a matching signal show an empty placeholder. Matching reuses the Web stock-code equivalence rules for CN variants such as `600519/SH600519/600519.SH`, HK variants such as `00700/HK00700/00700.HK`, and case-insensitive US tickers.
+The portfolio page loads AI signals as a non-blocking enhancement. Each A-share holding is queried with `market=cn`, and matching reuses the Web A-share code equivalence rules such as `600519/SH600519/600519.SH`.
 
 #1390 P6 reuses `DecisionSignal` across alerts, notifications, and portfolio risk without adding tables, migrations, or configuration. Real stock-level alert triggers first link the latest active signal for the same symbol and write a low-sensitive `decision_signal_summary` into `alert_triggers.diagnostics`; when no active signal exists, the worker creates only a minimal `source_type=alert`, `action=alert` signal. Its `trace_id=alert-rule-<hash>` is for best-effort retry de-duplication, not active-signal overwrites, and the payload intentionally omits `market_phase` to avoid cross-phase duplicates. Alert and analysis notifications reference only public summary fields such as `action/horizon/reason/watch_conditions/risk_summary/source_report_id`, and notification failure does not block trigger or signal writes. `GET /api/v1/portfolio/risk` now includes a `decision_signal_risk` block that counts active `sell/reduce/alert` signals for current holdings, explicitly excluding `avoid/buy/add/hold/watch`; if signal lookup fails, the risk endpoint fails open and the Web risk card shows a degraded state.
 
@@ -1521,7 +1488,7 @@ For this feature, the product behavior is:
 | Endpoint | Method | Description |
 |------|------|------|
 | `/api/v1/analysis/analyze` | POST | Trigger stock analysis |
-| `/api/v1/analysis/market-review` | POST | Trigger a background market review; request body may pass `{"send_notification": true, "region": "cn,us"}`; `region` applies only to this request and shares the same runtime construction semantics as `main.py --market-review` and Bot commands |
+| `/api/v1/analysis/market-review` | POST | Trigger an A-share market review; optional `region` only accepts `cn` |
 | `/api/v1/analysis/tasks` | GET | Query task list |
 | `/api/v1/analysis/tasks/stream` | GET (SSE) | Subscribe to realtime task updates |
 | `/api/v1/analysis/status/{task_id}` | GET | Query task status |
@@ -1529,7 +1496,6 @@ For this feature, the product behavior is:
 | `/api/v1/screening/screen/tasks/{task_id}` | GET | Query screening task status and completed result |
 | `/api/v1/history` | GET | Query analysis history |
 | `/api/v1/history/{record_id}/share-image` | GET | Generate a historical-report PNG for browsers; requires an available `MD2IMG_ENGINE` |
-| `/api/v1/history/{record_id}/share-image-html` | GET | Generate restricted poster HTML for capture by the Electron desktop Chromium runtime |
 | `/api/v1/history/{record_id}/diagnostics` | GET | Query a historical report run diagnostic summary and sanitized copy text |
 | `/api/v1/decision-signals` | POST | Explicitly create or deduplicate a decision signal and return `{ item, created }` |
 | `/api/v1/decision-signals` | GET | Paginated decision-signal query with stock, market, action, phase, profile, source, status, time-range, and cache-only holdings filters |
@@ -1558,9 +1524,9 @@ For this feature, the product behavior is:
 > Note: The Web Home page exposes an explicit strategy selector. When users do not pick one, `skills` is not sent and legacy behavior is preserved; when selected, it is passed through to this endpoint and persisted in task status/history snapshots.
 > Note: `POST /api/v1/analysis/market-review` follows the same runtime configuration path as CLI/Bot market review (`GeminiAnalyzer(config=...)`, search setup, and prompt/rendering pipeline). The provider compatibility path prioritizes `litellm_model` and `llm_model_list`, then falls back to existing legacy keys (`GEMINI_*`, `OPENAI_*`, `ANTHROPIC_*`, `DEEPSEEK_*`) when those are not set; provider names, Base URL, and LiteLLM routing semantics are otherwise unchanged.
 > Note: `POST /api/v1/analysis/market-review` also accepts `report_language=zh|en|ko` / `reportLanguage` to set report language for that request. If omitted, it falls back to global `REPORT_LANGUAGE`; Bot/CLI/manual `/market-review` calls keep using global config and do not carry request-level override.
-> Note: `POST /api/v1/analysis/market-review` accepts one optional 1–64 character string field, `region`. Valid inputs are `cn`, `hk`, `us`, `jp`, `kr`, `both`, or a non-empty comma-separated subset such as `cn,us`. The request layer canonicalizes case, whitespace, duplicates, and ordering. Empty strings/tokens, unknown tokens, and mixing `both` with other markets reject the whole request with 4xx; they are never partially executed or silently defaulted. Omitting `region` continues to use global `MARKET_REVIEW_REGION`.
+> Note: `POST /api/v1/analysis/market-review` accepts optional `region=cn`; omitting it uses the same A-share default.
 > Note: the Home selector is a one-run override only. It does not call the config read/save API or write LocalStorage. “Server default” omits `region` from the request, and the UI does not guess the effective runtime market from the saved/display value exposed by Web Settings. The backend resolves one canonical effective value at task submission; the accepted response, pending/processing/completed status, task list, `task_created`/`task_started`/`task_progress`/`task_completed` SSE events, completed structured payload, and both the History list item's `region` and `context_snapshot.market_review_region` reuse that value. Persistent `MARKET_REVIEW_REGION` keeps its existing lenient compatibility behavior; CLI, Bot, schedule, and the default `cn` semantics are unchanged.
-> Note: `POST /api/v1/analysis/market-review` is the explicit Web/desktop trigger and submits a market-review task directly. It does not short-circuit because `TRADING_DAY_CHECK_ENABLED=true` or the configured markets are closed that day; scheduled jobs, GitHub Actions manual runs, and CLI defaults still follow the trading-day gate unless `--force-run` or workflow `force_run` is used.
+> Note: `POST /api/v1/analysis/market-review` is the explicit Web trigger and submits a market-review task directly. It does not short-circuit because `TRADING_DAY_CHECK_ENABLED=true` or the configured markets are closed that day; scheduled jobs, GitHub Actions manual runs, and CLI defaults still follow the trading-day gate unless `--force-run` or workflow `force_run` is used.
 > Audit note: priority and fallback are defined by `Config._load_from_env()` in `src/config.py` (`LITELLM_CONFIG` > `LLM_CHANNELS` > legacy). Regression coverage is in `tests/test_llm_channel_config.py` (configuration source parsing) and `tests/test_market_review_runtime.py` (shared runtime assembly). The endpoint lock is process/host-level only; multi-instance deployments still need external distributed idempotency controls.
 > Note: Once `/api/v1/analysis/market-review` completes, the report is persisted with `report_type=market_review`; open `/api/v1/history` and `/api/v1/history/{record_id}` (or Markdown history endpoints) to view it directly without re-running analysis.
 > Note: `/api/v1/analysis/market-review` task status and persisted history include a structured `market_review_payload`; `region` is the canonical market scope actually executed, alongside fields such as `market_scope`, `sections`, `sectors`, `concepts`, `news`, `market_light`, and `indices`. Web rendering and history detail use the same structure and fall back to raw `markdown_report` only if the structure is unavailable.
@@ -1572,7 +1538,7 @@ For this feature, the product behavior is:
 > Note: `GET /api/v1/usage/dashboard` reuses the existing `llm_usage` audit table and adds no configuration key or database migration. It returns only persisted call counts, prompt/completion/total token aggregates, model-level usage, and recent call records; it does not infer model context windows or provider metadata.
 > Issue #1520 compatibility note: The `model`/`model_used` returned here is read-only historical snapshot metadata from each record, used only for trend drawer/history display. It does not alter runtime model/model-provider/base URL resolution, config migration, or cleanup semantics in the analysis path. Rollback is by reverting this commit; history query, API response shapes, and UI drawer consumption remain compatible.
 > Note: history detail, sync analysis responses, and completed task status responses expose a low-sensitivity input data-block overview at `report.details.analysis_context_pack_overview`; sync analysis responses depend on the just-persisted `analysis_history.context_snapshot`, so new records do not guarantee the overview when `SAVE_CONTEXT_SNAPSHOT=false`. `details.context_snapshot` strips that top-level field and does not return the full `AnalysisContextPack` or prompt summary.
-> Note: `POST /api/v1/agent/chat` and `POST /api/v1/agent/chat/stream` use the frontend-provided `context.stock_code` as the active Ask Stock baseline and fall back to global `REPORT_LANGUAGE` when `context.report_language` is absent; an explicitly supplied `context.report_language` keeps precedence. Stock scope is still resolved server-side. Each turn is classified as `maintain`, `switch`, or `compare`: unchanged follow-ups can call stock-scoped tools only for the current stock; explicit switches clear stale stock summaries and prefetched context; comparison prompts such as compare/vs/difference allow the explicitly mentioned codes for that turn without rewriting the current stock. If a model attempts to call a stock tool with financial abbreviations such as TTM, PE, MACD, KDJ, contextual indicator tokens such as `MA` in moving-average prompts, or exchange fragments such as SH/SZ/BJ/HK/SS, the backend returns a non-retriable `stock_scope_violation` tool result instead of executing that stock tool. Tool names are resolved only by exact registry name; provider namespaces or suffixes are not routed to existing tools.
+> Note: `POST /api/v1/agent/chat` and `POST /api/v1/agent/chat/stream` use the frontend-provided `context.stock_code` as the active A-share baseline. Each turn is classified as `maintain`, `switch`, or `compare`; stock-scoped tools remain limited to the current or explicitly compared A-share codes. Financial abbreviations and exchange fragments are rejected as stock candidates.
 
 > Session Skill state: the top-level `skills` field is tri-state on both Chat requests and is the only authoritative request source for Skill selection. Omitting it or sending `null` inherits the selection saved for that `session_id`; sessions without state use the runtime server default. Sending `[]` clears the explicit selection and preserves the existing general/server-default execution semantics. A non-empty list is cleaned, deduplicated, and saved with the existing Skill catalog rules. Mixed valid and invalid entries keep the valid entries; if every entry is invalid, the normalized empty result is not treated as an explicit `[]`, so the request inherits session state or the runtime default without persisting an empty state. Any legacy `skills` or `strategies` fields left in the analysis-reuse `context` are removed by the server and cannot override the top-level tri-state or session state. The user message and an explicit Skill update are written in one transaction before the streaming endpoint emits `accepted`. `GET /api/v1/agent/chat/sessions/{session_id}` returns `session_state.selected_skill_ids` alongside messages: `null` means no state has been persisted, `[]` means the selection was explicitly cleared, and a non-empty list is the saved selection. The Web client restores only persisted selections from this field. For `null`, it may display the server default Skill, but an untouched follow-up still omits `skills` so a legacy session is not silently converted into an explicit-Skill session. Deleting a session also deletes its state.
 > Note: `POST /api/v1/backtest/run` adds `analysis_date_from` / `analysis_date_to` (`YYYY-MM-DD`) to filter candidates by analysis date range. When `analysis_date_from > analysis_date_to`, it returns 400 `invalid_params`.
@@ -1586,7 +1552,7 @@ For this feature, the product behavior is:
 >   - `tests/test_llm_channel_config.py` (configuration priority and provider/base URL mapping)
 >   - `tests/test_market_review_runtime.py` (`build_market_review_runtime` shared assembly path)
 >   - `tests/test_analysis_api_contract.py` (`/api/v1/analysis/market-review` contract and task status flow)
-> - Rollback path: if regression appears, restore historical `LITELLM_MODEL`, `LITELLM_FALLBACK_MODELS`, and legacy `GEMINI_*` / `OPENAI_*` / `ANTHROPIC_*` / `DEEPSEEK_*`, or import a desktop backup through `POST /api/v1/system/config/import` and restart; at runtime you can also clear `LITELLM_CONFIG` / `LLM_CHANNELS` to force legacy fallback.
+> - Rollback path: if regression appears, restore historical `LITELLM_MODEL`, `LITELLM_FALLBACK_MODELS`, and legacy `GEMINI_*` / `OPENAI_*` / `ANTHROPIC_*` / `DEEPSEEK_*`, or import a configuration backup through `POST /api/v1/system/config/import` and restart; at runtime you can also clear `LITELLM_CONFIG` / `LLM_CHANNELS` to force legacy fallback.
 
 > Progress-stream note: `GET /api/v1/analysis/tasks/stream` now emits `task_progress` in addition to `task_created / task_started / task_completed / task_failed`. The regular analysis path updates `progress` and `message` across quote preparation, news retrieval, context assembly, LLM generation, and report persistence. Streaming chunks are accumulated only on the server side; history is persisted only after the final JSON parses successfully. If streaming is unavailable before the first chunk, the system falls back to the previous non-stream request. If a stream fails after partial output has already arrived, the system first retries non-stream for the same model, then continues through existing fallback models in the original order (primary + fallback list).
 > If a progress callback fails, the analysis flow continues, and the exception is now logged at warning level to help troubleshoot SSE delivery gaps.
@@ -1651,10 +1617,6 @@ python main.py --serve-only --host 0.0.0.0 --port 8888
 |------|------|------|
 | A-shares | 6-digit number | `600519`, `000001`, `300750` |
 | BSE (Beijing) | 8/4/92 prefix, 6-digit; supports `BJ` prefix or `.BJ` suffix | `920748`, `BJ920493`, `920493.BJ` |
-| HK stocks | hk + 5-digit number | `hk00700`, `hk09988` |
-| US stocks | 1-5 letters, optional `.X` suffix | `AAPL`, `TSLA`, `BRK.B` |
-| Japanese stocks | Yahoo `.T` suffix | `7203.T`, `6758.T` |
-| Korean stocks | Yahoo `.KS` / `.KQ` suffix | `005930.KS`, `035720.KQ` |
 
 ### Notes
 
@@ -1740,7 +1702,7 @@ AGENT_EVENT_ALERT_RULES_JSON=[{"stock_code":"600519","alert_type":"price_cross",
 
 The worker writes `triggered`, `skipped`, `degraded`, and `failed` rows to `alert_triggers` as evaluation history; normal non-triggered checks do not write history. For DB-persisted rules, `triggered` history is best-effort deduplicated by `rule_id + target + data_source + data_timestamp`: repeated hits for the same data point reuse the earliest trigger row, while records without `data_timestamp` are not deduplicated. Real triggers write per-channel attempts to `alert_notifications`, and Alert API persisted rules write business cooldown state to `alert_cooldowns`; if the persisted cooldown read fails, the worker temporarily falls back to the in-process fingerprint guard to avoid repeated notifications during the DB failure. Legacy `AGENT_EVENT_ALERT_RULES_JSON` rules continue to use the in-process fingerprint suppressor and do not write persisted cooldown state; the notification infrastructure `notification_noise.py` guard remains independent. The Web rule list uses the backend-provided `cooldown_active` flag instead of browser-local timezone parsing to decide whether a rule is cooling down.
 
-Technical indicator rules use daily-close edge triggers only. Partial-bar handling is a server-local-time + 16:00 heuristic and does not implement market-calendar precision. `watchlist` rules refresh and expand `STOCK_LIST` each worker run, `portfolio_holdings` expands non-zero snapshot positions with symbol de-duplication, and `portfolio_account` reuses the portfolio risk service for account-level aggregate evaluation. `market` rules accept only `cn|hk|us|jp|kr` targets and use structured `MarketLightSnapshot` data; `trade_date` comes from the current market overview, `data_quality=unavailable` skips triggering, non-trading days are skipped by the trading-day gate, and `market_light_score_drop` compares score across trading days only. The WebUI "Alerts" page can manage persisted rules, run one-shot dry-run tests, and view trigger history, notification attempts, and read-only cooldown state; cooldown on batch rules is a parent-rule summary, while child-target cooldown details are visible through trigger history. See [Real-Time Alert Center](alerts.md) for detailed boundaries.
+Technical indicator rules use daily-close edge triggers only. `watchlist` rules refresh `STOCK_LIST`, portfolio rules expand A-share positions, and `market` rules accept only `cn` with structured `MarketLightSnapshot` data. See [Real-Time Alert Center](alerts.md) for detailed boundaries.
 
 ---
 

@@ -51,7 +51,7 @@ def _risk_report():
     return {
         "as_of": "2026-05-20",
         "account_id": 1,
-        "currency": "USD",
+        "currency": "CNY",
         "thresholds": {
             "concentration_alert_pct": 35.0,
             "drawdown_alert_pct": 10.0,
@@ -63,15 +63,15 @@ def _risk_report():
             "triggered_count": 1,
             "near_count": 2,
             "items": [
-                {"account_id": 1, "symbol": "AAPL", "loss_pct": 12.0, "is_triggered": True},
-                {"account_id": 1, "symbol": "MSFT", "loss_pct": 8.5, "is_triggered": False},
+                {"account_id": 1, "symbol": "600519", "loss_pct": 12.0, "is_triggered": True},
+                {"account_id": 1, "symbol": "000858", "loss_pct": 8.5, "is_triggered": False},
             ],
         },
         "concentration": {
             "top_weight_pct": 42.5,
             "alert": True,
             "total_market_value": 10000.0,
-            "top_positions": [{"symbol": "AAPL", "weight_pct": 42.5}],
+            "top_positions": [{"symbol": "600519", "weight_pct": 42.5}],
         },
         "drawdown": {
             "series_points": 5,
@@ -113,9 +113,9 @@ class PortfolioAlertsTestCase(unittest.TestCase):
         self.assertIn("1 affected symbols", breach["message"])
         diagnostics = json.loads(near["diagnostics"])
         self.assertEqual(diagnostics["account_id"], 1)
-        self.assertEqual(diagnostics["currency"], "USD")
+        self.assertEqual(diagnostics["currency"], "CNY")
         self.assertEqual(diagnostics["as_of"], "2026-05-20")
-        self.assertEqual(diagnostics["top_affected_symbols"], ["AAPL", "MSFT"])
+        self.assertEqual(diagnostics["top_affected_symbols"], ["600519", "000858"])
 
     def test_concentration_uses_top_weight_pct(self) -> None:
         result = evaluate_portfolio_risk_alert(
@@ -171,8 +171,8 @@ class PortfolioAlertsTestCase(unittest.TestCase):
     def test_portfolio_holdings_expansion_deduplicates_symbols_and_caps(self) -> None:
         snapshot = {
             "accounts": [
-                {"positions": [{"symbol": "aapl", "quantity": 2}, {"symbol": "AAPL", "quantity": 1}]},
-                {"positions": [{"symbol": "hk00700", "quantity": 3}, {"symbol": "ZERO", "quantity": 0}]},
+                {"positions": [{"symbol": "600519", "quantity": 2}, {"symbol": "600519", "quantity": 1}]},
+                {"positions": [{"symbol": "000001", "quantity": 3}, {"symbol": "ZERO", "quantity": 0}]},
             ]
         }
 
@@ -183,7 +183,7 @@ class PortfolioAlertsTestCase(unittest.TestCase):
             portfolio_service=FakePortfolioService(snapshot=snapshot),
         )
 
-        self.assertEqual([item.symbol for item in targets], ["AAPL", "HK00700"])
+        self.assertEqual([item.symbol for item in targets], ["600519", "000001"])
         self.assertEqual(overflow, 0)
 
     def test_portfolio_holdings_expansion_preserves_exchange_identity_and_dedupes_equivalent_formats(self) -> None:
@@ -215,14 +215,14 @@ class PortfolioAlertsTestCase(unittest.TestCase):
 
     def test_watchlist_expansion_refreshes_stock_list(self) -> None:
         class Config:
-            stock_list = ["600519", "600519", "aapl"]
+            stock_list = ["600519", "600519", "600519"]
 
             def __init__(self):
                 self.refreshed = False
 
             def refresh_stock_list(self):
                 self.refreshed = True
-                self.stock_list = ["000001", "000001", "hk00700"]
+                self.stock_list = ["000001", "000001", "000002"]
 
         config = Config()
         targets, overflow = expand_symbol_targets(
@@ -232,7 +232,7 @@ class PortfolioAlertsTestCase(unittest.TestCase):
         )
 
         self.assertTrue(config.refreshed)
-        self.assertEqual([item.symbol for item in targets], ["000001", "HK00700"])
+        self.assertEqual([item.symbol for item in targets], ["000001", "000002"])
         self.assertEqual(overflow, 0)
 
 

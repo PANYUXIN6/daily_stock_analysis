@@ -75,6 +75,7 @@ def test_duration_file_tracks_current_baseline_and_valid_paths() -> None:
     assert duration_path.is_file()
     durations = load_durations(duration_path)
 
-    assert len(durations) >= 250
+    assert durations
+    assert set(durations) <= set(discover_test_files())
     assert all((REPO_ROOT / Path(test_file)).is_file() for test_file in durations)
     assert max(durations.values()) >= 30

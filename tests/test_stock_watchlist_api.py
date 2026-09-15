@@ -24,23 +24,23 @@ class FakeSystemConfigService:
 
 
 def test_watchlist_add_deduplicates_raw_hk_code_against_prefixed_variant() -> None:
-    service = FakeSystemConfigService("00700")
+    service = FakeSystemConfigService("000001")
 
     response = add_to_watchlist(
-        WatchlistRequest(stock_code="HK00700"),
+        WatchlistRequest(stock_code="000001"),
         service=service,
     )
 
-    assert response.stock_codes == ["00700"]
-    assert service.stock_list == "00700"
+    assert response.stock_codes == ["000001"]
+    assert service.stock_list == "000001"
     assert service.update_calls == []
 
 
 def test_watchlist_remove_deletes_raw_hk_code_from_prefixed_variant_request() -> None:
-    service = FakeSystemConfigService("00700")
+    service = FakeSystemConfigService("000001")
 
     response = remove_from_watchlist(
-        WatchlistRequest(stock_code="HK00700"),
+        WatchlistRequest(stock_code="000001"),
         service=service,
     )
 
@@ -50,38 +50,38 @@ def test_watchlist_remove_deletes_raw_hk_code_from_prefixed_variant_request() ->
 
 
 def test_watchlist_matching_is_case_insensitive_for_us_tickers() -> None:
-    service = FakeSystemConfigService("aapl")
+    service = FakeSystemConfigService("000858")
 
     add_response = add_to_watchlist(
-        WatchlistRequest(stock_code="AAPL"),
+        WatchlistRequest(stock_code="000858"),
         service=service,
     )
     remove_response = remove_from_watchlist(
-        WatchlistRequest(stock_code="AAPL"),
+        WatchlistRequest(stock_code="000858"),
         service=service,
     )
 
-    assert add_response.stock_codes == ["aapl"]
+    assert add_response.stock_codes == ["000858"]
     assert remove_response.stock_codes == []
     assert service.update_calls == [""]
 
 
 def test_watchlist_reads_common_copy_paste_separators() -> None:
-    service = FakeSystemConfigService("600519，300750  AAPL")
+    service = FakeSystemConfigService("600519，300750  000858")
 
     response = get_watchlist(service=service)
 
-    assert response.stock_codes == ["600519", "300750", "AAPL"]
+    assert response.stock_codes == ["600519", "300750", "000858"]
 
 
 def test_watchlist_add_normalizes_existing_mixed_separators_on_write() -> None:
     service = FakeSystemConfigService("600519，300750")
 
     response = add_to_watchlist(
-        WatchlistRequest(stock_code="AAPL"),
+        WatchlistRequest(stock_code="000858"),
         service=service,
     )
 
-    assert response.stock_codes == ["600519", "300750", "AAPL"]
-    assert service.stock_list == "600519,300750,AAPL"
-    assert service.update_calls == ["600519,300750,AAPL"]
+    assert response.stock_codes == ["600519", "300750", "000858"]
+    assert service.stock_list == "600519,300750,000858"
+    assert service.update_calls == ["600519,300750,000858"]

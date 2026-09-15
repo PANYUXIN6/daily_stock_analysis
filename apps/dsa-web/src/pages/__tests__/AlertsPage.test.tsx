@@ -184,13 +184,13 @@ describe('AlertsPage', () => {
     render(<AlertsPage />);
 
     await screen.findByText('茅台价格突破');
-    fireEvent.change(screen.getByLabelText('标的代码'), { target: { value: 'aapl' } });
+    fireEvent.change(screen.getByLabelText('标的代码'), { target: { value: '000858' } });
     fireEvent.change(screen.getByLabelText('价格阈值'), { target: { value: '200' } });
     fireEvent.click(screen.getByRole('button', { name: '创建规则' }));
 
     await waitFor(() => {
       expect(createRule).toHaveBeenCalledWith(expect.objectContaining({
-        target: 'AAPL',
+        target: '000858',
         alertType: 'price_cross',
         parameters: { direction: 'above', price: 200 },
       }));
@@ -203,17 +203,17 @@ describe('AlertsPage', () => {
     render(<AlertsPage />);
 
     await screen.findByText('茅台价格突破');
-    fireEvent.change(screen.getByLabelText('标的代码'), { target: { value: 'aapl' } });
+    fireEvent.change(screen.getByLabelText('标的代码'), { target: { value: '000858' } });
     fireEvent.change(screen.getByLabelText('价格阈值'), { target: { value: '200' } });
     fireEvent.click(screen.getByRole('button', { name: '创建规则' }));
 
     expect(await screen.findByText('加载失败')).toBeInTheDocument();
-    expect(screen.getByLabelText('标的代码')).toHaveValue('aapl');
+    expect(screen.getByLabelText('标的代码')).toHaveValue('000858');
     expect(screen.getByLabelText('价格阈值')).toHaveValue(200);
   });
 
   it('clamps rules pagination when a mutation leaves the current page empty', async () => {
-    const page2Rule = { ...rule, id: 2, name: '第二页规则', target: 'AAPL' };
+    const page2Rule = { ...rule, id: 2, name: '第二页规则', target: '000858' };
     listRules
       .mockResolvedValueOnce({ items: [rule], total: 21, page: 1, pageSize: 20 })
       .mockResolvedValueOnce({ items: [page2Rule], total: 21, page: 2, pageSize: 20 })

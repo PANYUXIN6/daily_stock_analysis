@@ -80,7 +80,7 @@ def _check_frontend_assets_consistency(static_dir: Path) -> List[str]:
     list means the bundle is consistent.
 
     Logs an actionable error when a mismatch is detected so the root cause
-    is visible in ``logs/desktop.log`` instead of surfacing as a silent
+    is visible in the backend log instead of surfacing as a silent
     blank page.
     """
     index_html = static_dir / "index.html"
@@ -103,7 +103,7 @@ def _check_frontend_assets_consistency(static_dir: Path) -> List[str]:
         logger.error(
             "Frontend bundle is inconsistent: index.html references %d asset(s) "
             "that are not present on disk under %s. This will surface as a "
-            "blank page in the desktop app (see GitHub #1064 / #1065). "
+            "blank page in the Web app (see GitHub #1064 / #1065). "
             "Missing: %s. Re-run the frontend build and make sure the packaging "
             "step copies the freshly generated static/ directory.",
             len(missing),
@@ -330,7 +330,7 @@ def create_app(static_dir: Optional[Path] = None) -> FastAPI:
     app = FastAPI(
         title="Daily Stock Analysis API",
         description=(
-            "A股/港股/美股自选股智能分析系统 API\n\n"
+            "A股自选股智能分析系统 API\n\n"
             "## 功能模块\n"
             "- 股票分析：触发 AI 智能分析\n"
             "- 历史记录：查询历史分析报告\n"
@@ -392,7 +392,7 @@ def create_app(static_dir: Optional[Path] = None) -> FastAPI:
     if has_frontend:
         # Surface bundle inconsistencies as soon as the app starts so that
         # blank-page reports (#1064 / #1065 / #1050) can be diagnosed from
-        # logs/desktop.log instead of via browser devtools.
+        # the backend log instead of via browser devtools.
         _check_frontend_assets_consistency(static_dir)
 
         @app.get("/", include_in_schema=False)

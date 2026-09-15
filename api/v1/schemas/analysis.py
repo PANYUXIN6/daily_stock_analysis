@@ -127,14 +127,11 @@ class MarketReviewRequest(BaseModel):
         min_length=1,
         max_length=64,
         description=(
-            "本次大盘复盘市场覆盖。合法 token 为 cn、hk、us、jp、kr、both；"
-            "both 只能单独使用，其余 token 可用逗号组合。输入会忽略大小写和 token 两侧空格、"
-            "去重并按 cn,hk,us,jp,kr 排序；空值、空 token、未知 token、both 混用或超过 "
-            "64 个字符会整体返回 4xx，不会部分执行。未传时使用运行时全局 MARKET_REVIEW_REGION。"
+            "本次大盘复盘市场，仅支持 cn；未传时使用 A 股默认值。"
         ),
         json_schema_extra={
-            "example": "cn,us",
-            "examples": ["cn", "jp,kr", "both"],
+            "example": "cn",
+            "examples": ["cn"],
         },
     )
 
@@ -156,7 +153,7 @@ class MarketReviewAccepted(BaseModel):
     region: str = Field(
         ...,
         description="本次任务实际执行的 canonical 市场范围",
-        examples=["us", "jp,kr"],
+        examples=["cn"],
     )
     trace_id: Optional[str] = Field(
         None,

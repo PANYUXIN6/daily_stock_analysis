@@ -8,7 +8,7 @@ import logging
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from data_provider.base import canonical_stock_code, normalize_stock_code
@@ -24,14 +24,8 @@ logger = logging.getLogger(__name__)
 
 PortfolioBusyError = RepoPortfolioBusyError
 
-try:
-    import yfinance as yf
-except Exception:  # pragma: no cover - optional dependency path
-    yf = None
-
 EPS = 1e-8
-VALID_MARKETS = {"cn", "hk", "us", "jp", "kr", "tw"}
-PARTIAL_VALUATION_MARKETS = {"jp", "kr", "tw"}
+VALID_MARKETS = {"cn"}
 VALID_COST_METHODS = {"fifo", "avg"}
 VALID_SIDES = {"buy", "sell"}
 VALID_CASH_DIRECTIONS = {"in", "out"}
@@ -41,15 +35,8 @@ PORTFOLIO_REALTIME_QUOTE_MAX_WORKERS = 4
 
 
 def _portfolio_limitations_for_market(market: str) -> List[str]:
-    """Return explicit snapshot limitations for markets with partial valuation semantics."""
-
-    if market not in PARTIAL_VALUATION_MARKETS:
-        return []
-    return [
-        "realtime_quote_best_effort",
-        "fx_and_cost_basis_partial",
-        "sector_and_risk_metrics_limited",
-    ]
+    """A-share valuation has no market-specific limitation marker."""
+    return []
 
 
 def _merge_portfolio_limitations(*groups: Iterable[str]) -> List[str]:
@@ -1314,16 +1301,6 @@ class PortfolioService:
         _add(original)
         _add(normalized)
 
-        if normalized.startswith("HK"):
-            hk_digits = normalized[2:]
-            if hk_digits.isdigit() and len(hk_digits) == 5:
-                legacy_hk_digits = str(int(hk_digits))
-                _add(f"HK{hk_digits}")
-                _add(f"HK{legacy_hk_digits}")
-                _add(f"{hk_digits}.HK")
-                _add(f"{legacy_hk_digits}.HK")
-            return values
-
         explicit_exchange: Optional[str] = None
         if len(original) >= 8 and original[:2] in {"SH", "SZ", "BJ"} and original[2:].isdigit():
             explicit_exchange = original[:2]
@@ -1345,6 +1322,7 @@ class PortfolioService:
                     if exchange is None:
                         continue
                     _add(f"{exchange}{normalized}")
+                    _add(f"{exchange}.{normalized}")
                     _add(f"{normalized}.{'SS' if exchange == 'SH' else exchange}")
                     if exchange == "SH":
                         _add(f"{normalized}.SH")
@@ -1353,13 +1331,10 @@ class PortfolioService:
         if explicit_exchange is not None and explicit_code is not None and explicit_code.isdigit():
             if len(explicit_code) == 6:
                 _add(f"{explicit_exchange}{explicit_code}")
+                _add(f"{explicit_exchange}.{explicit_code}")
                 _add(f"{explicit_code}.{'SS' if explicit_exchange == 'SH' else explicit_exchange}")
                 if explicit_exchange == "SH":
                     _add(f"{explicit_code}.SH")
-            elif len(normalized) == 5:
-                _add(f"HK{normalized}")
-                _add(f"{normalized}.HK")
-
         return values
 
     @staticmethod
@@ -1538,32 +1513,6 @@ class PortfolioService:
             "error_count": 0,
         }
         for from_currency in refresh_currencies:
-            try:
-                rate = self._fetch_fx_rate_from_yfinance(
-                    from_currency=from_currency,
-                    to_currency=base_currency,
-                    as_of_date=as_of_date,
-                )
-                if rate is not None and rate > 0:
-                    self.repo.save_fx_rate(
-                        from_currency=from_currency,
-                        to_currency=base_currency,
-                        rate_date=as_of_date,
-                        rate=rate,
-                        source="yfinance",
-                        is_stale=False,
-                    )
-                    summary["updated_count"] += 1
-                    continue
-            except Exception as exc:
-                logger.warning(
-                    "FX online fetch failed for %s/%s on %s: %s",
-                    from_currency,
-                    base_currency,
-                    as_of_date.isoformat(),
-                    exc,
-                )
-
             fallback = self.repo.get_latest_fx_rate(
                 from_currency=from_currency,
                 to_currency=base_currency,
@@ -1582,34 +1531,6 @@ class PortfolioService:
             else:
                 summary["error_count"] += 1
         return summary
-
-    @staticmethod
-    def _fetch_fx_rate_from_yfinance(
-        *,
-        from_currency: str,
-        to_currency: str,
-        as_of_date: date,
-    ) -> Optional[float]:
-        """Fetch latest available FX close rate around as_of date."""
-        if yf is None:
-            return None
-        symbol = f"{from_currency}{to_currency}=X"
-        ticker = yf.Ticker(symbol)
-        history = ticker.history(
-            start=(as_of_date - timedelta(days=7)).isoformat(),
-            end=(as_of_date + timedelta(days=1)).isoformat(),
-            interval="1d",
-            auto_adjust=False,
-        )
-        if history is None or history.empty or "Close" not in history:
-            return None
-        close = history["Close"].dropna()
-        if close.empty:
-            return None
-        value = float(close.iloc[-1])
-        if value <= 0:
-            return None
-        return value
 
     def _require_active_account(self, account_id: int) -> Any:
         account = self.repo.get_account(account_id, include_inactive=False)
@@ -1723,7 +1644,7 @@ class PortfolioService:
     def _normalize_market(value: str) -> str:
         market = (value or "").strip().lower()
         if market not in VALID_MARKETS:
-            raise ValueError("market must be one of: cn, hk, us, jp, kr, tw")
+            raise ValueError("market must be cn")
         return market
 
     @staticmethod
@@ -1742,8 +1663,4 @@ class PortfolioService:
 
     @staticmethod
     def _default_currency_for_market(market: str) -> str:
-        if market == "hk":
-            return "HKD"
-        if market == "us":
-            return "USD"
         return "CNY"

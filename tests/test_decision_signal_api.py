@@ -712,9 +712,9 @@ def test_holding_only_uses_cached_positions_and_stock_code_variants(client_and_d
         json=_payload(
             source_report_id=3202,
             trace_id="trace-3202",
-            stock_code="AAPL",
+            stock_code="000858",
             stock_name="Apple",
-            market="us",
+            market="cn",
         ),
     )
     assert other_resp.status_code == 200, other_resp.text
@@ -723,9 +723,9 @@ def test_holding_only_uses_cached_positions_and_stock_code_variants(client_and_d
         json=_payload(
             source_report_id=3203,
             trace_id="trace-3203",
-            stock_code="TSLA",
+            stock_code="300750",
             stock_name="Tesla",
-            market="us",
+            market="cn",
         ),
     )
     assert inactive_resp.status_code == 200, inactive_resp.text
@@ -734,24 +734,12 @@ def test_holding_only_uses_cached_positions_and_stock_code_variants(client_and_d
         json=_payload(
             source_report_id=3204,
             trace_id="trace-3204",
-            stock_code="MSFT",
+            stock_code="600036",
             stock_name="Microsoft",
-            market="us",
+            market="cn",
         ),
     )
     assert zero_only_resp.status_code == 200, zero_only_resp.text
-    hk_same_symbol_resp = client.post(
-        "/api/v1/decision-signals",
-        json=_payload(
-            source_report_id=3205,
-            trace_id="trace-3205",
-            stock_code="AAPL",
-            stock_name="Apple HK synthetic",
-            market="hk",
-        ),
-    )
-    assert hk_same_symbol_resp.status_code == 200, hk_same_symbol_resp.text
-
     with db.session_scope() as session:
         account = PortfolioAccount(
             name="Test account",
@@ -778,8 +766,8 @@ def test_holding_only_uses_cached_positions_and_stock_code_variants(client_and_d
             PortfolioPosition(
                 account_id=account_id,
                 cost_method="fifo",
-                symbol="AAPL",
-                market="us",
+                symbol="000858",
+                market="cn",
                 currency="USD",
                 quantity=0,
             )
@@ -788,8 +776,8 @@ def test_holding_only_uses_cached_positions_and_stock_code_variants(client_and_d
             PortfolioPosition(
                 account_id=account_id,
                 cost_method="fifo",
-                symbol="MSFT",
-                market="us",
+                symbol="600036",
+                market="cn",
                 currency="USD",
                 quantity=0,
             )
@@ -798,8 +786,8 @@ def test_holding_only_uses_cached_positions_and_stock_code_variants(client_and_d
             PortfolioPosition(
                 account_id=account_id,
                 cost_method="avg",
-                symbol="AAPL",
-                market="us",
+                symbol="000858",
+                market="cn",
                 currency="USD",
                 quantity=5,
                 avg_cost=180,
@@ -808,7 +796,7 @@ def test_holding_only_uses_cached_positions_and_stock_code_variants(client_and_d
         )
         inactive_account = PortfolioAccount(
             name="Inactive account",
-            market="us",
+            market="cn",
             base_currency="USD",
             is_active=False,
         )
@@ -819,8 +807,8 @@ def test_holding_only_uses_cached_positions_and_stock_code_variants(client_and_d
             PortfolioPosition(
                 account_id=inactive_account_id,
                 cost_method="fifo",
-                symbol="TSLA",
-                market="us",
+                symbol="300750",
+                market="cn",
                 currency="USD",
                 quantity=3,
                 avg_cost=200,
@@ -842,7 +830,7 @@ def test_holding_only_uses_cached_positions_and_stock_code_variants(client_and_d
     assert payload["total"] == 2
     assert {(item["market"], item["stock_code"]) for item in payload["items"]} == {
         ("cn", "600519"),
-        ("us", "AAPL"),
+        ("cn", "000858"),
     }
 
     with patch(
@@ -859,7 +847,7 @@ def test_holding_only_uses_cached_positions_and_stock_code_variants(client_and_d
     assert all_active_payload["total"] == 2
     assert {(item["market"], item["stock_code"]) for item in all_active_payload["items"]} == {
         ("cn", "600519"),
-        ("us", "AAPL"),
+        ("cn", "000858"),
     }
 
     with patch(
@@ -1144,13 +1132,13 @@ def test_stock_filter_codes_cover_market_optional_hk_without_widening_other_mark
     from src.services.decision_signal_service import DecisionSignalService
 
     cases = [
-        ("00700", None, ["00700", "HK00700"]),
-        ("HK00700", None, ["HK00700"]),
-        ("00700.HK", None, ["HK00700"]),
-        ("00700", "hk", ["HK00700"]),
+        ("000001", None, ["000001"]),
+        ("000001", None, ["000001"]),
+        ("000001.SZ", None, ["000001"]),
+        ("000001", "cn", ["000001"]),
         ("600519", None, ["600519"]),
         ("600519.SH", None, ["600519"]),
-        ("AAPL", None, ["AAPL"]),
+        ("000858", None, ["000858"]),
     ]
     for raw_code, market, expected_codes in cases:
         assert DecisionSignalService._stock_filter_codes(raw_code, market=market) == expected_codes
@@ -1164,17 +1152,17 @@ def test_hk_stock_identity_variants_deduplicate_and_latest_matches(client_and_db
         json=_payload(
             source_report_id=3501,
             trace_id="trace-3501-a",
-            stock_code="00700",
+            stock_code="000001",
             stock_name="Tencent",
-            market="hk",
+            market="cn",
         ),
     )
     assert first_resp.status_code == 200, first_resp.text
     first = first_resp.json()
     assert first["created"] is True
-    assert first["item"]["stock_code"] == "HK00700"
+    assert first["item"]["stock_code"] == "000001"
 
-    for raw_code, trace_id in (("HK00700", "trace-3501-b"), ("00700.HK", "trace-3501-c")):
+    for raw_code, trace_id in (("000001", "trace-3501-b"), ("000001.SZ", "trace-3501-c")):
         duplicate_resp = client.post(
             "/api/v1/decision-signals",
             json=_payload(
@@ -1182,7 +1170,7 @@ def test_hk_stock_identity_variants_deduplicate_and_latest_matches(client_and_db
                 trace_id=trace_id,
                 stock_code=raw_code,
                 stock_name="Tencent",
-                market="hk",
+                market="cn",
             ),
         )
         assert duplicate_resp.status_code == 200, duplicate_resp.text
@@ -1191,18 +1179,18 @@ def test_hk_stock_identity_variants_deduplicate_and_latest_matches(client_and_db
         assert duplicate["item"]["id"] == first["item"]["id"]
 
     latest_resp = client.get(
-        "/api/v1/decision-signals/latest/00700",
-        params={"market": "hk"},
+        "/api/v1/decision-signals/latest/000001",
+        params={"market": "cn"},
     )
     assert latest_resp.status_code == 200, latest_resp.text
     assert latest_resp.json()["total"] == 1
     assert latest_resp.json()["items"][0]["id"] == first["item"]["id"]
 
     latest_cases = [
-        ("00700", {}),
-        ("HK00700", {}),
-        ("00700.HK", {}),
-        ("00700", {"market": "hk"}),
+        ("000001", {}),
+        ("000001", {}),
+        ("000001.SZ", {}),
+        ("000001", {"market": "cn"}),
     ]
     for raw_code, params in latest_cases:
         latest_resp = client.get(f"/api/v1/decision-signals/latest/{raw_code}", params=params)
@@ -1212,10 +1200,10 @@ def test_hk_stock_identity_variants_deduplicate_and_latest_matches(client_and_db
         assert latest_payload["items"][0]["id"] == first["item"]["id"]
 
     list_cases = [
-        ("00700", {}),
-        ("HK00700", {}),
-        ("00700.HK", {}),
-        ("00700", {"market": "hk"}),
+        ("000001", {}),
+        ("000001", {}),
+        ("000001.SZ", {}),
+        ("000001", {"market": "cn"}),
     ]
     for raw_code, params in list_cases:
         list_resp = client.get(
@@ -1226,37 +1214,6 @@ def test_hk_stock_identity_variants_deduplicate_and_latest_matches(client_and_db
         list_payload = list_resp.json()
         assert list_payload["total"] == 1
         assert list_payload["items"][0]["id"] == first["item"]["id"]
-
-
-def test_dedup_distinguishes_market_for_same_symbol(client_and_db) -> None:
-    client, _db = client_and_db
-
-    us_resp = client.post(
-        "/api/v1/decision-signals",
-        json=_payload(
-            source_report_id=3601,
-            trace_id="trace-3601-us",
-            stock_code="DUPL",
-            stock_name="Duplicate US",
-            market="us",
-        ),
-    )
-    assert us_resp.status_code == 200, us_resp.text
-    assert us_resp.json()["created"] is True
-
-    hk_resp = client.post(
-        "/api/v1/decision-signals",
-        json=_payload(
-            source_report_id=3601,
-            trace_id="trace-3601-hk",
-            stock_code="DUPL",
-            stock_name="Duplicate HK",
-            market="hk",
-        ),
-    )
-    assert hk_resp.status_code == 200, hk_resp.text
-    assert hk_resp.json()["created"] is True
-    assert hk_resp.json()["item"]["id"] != us_resp.json()["item"]["id"]
 
 
 def test_list_decision_profile_filter_distinguishes_unknown_from_omitted(client_and_db) -> None:

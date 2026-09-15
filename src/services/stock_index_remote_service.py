@@ -26,7 +26,7 @@ DEFAULT_STOCK_INDEX_CACHE_PATH = REPO_ROOT / "data" / "cache" / "stocks.index.js
 DEFAULT_STOCK_INDEX_REMOTE_TTL_HOURS = 48
 DEFAULT_STOCK_INDEX_REMOTE_TIMEOUT_SECONDS = 10
 DEFAULT_STOCK_INDEX_REMOTE_MAX_FAILURES = 3
-SUPPORTED_STOCK_INDEX_MARKETS = {"CN", "HK", "US", "BSE", "JP", "KR"}
+SUPPORTED_STOCK_INDEX_MARKETS = {"CN"}
 
 _REMOTE_REFRESH_LOCK = Lock()
 _REMOTE_FAILURE_LOCK = Lock()
@@ -152,10 +152,20 @@ def _download_remote_stock_index(settings: RemoteStockIndexSettings) -> bytes:
     response = requests.get(settings.url, timeout=settings.timeout_seconds)
     response.raise_for_status()
 
-    content = response.content
-    payload = json.loads(content.decode("utf-8"))
-    validate_stock_index_payload(payload)
-    return content
+    payload = json.loads(response.content.decode("utf-8"))
+    if not isinstance(payload, list):
+        raise ValueError("stock index payload must be a list")
+    a_share_payload = []
+    for item in payload:
+        if not isinstance(item, list) or len(item) < 10:
+            continue
+        if str(item[6]).upper() not in {"CN", "BSE"}:
+            continue
+        normalized_item = list(item)
+        normalized_item[6] = "CN"
+        a_share_payload.append(normalized_item)
+    validate_stock_index_payload(a_share_payload)
+    return json.dumps(a_share_payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
 
 
 def _atomic_write(cache_path: Path, content: bytes) -> None:

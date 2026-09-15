@@ -22,7 +22,7 @@ describe('AlertRuleForm', () => {
     onSubmit.mockResolvedValue(undefined);
     getAccounts.mockReset();
     window.localStorage.clear();
-    getAccounts.mockResolvedValue({ accounts: [{ id: 9, name: 'Main', market: 'us', baseCurrency: 'USD', isActive: true }] });
+    getAccounts.mockResolvedValue({ accounts: [{ id: 9, name: 'Main', market: 'cn', baseCurrency: 'USD', isActive: true }] });
   });
 
   function renderEnglishForm() {
@@ -58,7 +58,7 @@ describe('AlertRuleForm', () => {
   it('submits a price_change_percent rule payload', async () => {
     render(<AlertRuleForm onSubmit={onSubmit} />);
 
-    fireEvent.change(screen.getByLabelText('标的代码'), { target: { value: 'aapl' } });
+    fireEvent.change(screen.getByLabelText('标的代码'), { target: { value: '000858' } });
     fireEvent.change(screen.getByLabelText('规则类型'), { target: { value: 'price_change_percent' } });
     fireEvent.change(screen.getByLabelText('方向'), { target: { value: 'down' } });
     fireEvent.change(screen.getByLabelText('涨跌幅阈值（%）'), { target: { value: '3.5' } });
@@ -67,7 +67,7 @@ describe('AlertRuleForm', () => {
 
     await waitFor(() => {
       expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
-        target: 'AAPL',
+        target: '000858',
         alertType: 'price_change_percent',
         parameters: { direction: 'down', changePct: 3.5 },
         severity: 'critical',
@@ -78,7 +78,7 @@ describe('AlertRuleForm', () => {
   it('submits a volume_spike rule payload and supports disabled creation', async () => {
     render(<AlertRuleForm onSubmit={onSubmit} />);
 
-    fireEvent.change(screen.getByLabelText('标的代码'), { target: { value: 'msft' } });
+    fireEvent.change(screen.getByLabelText('标的代码'), { target: { value: '600036' } });
     fireEvent.change(screen.getByLabelText('规则类型'), { target: { value: 'volume_spike' } });
     fireEvent.change(screen.getByLabelText('成交量放大倍数'), { target: { value: '2.5' } });
     fireEvent.click(screen.getByLabelText('创建后立即启用'));
@@ -86,7 +86,7 @@ describe('AlertRuleForm', () => {
 
     await waitFor(() => {
       expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
-        target: 'MSFT',
+        target: '600036',
         alertType: 'volume_spike',
         parameters: { multiplier: 2.5 },
         enabled: false,
@@ -176,7 +176,7 @@ describe('AlertRuleForm', () => {
   it('rejects invalid stock code format before submit', () => {
     render(<AlertRuleForm onSubmit={onSubmit} />);
 
-    fireEvent.change(screen.getByLabelText('标的代码'), { target: { value: 'aapl-2026' } });
+    fireEvent.change(screen.getByLabelText('标的代码'), { target: { value: '000858-2026' } });
     fireEvent.change(screen.getByLabelText('价格阈值'), { target: { value: '200' } });
     fireEvent.click(screen.getByRole('button', { name: '创建规则' }));
 
@@ -234,16 +234,12 @@ describe('AlertRuleForm', () => {
     expect(screen.queryByText('组合回撤')).not.toBeInTheDocument();
   });
 
-  it('shows JP/KR options for market region in Chinese UI mode', () => {
+  it('shows A-share market in Chinese UI mode', () => {
     render(<AlertRuleForm onSubmit={onSubmit} />);
 
     fireEvent.change(screen.getByLabelText('目标范围'), { target: { value: 'market' } });
 
     expect(screen.getByRole('option', { name: 'A 股（cn）' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: '港股（hk）' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: '美股（us）' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: '日股（jp）' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: '韩股（kr）' })).toBeInTheDocument();
   });
 
   it('submits a market light status rule payload', async () => {
@@ -251,31 +247,27 @@ describe('AlertRuleForm', () => {
 
     fireEvent.change(screen.getByLabelText('目标范围'), { target: { value: 'market' } });
     expect(screen.getByRole('option', { name: 'A 股（cn）' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: '港股（hk）' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: '美股（us）' })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: '日股（jp）' })).not.toBeInTheDocument();
     expect(screen.queryByRole('option', { name: '韩股（kr）' })).not.toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('市场区域'), { target: { value: 'hk' } });
+    fireEvent.change(screen.getByLabelText('市场区域'), { target: { value: 'cn' } });
     fireEvent.click(screen.getByRole('button', { name: '创建规则' }));
 
     await waitFor(() => {
       expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
         targetScope: 'market',
-        target: 'hk',
+        target: 'cn',
         alertType: 'market_light_status',
         parameters: { statuses: ['red', 'yellow'] },
       }));
     });
   });
 
-  it('keeps JP/KR out of market light options in English UI mode', () => {
+  it('shows A-share market in English UI mode', () => {
     renderEnglishForm();
 
     fireEvent.change(screen.getByLabelText('Target scope'), { target: { value: 'market' } });
 
     expect(screen.getByRole('option', { name: 'A-shares (cn)' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'Hong Kong (hk)' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'US (us)' })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'Japan (jp)' })).not.toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'Korea (kr)' })).not.toBeInTheDocument();
   });
@@ -284,7 +276,7 @@ describe('AlertRuleForm', () => {
     render(<AlertRuleForm onSubmit={onSubmit} />);
 
     fireEvent.change(screen.getByLabelText('目标范围'), { target: { value: 'market' } });
-    fireEvent.change(screen.getByLabelText('市场区域'), { target: { value: 'us' } });
+    fireEvent.change(screen.getByLabelText('市场区域'), { target: { value: 'cn' } });
     fireEvent.change(screen.getByLabelText('规则类型'), { target: { value: 'market_light_score_drop' } });
     fireEvent.change(screen.getByLabelText('Score 下降阈值'), { target: { value: '12' } });
     fireEvent.click(screen.getByRole('button', { name: '创建规则' }));
@@ -292,7 +284,7 @@ describe('AlertRuleForm', () => {
     await waitFor(() => {
       expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
         targetScope: 'market',
-        target: 'us',
+        target: 'cn',
         alertType: 'market_light_score_drop',
         parameters: { minDrop: 12 },
       }));
@@ -312,12 +304,12 @@ describe('AlertRuleForm', () => {
     onSubmit.mockResolvedValueOnce(false);
     render(<AlertRuleForm onSubmit={onSubmit} />);
 
-    fireEvent.change(screen.getByLabelText('标的代码'), { target: { value: 'aapl' } });
+    fireEvent.change(screen.getByLabelText('标的代码'), { target: { value: '000858' } });
     fireEvent.change(screen.getByLabelText('价格阈值'), { target: { value: '200' } });
     fireEvent.click(screen.getByRole('button', { name: '创建规则' }));
 
     await waitFor(() => expect(onSubmit).toHaveBeenCalled());
-    expect(screen.getByLabelText('标的代码')).toHaveValue('aapl');
+    expect(screen.getByLabelText('标的代码')).toHaveValue('000858');
     expect(screen.getByLabelText('价格阈值')).toHaveValue(200);
   });
 });

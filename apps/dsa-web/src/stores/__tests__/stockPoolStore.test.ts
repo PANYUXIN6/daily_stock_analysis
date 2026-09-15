@@ -463,8 +463,8 @@ describe('stockPoolStore', () => {
       ...historyItem,
       id: 2,
       queryId: 'q-2',
-      stockCode: 'AAPL',
-      stockName: 'Apple',
+      stockCode: '000858',
+      stockName: '五粮液',
     };
     const nextHistoryReport = {
       ...historyReport,
@@ -472,8 +472,8 @@ describe('stockPoolStore', () => {
         ...historyReport.meta,
         id: 2,
         queryId: 'q-2',
-        stockCode: 'AAPL',
-        stockName: 'Apple',
+        stockCode: '000858',
+        stockName: '五粮液',
       },
     };
 
@@ -498,7 +498,7 @@ describe('stockPoolStore', () => {
     expect(state.historyItems).toHaveLength(1);
     expect(state.historyItems[0].id).toBe(2);
     expect(state.selectedReport?.meta.id).toBe(2);
-    expect(state.selectedReport?.meta.stockCode).toBe('AAPL');
+    expect(state.selectedReport?.meta.stockCode).toBe('000858');
   });
 
   it('surfaces duplicate task errors without replacing the dashboard error state', async () => {
@@ -526,18 +526,18 @@ describe('stockPoolStore', () => {
     expect(analysisApi.analyzeAsync).not.toHaveBeenCalled();
   });
 
-  it('accepts HK suffix codes from autocomplete without local validation errors', async () => {
+  it('accepts A-share suffix codes from autocomplete without local validation errors', async () => {
     vi.mocked(analysisApi.analyzeAsync).mockResolvedValue({
       taskId: 'task-hk-1',
-      stockCode: '00700.HK',
+      stockCode: '000001.SZ',
       status: 'pending',
       message: 'accepted',
     } as never);
 
     await useStockPoolStore.getState().submitAnalysis({
-      stockCode: '00700.HK',
-      stockName: '腾讯控股',
-      originalQuery: '00700',
+      stockCode: '000001.SZ',
+      stockName: '平安银行',
+      originalQuery: '000001',
       selectionSource: 'autocomplete',
     });
 
@@ -545,10 +545,10 @@ describe('stockPoolStore', () => {
     expect(state.inputError).toBeUndefined();
     expect(state.isAnalyzing).toBe(false);
     expect(analysisApi.analyzeAsync).toHaveBeenCalledWith(expect.objectContaining({
-      stockCode: '00700.HK',
+      stockCode: '000001.SZ',
       reportType: 'detailed',
-      stockName: '腾讯控股',
-      originalQuery: '00700',
+      stockName: '平安银行',
+      originalQuery: '000001',
       selectionSource: 'autocomplete',
       notify: true,
     }));
@@ -622,7 +622,7 @@ describe('stockPoolStore', () => {
       page: 1,
       limit: 20,
       items: [
-        { ...historyItem, id: 2, queryId: 'q-2', stockCode: 'AAPL', stockName: 'Apple' },
+        { ...historyItem, id: 2, queryId: 'q-2', stockCode: '000858', stockName: '五粮液' },
         historyItem,
       ],
     });
@@ -736,8 +736,8 @@ describe('stockPoolStore', () => {
       ...historyItem,
       id: 10,
       queryId: 'q-10',
-      stockCode: 'HK00700',
-      stockName: '腾讯控股',
+      stockCode: '000001',
+      stockName: '平安银行',
     };
     const olderTencentReport = {
       ...historyReport,
@@ -745,15 +745,15 @@ describe('stockPoolStore', () => {
         ...historyReport.meta,
         id: 10,
         queryId: 'q-10',
-        stockCode: 'HK00700',
-        stockName: '腾讯控股',
+        stockCode: '000001',
+        stockName: '平安银行',
       },
     };
     const latestTencentItem = {
       ...olderTencentItem,
       id: 11,
       queryId: 'q-11',
-      stockCode: '00700.HK',
+      stockCode: '000001.SZ',
       createdAt: '2026-03-18T09:00:00Z',
     };
     const latestTencentReport = {
@@ -762,7 +762,7 @@ describe('stockPoolStore', () => {
         ...olderTencentReport.meta,
         id: 11,
         queryId: 'q-11',
-        stockCode: '00700.HK',
+        stockCode: '000001.SZ',
         createdAt: '2026-03-18T09:00:00Z',
       },
     };
@@ -780,8 +780,8 @@ describe('stockPoolStore', () => {
     vi.mocked(historyApi.getDetail).mockResolvedValue(latestTencentReport);
 
     await useStockPoolStore.getState().refreshHistoryForCompletedTask(createTask({
-      stockCode: '00700.HK',
-      stockName: '腾讯控股',
+      stockCode: '000001.SZ',
+      stockName: '平安银行',
       status: 'completed',
       progress: 100,
     }));
@@ -885,8 +885,8 @@ describe('stockPoolStore', () => {
         ...historyReport.meta,
         id: 3,
         queryId: 'q-3',
-        stockCode: 'AAPL',
-        stockName: 'Apple',
+        stockCode: '000858',
+        stockName: '五粮液',
       },
     };
     const latestItem = {
@@ -915,7 +915,7 @@ describe('stockPoolStore', () => {
     const state = useStockPoolStore.getState();
     expect(historyApi.getDetail).not.toHaveBeenCalled();
     expect(state.historyItems.map((item) => item.id)).toEqual([2, 1]);
-    expect(state.selectedReport?.meta.stockCode).toBe('AAPL');
+    expect(state.selectedReport?.meta.stockCode).toBe('000858');
   });
 
   it('does not auto-switch to completed-task latest when the selected report changed before the refresh response returns', async () => {
@@ -989,8 +989,8 @@ describe('stockPoolStore', () => {
         ...historyReport.meta,
         id: 3,
         queryId: 'q-3',
-        stockCode: 'AAPL',
-        stockName: 'Apple',
+        stockCode: '000858',
+        stockName: '五粮液',
         createdAt: '2026-03-18T07:00:00Z',
       },
     };
@@ -1011,8 +1011,8 @@ describe('stockPoolStore', () => {
           ...historyItem,
           id: 3,
           queryId: 'q-3',
-          stockCode: 'AAPL',
-          stockName: 'Apple',
+          stockCode: '000858',
+          stockName: '五粮液',
           createdAt: '2026-03-18T07:00:00Z',
         },
       ],
@@ -1049,7 +1049,7 @@ describe('stockPoolStore', () => {
 
     const state = useStockPoolStore.getState();
     expect(state.selectedReport?.meta.id).toBe(3);
-    expect(state.selectedReport?.meta.stockCode).toBe('AAPL');
+    expect(state.selectedReport?.meta.stockCode).toBe('000858');
     expect(state.historyItems.map((item) => item.id)).toEqual([2, 1, 3]);
   });
 
@@ -1108,7 +1108,7 @@ describe('stockPoolStore', () => {
     expect(state.activeTasks).toHaveLength(0);
 
     useStockPoolStore.setState({
-      query: 'AAPL',
+      query: '000858',
       selectedHistoryIds: [1],
       selectedReport: historyReport,
       markdownDrawerOpen: true,
@@ -1180,8 +1180,8 @@ describe('stockPoolStore', () => {
   it('does not backfill unknown failed tasks from SSE updates', () => {
     useStockPoolStore.getState().syncTaskFailed({
       taskId: 'task-404',
-      stockCode: 'AAPL',
-      stockName: 'Apple',
+      stockCode: '000858',
+      stockName: '五粮液',
       status: 'failed',
       progress: 100,
       reportType: 'detailed',

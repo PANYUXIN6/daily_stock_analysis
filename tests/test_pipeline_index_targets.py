@@ -108,7 +108,6 @@ def _analysis_pipeline(
     if pipeline.search_service is not None:
         pipeline.search_service.is_available = True
         pipeline.search_service.search_comprehensive_intel.return_value = {}
-    pipeline.social_sentiment_service = None
     pipeline.trend_analyzer = MagicMock()
     pipeline.analyzer = MagicMock()
     pipeline.analysis_skills = None
@@ -172,8 +171,8 @@ class PipelineIndexTargetsTestCase(unittest.TestCase):
             ("sh000016", ParseStatus.INDEX, "sh000016"),
             ("000300.CSI", ParseStatus.INDEX, "sh000300"),
             ("930955.CSI", ParseStatus.INDEX, "csi930955"),
-            ("000016", ParseStatus.STOCK, "sz000016"),
-            ("600519", ParseStatus.STOCK, "sh600519"),
+            ("000016", ParseStatus.STOCK, "000016"),
+            ("600519", ParseStatus.STOCK, "600519"),
         ]
         for raw, expected_type, expected_canonical in cases:
             target = parse_analysis_target(raw)
@@ -228,7 +227,7 @@ class PipelineIndexTargetsTestCase(unittest.TestCase):
         index = _index_target("sh000016")
         stock = _stock_target("000016")
         self.assertEqual(index.canonical_id, "sh000016")
-        self.assertEqual(stock.canonical_id, "sz000016")
+        self.assertEqual(stock.canonical_id, "000016")
         self.assertNotEqual(index.canonical_id, stock.canonical_id)
 
 
@@ -385,7 +384,6 @@ class PipelineCapabilityMatrixTestCase(unittest.TestCase):
         pipeline.config.agent_litellm_model = "test-model"
         pipeline.config.report_integrity_enabled = False
         pipeline.analysis_skills = None
-        pipeline.social_sentiment_service = None
         pipeline.search_service = None
         pipeline._load_persisted_intelligence_context = MagicMock(return_value=None)
         pipeline._ensure_agent_history = MagicMock()
@@ -685,9 +683,9 @@ class PipelineBatchFailureIsolationTestCase(unittest.TestCase):
         supported = [
             _stock_target("600519"),
             _stock_target("000016"),
-            _stock_target("AAPL"),
-            _stock_target("TSLA"),
-            _stock_target("hk00700"),
+            _stock_target("000858"),
+            _stock_target("300750"),
+            _stock_target("920493"),
         ]
         codes = ["930956.CSI", *[target.canonical_id for target in supported]]
         targets = [unsupported, *supported]

@@ -485,11 +485,11 @@ class PortfolioServiceTestCase(unittest.TestCase):
         self.assertAlmostEqual(fifo_acc["positions"][0]["quantity"], 50.0, places=6)
         self.assertAlmostEqual(avg_acc["positions"][0]["quantity"], 50.0, places=6)
 
-    def test_snapshot_position_price_metadata_uses_backend_values_for_cn_hk_us(self) -> None:
+    def test_snapshot_position_price_metadata_uses_backend_values_for_cn_aliases(self) -> None:
         for market, currency, symbol, close, expected_symbol in [
             ("cn", "CNY", "600519", 12.5, "600519"),
-            ("hk", "HKD", "hk700", 420.0, "HK00700"),
-            ("us", "USD", "aapl", 210.0, "AAPL"),
+            ("cn", "CNY", "sz000001", 420.0, "SZ000001"),
+            ("cn", "USD", "600519", 210.0, "600519"),
         ]:
             with self.subTest(market=market):
                 aid = self._create_account_with_position(market=market, currency=currency, symbol=symbol, close=close)
@@ -507,71 +507,6 @@ class PortfolioServiceTestCase(unittest.TestCase):
                 self.assertEqual(position["data_quality"], "ok")
                 self.assertEqual(position["limitations"], [])
 
-    def test_jp_kr_portfolio_snapshot_marks_partial_valuation_boundaries(self) -> None:
-        for market, currency, symbol, close in [
-            ("jp", "JPY", "7203.T", 3000.0),
-            ("kr", "KRW", "005930.KS", 70000.0),
-        ]:
-            with self.subTest(market=market):
-                aid = self._create_account_with_position(
-                    market=market,
-                    currency=currency,
-                    symbol=symbol,
-                    close=close,
-                )
-
-                snapshot = self.service.get_portfolio_snapshot(
-                    account_id=aid,
-                    as_of=date(2026, 1, 3),
-                    cost_method="fifo",
-                )
-                account = snapshot["accounts"][0]
-                position = account["positions"][0]
-
-                self.assertEqual(account["market"], market)
-                self.assertEqual(account["base_currency"], currency)
-                self.assertEqual(account["data_quality"], "partial")
-                self.assertEqual(
-                    account["limitations"],
-                    [
-                        "realtime_quote_best_effort",
-                        "fx_and_cost_basis_partial",
-                        "sector_and_risk_metrics_limited",
-                    ],
-                )
-                self.assertEqual(position["symbol"], symbol)
-                self.assertEqual(position["data_quality"], "partial")
-                self.assertIn("fx_and_cost_basis_partial", position["limitations"])
-
-    def test_aggregate_snapshot_marks_partial_when_any_account_has_limitations(self) -> None:
-        self._create_account_with_position(
-            market="cn",
-            currency="CNY",
-            symbol="600519",
-            close=120.0,
-        )
-        self._create_account_with_position(
-            market="jp",
-            currency="JPY",
-            symbol="7203.T",
-            close=3000.0,
-        )
-
-        snapshot = self.service.get_portfolio_snapshot(
-            as_of=date(2026, 1, 3),
-            cost_method="fifo",
-        )
-
-        self.assertEqual(snapshot["account_count"], 2)
-        self.assertEqual(snapshot["data_quality"], "partial")
-        self.assertEqual(
-            snapshot["limitations"],
-            [
-                "realtime_quote_best_effort",
-                "fx_and_cost_basis_partial",
-                "sector_and_risk_metrics_limited",
-            ],
-        )
 
     def test_snapshot_marks_stale_close_and_missing_price(self) -> None:
         aid = self._create_account_with_position(
@@ -622,7 +557,7 @@ class PortfolioServiceTestCase(unittest.TestCase):
             as_of_date=date(2026, 1, 3),
             cost_method="avg",
             fifo_lots={},
-            avg_state={("AAPL", "us", "USD"): _AvgState(quantity=10.0, total_cost=0.0)},
+            avg_state={("600519", "cn", "USD"): _AvgState(quantity=10.0, total_cost=0.0)},
         )
 
         self.assertEqual(len(positions), 1)
@@ -651,16 +586,16 @@ class PortfolioServiceTestCase(unittest.TestCase):
         rows = self.service.list_trade_events(account_id=aid, symbol="600519", page=1, page_size=20)["items"]
         self.assertEqual({row["symbol"] for row in rows}, {"600519", "SH600519", "600519.SH", "600519.SS"})
 
-    def test_symbol_filter_matches_legacy_hk_variants(self) -> None:
-        account = self.service.create_account(name="Legacy HK", broker="Demo", market="hk", base_currency="HKD")
+    def test_symbol_filter_matches_legacy_cn_variants(self) -> None:
+        account = self.service.create_account(name="Legacy A-share", broker="Demo", market="cn", base_currency="CNY")
         aid = account["id"]
-        for symbol in ["HK00700", "HK700", "00700.HK", "700.HK"]:
+        for symbol in ["000001", "SZ000001", "000001.SZ", "SZ.000001"]:
             self.service.repo.add_trade(
                 account_id=aid,
                 trade_uid=None,
                 symbol=symbol,
-                market="hk",
-                currency="HKD",
+                market="cn",
+                currency="CNY",
                 trade_date=date(2026, 1, 2),
                 side="buy",
                 quantity=1,
@@ -669,8 +604,8 @@ class PortfolioServiceTestCase(unittest.TestCase):
                 tax=0,
             )
 
-        rows = self.service.list_trade_events(account_id=aid, symbol="HK00700", page=1, page_size=20)["items"]
-        self.assertEqual({row["symbol"] for row in rows}, {"HK00700", "HK700", "00700.HK", "700.HK"})
+        rows = self.service.list_trade_events(account_id=aid, symbol="000001", page=1, page_size=20)["items"]
+        self.assertEqual({row["symbol"] for row in rows}, {"000001", "SZ000001", "000001.SZ", "SZ.000001"})
 
     def test_explicit_exchange_symbol_filter_does_not_match_other_exchanges(self) -> None:
         account = self.service.create_account(name="Mixed", broker="Demo", market="cn", base_currency="CNY")
@@ -1299,16 +1234,16 @@ class PortfolioServiceTestCase(unittest.TestCase):
         self.assertEqual(trades["items"][0]["symbol"], "600519.SH")
         self.assertEqual(actions["items"][0]["symbol"], "600519.SH")
 
-    def test_event_symbol_filters_match_legacy_hk_variants(self) -> None:
-        account = self.service.create_account(name="Main", broker="Demo", market="hk", base_currency="HKD")
+    def test_event_symbol_filters_match_legacy_cn_variants(self) -> None:
+        account = self.service.create_account(name="Main", broker="Demo", market="cn", base_currency="CNY")
         aid = account["id"]
 
         self.service.repo.add_trade(
             account_id=aid,
-            trade_uid="legacy-hk-prefixed-trade",
-            symbol="HK700",
-            market="hk",
-            currency="HKD",
+            trade_uid="legacy-cn-prefixed-trade",
+            symbol="SZ000001",
+            market="cn",
+            currency="CNY",
             trade_date=date(2026, 1, 2),
             side="buy",
             quantity=10,
@@ -1318,10 +1253,10 @@ class PortfolioServiceTestCase(unittest.TestCase):
         )
         self.service.repo.add_trade(
             account_id=aid,
-            trade_uid="legacy-hk-suffix-trade",
-            symbol="00700.HK",
-            market="hk",
-            currency="HKD",
+            trade_uid="legacy-cn-suffix-trade",
+            symbol="000001.SZ",
+            market="cn",
+            currency="CNY",
             trade_date=date(2026, 1, 3),
             side="buy",
             quantity=5,
@@ -1331,10 +1266,10 @@ class PortfolioServiceTestCase(unittest.TestCase):
         )
         self.service.repo.add_trade(
             account_id=aid,
-            trade_uid="legacy-hk-short-suffix-trade",
-            symbol="700.HK",
-            market="hk",
-            currency="HKD",
+            trade_uid="legacy-cn-short-suffix-trade",
+            symbol="SZ.000001",
+            market="cn",
+            currency="CNY",
             trade_date=date(2026, 1, 4),
             side="buy",
             quantity=3,
@@ -1344,39 +1279,39 @@ class PortfolioServiceTestCase(unittest.TestCase):
         )
         self.service.repo.add_corporate_action(
             account_id=aid,
-            symbol="HK700",
-            market="hk",
-            currency="HKD",
+            symbol="SZ000001",
+            market="cn",
+            currency="CNY",
             effective_date=date(2026, 1, 4),
             action_type="cash_dividend",
             cash_dividend_per_share=1.0,
         )
         self.service.repo.add_corporate_action(
             account_id=aid,
-            symbol="00700.HK",
-            market="hk",
-            currency="HKD",
+            symbol="000001.SZ",
+            market="cn",
+            currency="CNY",
             effective_date=date(2026, 1, 5),
             action_type="cash_dividend",
             cash_dividend_per_share=1.5,
         )
         self.service.repo.add_corporate_action(
             account_id=aid,
-            symbol="700.HK",
-            market="hk",
-            currency="HKD",
+            symbol="SZ.000001",
+            market="cn",
+            currency="CNY",
             effective_date=date(2026, 1, 6),
             action_type="cash_dividend",
             cash_dividend_per_share=2.0,
         )
 
-        trades = self.service.list_trade_events(account_id=aid, symbol="HK00700", page=1, page_size=20)
-        actions = self.service.list_corporate_action_events(account_id=aid, symbol="HK00700", page=1, page_size=20)
+        trades = self.service.list_trade_events(account_id=aid, symbol="000001", page=1, page_size=20)
+        actions = self.service.list_corporate_action_events(account_id=aid, symbol="000001", page=1, page_size=20)
 
         self.assertEqual(trades["total"], 3)
         self.assertEqual(actions["total"], 3)
-        self.assertEqual({item["symbol"] for item in trades["items"]}, {"HK700", "00700.HK", "700.HK"})
-        self.assertEqual({item["symbol"] for item in actions["items"]}, {"HK700", "00700.HK", "700.HK"})
+        self.assertEqual({item["symbol"] for item in trades["items"]}, {"SZ000001", "000001.SZ", "SZ.000001"})
+        self.assertEqual({item["symbol"] for item in actions["items"]}, {"SZ000001", "000001.SZ", "SZ.000001"})
 
     def test_portfolio_write_session_maps_sqlite_locked_error(self) -> None:
         repo = PortfolioRepository(db_manager=self.db)

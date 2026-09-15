@@ -1,6 +1,6 @@
 # 通知能力基线
 
-本文档记录通知能力 P0-P7 终态：渠道、配置 key、GitHub Actions 映射、Web 设置元数据、CLI 诊断口径、Web 一键测试、自定义 Webhook Body 模板语义、通知路由策略、降噪机制、聚合报告失败隔离、ntfy / Gotify 一等渠道、WebPush / Apprise 评估，以及本地 / Docker / GitHub Actions / Desktop 场景化配置说明。P0 只做基线与只读诊断；P1 增加 Web 单渠道真实测试；P2 产品化现有 Body 模板；P3 增加 report / alert / system_error 路由；P4 增加进程内降噪；P5 强化测试诊断和聚合报告逐渠道失败隔离；P6-A 新增 ntfy；P6-C 新增 Gotify；P6-D 只评估 WebPush / Apprise；P7 收口文档与 Actions env 对照表自动化，不新增运行时依赖、配置入口、per-URL 模板、跨进程持久化、真实每日摘要或重试循环。
+本文档记录通知能力 P0-P7 终态：渠道、配置 key、GitHub Actions 映射、Web 设置元数据、CLI 诊断口径、Web 一键测试、自定义 Webhook Body 模板语义、通知路由策略、降噪机制、聚合报告失败隔离、ntfy / Gotify 一等渠道、WebPush / Apprise 评估，以及本地 / Docker / GitHub Actions 场景化配置说明。P0 只做基线与只读诊断；P1 增加 Web 单渠道真实测试；P2 产品化现有 Body 模板；P3 增加 report / alert / system_error 路由；P4 增加进程内降噪；P5 强化测试诊断和聚合报告逐渠道失败隔离；P6-A 新增 ntfy；P6-C 新增 Gotify；P6-D 只评估 WebPush / Apprise；P7 收口文档与 Actions env 对照表自动化，不新增运行时依赖、配置入口、per-URL 模板、跨进程持久化、真实每日摘要或重试循环。
 
 ## 渠道基线
 
@@ -37,7 +37,7 @@ Discord 长报告发送复用现有分片链路：单条 `content` 运行时不�
 - `WEBHOOK_VERIFY_SSL` 是读取该配置的 webhook-style HTTPS 通知请求共用的证书校验开关。
 - WebPush、Apprise、更细粒度路由、跨进程降噪和真实每日摘要暂不进入运行时实现；相关配置如未来引入，应先更新本文档、`.env.example`、Web 元数据与回归测试。
 - Bark 保持 custom webhook 基线，不新增 `BARK_*` 一等配置。
-- 飞书 App Bot 发送路径复用 `requirements.txt` 中已有的 `lark-oapi>=1.0.0`，不是新增依赖；标准源码安装、Docker、GitHub Actions daily workflow 和桌面构建链路均通过 `pip install -r requirements.txt` 安装。官方依据：[Feishu message create OpenAPI](https://open.feishu.cn/document/server-docs/im-v1/message/create)、[lark-oapi PyPI](https://pypi.org/project/lark-oapi/)、[SDK repo](https://github.com/larksuite/oapi-sdk-python)。App Bot 文件上传依赖同一 SDK 的 `im.v1.file.create` API，官方文档：[Feishu file create OpenAPI](https://open.feishu.cn/document/server-docs/im-v1/file/create)。
+- 飞书 App Bot 发送路径复用 `requirements.txt` 中已有的 `lark-oapi>=1.0.0`，不是新增依赖；标准源码安装、Docker、GitHub Actions daily workflow 均通过 `pip install -r requirements.txt` 安装。官方依据：[Feishu message create OpenAPI](https://open.feishu.cn/document/server-docs/im-v1/message/create)、[lark-oapi PyPI](https://pypi.org/project/lark-oapi/)、[SDK repo](https://github.com/larksuite/oapi-sdk-python)。App Bot 文件上传依赖同一 SDK 的 `im.v1.file.create` API，官方文档：[Feishu file create OpenAPI](https://open.feishu.cn/document/server-docs/im-v1/file/create)。
 
 ## 报告渲染与分片
 
@@ -320,15 +320,9 @@ Docker 场景可通过 `--env-file .env` / Compose `env_file` 注入通知相关
 
 Secret 适合 token、password、webhook URL 等敏感项；Variable 适合 `WECHAT_MSG_TYPE`、`EMAIL_SENDER_NAME`、路由、降噪窗口和时区这类非敏感行为配置。`MARKDOWN_TO_IMAGE_CHANNELS` 与 `MERGE_EMAIL_NOTIFICATION` 默认不映射，如需在自己的 fork 中使用，应显式修改 workflow 并补充对应测试。
 
-## Desktop
-
-桌面端复用 Web 设置页的通知配置和单渠道测试入口。通知测试会发送真实测试消息，但只使用当前页面草稿值，不会自动保存；需要持久化时仍需点击保存配置。
-
-桌面端可通过配置导出 / 导入恢复 `.env`。回滚某个通知渠道时，清空该渠道 minimal key 并保存即可；advanced key 留存不会单独启用渠道，但建议同步清理以减少后续排障噪音。
 
 ## 回滚方式
 
 - 本地 / Docker：恢复旧 `.env`，或删除对应渠道 minimal key 后重启进程。
 - GitHub Actions：清空或删除对应 Secret / Variable；未映射的 key 不会进入 workflow 运行进程。
-- Desktop：使用配置备份导入旧 `.env`，或在设置页清空对应渠道配置并保存。
 - 版本回退：P6/P7 新增的 `NTFY_*`、`GOTIFY_*`、路由和降噪 key 在旧版本中会被忽略；若要避免误导，应同时从 `.env` 或 Actions 配置中移除。

@@ -47,7 +47,7 @@ def _should_use_single_column_fast_path(lines: List[str]) -> bool:
     for ln in lines:
         parts = ln.split()
         if len(parts) >= 2 and is_code_like(parts[0]):
-            # Example: "600519 贵州茅台" / "HK00700 腾讯控股"
+            # Example: "600519 贵州茅台" / "300750 宁德时代"
             # First token is code-like and tail contains non-code token(s).
             if any(not is_code_like(p) for p in parts[1:]):
                 return False

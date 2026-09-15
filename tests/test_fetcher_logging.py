@@ -96,33 +96,6 @@ class TestFetcherLogging(unittest.TestCase):
         self.assertIn("[数据源切换] 601006: [FailureFetcher] -> [SuccessFetcher]", log_text)
         self.assertIn("[数据源完成] 601006 使用 [SuccessFetcher] 获取成功:", log_text)
 
-    def test_manager_skips_builtin_fetchers_that_do_not_support_hk_daily(self):
-        efinance = _RecordingFetcher("EfinanceFetcher", 0)
-        pytdx = _RecordingFetcher("PytdxFetcher", 1)
-        akshare = _RecordingFetcher("AkshareFetcher", 2)
-        yfinance = _RecordingFetcher("YfinanceFetcher", 3)
-
-        manager = DataFetcherManager(fetchers=[efinance, pytdx, akshare, yfinance])
-        df, source = manager.get_daily_data("1211.HK", start_date="2026-05-01", end_date="2026-05-08")
-
-        self.assertFalse(df.empty)
-        self.assertEqual(source, "AkshareFetcher")
-        self.assertEqual(efinance.calls, [])
-        self.assertEqual(pytdx.calls, [])
-        self.assertEqual(akshare.calls, ["HK01211"])
-        self.assertEqual(yfinance.calls, [])
-
-    @patch("data_provider.efinance_fetcher.get_config")
-    def test_efinance_rejects_hk_daily_without_calling_eastmoney(self, mock_get_config):
-        mock_get_config.return_value = types.SimpleNamespace(enable_eastmoney_patch=False)
-        fetcher = EfinanceFetcher(sleep_min=0, sleep_max=0)
-
-        with patch.object(fetcher, "_fetch_stock_data") as mock_fetch_stock_data:
-            with self.assertRaises(DataFetchError) as captured:
-                fetcher.get_daily_data("1211.HK", start_date="2026-05-01", end_date="2026-05-08")
-
-        mock_fetch_stock_data.assert_not_called()
-        self.assertIn("不支持港股日线", str(captured.exception))
 
     def test_efinance_logs_eastmoney_endpoint_on_remote_disconnect(self):
         fetcher = EfinanceFetcher()

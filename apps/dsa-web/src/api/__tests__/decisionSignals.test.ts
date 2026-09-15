@@ -151,7 +151,7 @@ describe('decisionSignalsApi', () => {
         item: {
           id: 12,
           stock_code: 'AAPL',
-          market: 'us',
+          market: 'cn',
           source_type: 'manual',
           trigger_source: 'web',
           action: 'watch',
@@ -165,7 +165,7 @@ describe('decisionSignalsApi', () => {
 
     await decisionSignalsApi.create({
       stockCode: 'AAPL',
-      market: 'us',
+      market: 'cn',
       sourceType: 'manual',
       triggerSource: 'web',
       action: 'watch',
@@ -174,7 +174,7 @@ describe('decisionSignalsApi', () => {
 
     expect(post).toHaveBeenCalledWith('/api/v1/decision-signals', {
       stock_code: 'AAPL',
-      market: 'us',
+      market: 'cn',
       source_type: 'manual',
       trigger_source: 'web',
       action: 'watch',
@@ -189,7 +189,7 @@ describe('decisionSignalsApi', () => {
           {
             id: 12,
             stock_code: 'HK00700',
-            market: 'hk',
+            market: 'cn',
             source_type: 'manual',
             trigger_source: 'web',
             action: 'hold',
@@ -204,7 +204,7 @@ describe('decisionSignalsApi', () => {
     });
 
     const response = await decisionSignalsApi.list({
-      market: 'hk',
+      market: 'cn',
       stockCode: '00700',
       action: 'hold',
       marketPhase: 'postmarket',
@@ -226,7 +226,7 @@ describe('decisionSignalsApi', () => {
 
     expect(get).toHaveBeenCalledWith('/api/v1/decision-signals', {
       params: {
-        market: 'hk',
+        market: 'cn',
         stock_code: '00700',
         action: 'hold',
         market_phase: 'postmarket',
@@ -421,16 +421,16 @@ describe('decisionSignalsApi', () => {
       },
     });
 
-    const response = await decisionSignalsApi.getLatest('00700.HK', { market: 'hk', limit: 2 });
+    const response = await decisionSignalsApi.getLatest('600519', { market: 'cn', limit: 2 });
 
-    expect(get).toHaveBeenCalledWith('/api/v1/decision-signals/latest/00700.HK', {
-      params: { market: 'hk', limit: 2 },
+    expect(get).toHaveBeenCalledWith('/api/v1/decision-signals/latest/600519', {
+      params: { market: 'cn', limit: 2 },
     });
     expect(response.pageSize).toBe(2);
   });
 
   it('rejects slash-containing latest stock codes before calling an unsupported backend path', async () => {
-    await expect(decisionSignalsApi.getLatest('HK/00700', { market: 'hk' })).rejects.toThrow(
+    await expect(decisionSignalsApi.getLatest('HK/00700', { market: 'cn' })).rejects.toThrow(
       'DecisionSignal latest stockCode cannot contain "/"',
     );
     expect(get).not.toHaveBeenCalled();
@@ -441,7 +441,7 @@ describe('decisionSignalsApi', () => {
       data: {
         id: 13,
         stock_code: 'AAPL',
-        market: 'us',
+        market: 'cn',
         source_type: 'agent',
         trigger_source: 'api',
         action: 'reduce',
@@ -453,7 +453,7 @@ describe('decisionSignalsApi', () => {
       data: {
         id: 13,
         stock_code: 'AAPL',
-        market: 'us',
+        market: 'cn',
         source_type: 'agent',
         trigger_source: 'api',
         action: 'reduce',

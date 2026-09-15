@@ -82,13 +82,8 @@ _STOCK_CODE_RE = re.compile(
     r"^(?:\d{6}"                              # A-share 6-digit
     r"|(?:SH|SZ|BJ)\d{6}"                     # exchange-prefixed A-share
     r"|\d{6}\.(?:SH|SZ|SS|BJ)"                # exchange-suffixed A-share
-    r"|\d{1,5}\.HK"                           # HK suffix format
-    r"|HK\d{1,5}"                             # HK prefix format
-    r"|\d{5}"                                 # bare 5-digit HK code
-    r"|\d{4,5}\.T"                            # Japan Yahoo suffix format
-    r"|\d{6}\.(?:KS|KQ)"                     # Korea Yahoo suffix format
-    r"|\d{4,6}\.(?:TW|TWO)"                  # Taiwan Yahoo suffix format
-    r"|[A-Z]{1,5}(?:\.(?:US|[A-Z]))?"         # US ticker
+    r"|CSI\d{6}"                              # registered CSI canonical form
+    r"|\d{6}\.CSI"                           # registered CSI display form
     r")$",
     re.IGNORECASE,
 )
@@ -119,8 +114,6 @@ def _validate_and_normalize_stock_code(code: str) -> str:
 def _watchlist_match_key(code: str) -> str:
     """Return the equivalence key used for watchlist add/remove matching."""
     normalized = normalize_stock_code(code.strip())
-    if re.fullmatch(r"\d{5}", normalized):
-        return f"HK{normalized}"
     return normalized.upper()
 
 
@@ -463,7 +456,7 @@ def get_stock_quote(stock_code: str) -> StockQuote:
     获取指定股票的最新行情数据
     
     Args:
-        stock_code: 股票代码（如 600519、00700、AAPL）
+        stock_code: A股6位股票代码（如 600519）
         
     Returns:
         StockQuote: 实时行情数据

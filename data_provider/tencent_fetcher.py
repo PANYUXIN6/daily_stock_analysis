@@ -29,7 +29,7 @@ class TencentFetcher(BaseFetcher):
     name = "TencentFetcher"
     # This direct endpoint is the last-resort A-share daily fallback. Keeping
     # it at priority 0 made a single Efinance failure skip the richer built-in
-    # fallback chain and try Tencent before AkShare/PyTDX/Baostock/YFinance.
+    # A-share fallback chain and try Tencent before AkShare/PyTDX/Baostock.
     priority = 5
     allow_empty_daily_data = True
 

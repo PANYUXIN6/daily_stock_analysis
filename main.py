@@ -679,26 +679,16 @@ def _can_reuse_market_context_for_review(summary: str, region: str) -> bool:
     return len(parts) <= 1
 
 
-def _resolve_daily_market_context_market(market: str, normalized_region: str) -> str:
-    if "," not in normalized_region:
-        return market
-    parts = [item.strip() for item in normalized_region.split(",") if item.strip()]
-    if parts and all(item in {"jp", "kr"} for item in parts):
-        return parts[0]
-    return market
-
-
 def _resolve_daily_market_context_target_date(
     region: str,
     current_time: datetime,
 ) -> date:
-    normalized_region = str(region or "cn").strip().lower()
-    market = normalized_region if normalized_region in {"cn", "hk", "us", "jp", "kr"} else "cn"
+    market = "cn"
 
     from src.core.trading_calendar import get_effective_trading_date
 
     return get_effective_trading_date(
-        _resolve_daily_market_context_market(market, normalized_region),
+        market,
         current_time=current_time,
     )
 
@@ -1648,7 +1638,7 @@ def main() -> int:
             os.environ.pop(RUNTIME_SCHEDULER_FORCE_ENABLED_ENV, None)
         if runtime_schedule_requested:
             # ``--serve-only`` must restore persisted schedules, but it must not
-            # turn service/Desktop startup into an immediate analysis run.
+            # turn service startup into an immediate analysis run.
             runtime_run_immediately = (
                 False if args.serve_only else config.schedule_run_immediately
             )

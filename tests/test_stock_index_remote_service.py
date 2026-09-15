@@ -46,7 +46,7 @@ def _bse_stock_index_payload(size: int = 100) -> list[list[object]]:
     payload[0][0] = "920964.BJ"
     payload[0][1] = "920964"
     payload[0][2] = "润农节水"
-    payload[0][6] = "BSE"
+    payload[0][6] = "CN"
     return payload
 
 
@@ -172,7 +172,7 @@ def test_validate_stock_index_payload_accepts_bse_market() -> None:
     assert service.validate_stock_index_payload(payload) is payload
 
 
-def test_validate_stock_index_payload_accepts_jp_and_kr_markets() -> None:
+def test_validate_stock_index_payload_rejects_jp_and_kr_markets() -> None:
     payload = _stock_index_payload()
     payload[0][0] = "7203.T"
     payload[0][1] = "7203.T"
@@ -181,7 +181,8 @@ def test_validate_stock_index_payload_accepts_jp_and_kr_markets() -> None:
     payload[1][1] = "000660.KS"
     payload[1][6] = "KR"
 
-    assert service.validate_stock_index_payload(payload) is payload
+    with pytest.raises(ValueError, match="unsupported market"):
+        service.validate_stock_index_payload(payload)
 
 
 @pytest.mark.parametrize("popularity", [None, "100", True, float("nan"), float("inf")])

@@ -33,8 +33,6 @@ def _pipeline_config(*, daily_market_context_enabled: bool) -> SimpleNamespace:
         enable_realtime_quote=False,
         realtime_source_priority=[],
         enable_chip_distribution=False,
-        social_sentiment_api_key="",
-        social_sentiment_api_url="https://example.invalid/social",
         daily_market_context_enabled=daily_market_context_enabled,
     )
 
@@ -45,16 +43,12 @@ def _build_initialized_pipeline(
 ) -> StockAnalysisPipeline:
     search_service = MagicMock()
     search_service.is_available = False
-    social_sentiment_service = MagicMock()
-    social_sentiment_service.is_available = False
-
     with patch("src.core.pipeline.get_db", return_value=MagicMock()), \
          patch("src.core.pipeline.DataFetcherManager", return_value=MagicMock()), \
          patch("src.core.pipeline.StockTrendAnalyzer", return_value=MagicMock()), \
          patch("src.core.pipeline.GeminiAnalyzer", return_value=MagicMock()), \
          patch("src.core.pipeline.NotificationService", return_value=MagicMock()), \
-         patch("src.core.pipeline.SearchService", return_value=search_service), \
-         patch("src.core.pipeline.SocialSentimentService", return_value=social_sentiment_service):
+         patch("src.core.pipeline.SearchService", return_value=search_service):
         return StockAnalysisPipeline(config=config, **kwargs)
 
 

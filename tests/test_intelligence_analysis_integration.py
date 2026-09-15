@@ -153,52 +153,52 @@ class PersistedIntelligenceAnalysisIntegrationTestCase(unittest.TestCase):
         self.assertIn("SH-prefixed symbol feed", context)
         self.assertIn("SH-suffixed symbol feed", context)
 
-    def test_pipeline_loads_hk_symbol_intelligence_with_plain_code_scope(self) -> None:
+    def test_pipeline_loads_cn_symbol_intelligence_with_plain_code_scope(self) -> None:
         repo = IntelligenceRepository()
         now = datetime.now()
         repo.upsert_items([
             {
                 "source_name": "hk-symbol-feed",
                 "source_type": "rss",
-                "title": "Plain HK code symbol feed",
-                "summary": "Plain five-digit HK source should match canonical and suffixed analysis codes.",
+                "title": "Plain CN code symbol feed",
+                "summary": "Plain six-digit CN source should match canonical and suffixed analysis codes.",
                 "url": "https://news.example.com/hk-plain-code",
                 "source": "hk-symbol-feed",
                 "published_at": now,
                 "fetched_at": now,
                 "scope_type": "symbol",
-                "scope_value": "00700",
-                "market": "hk",
+                "scope_value": "000001",
+                "market": "cn",
             },
             {
                 "source_name": "hk-trimmed-symbol-feed",
                 "source_type": "rss",
-                "title": "Trimmed HK code symbol feed",
-                "summary": "Trimmed HK source should match canonical analysis code.",
+                "title": "Prefixed CN code symbol feed",
+                "summary": "Prefixed CN source should match canonical analysis code.",
                 "url": "https://news.example.com/hk-trimmed-code",
                 "source": "hk-trimmed-symbol-feed",
                 "published_at": now,
                 "fetched_at": now,
                 "scope_type": "symbol",
-                "scope_value": "HK700",
-                "market": "hk",
+                "scope_value": "SZ000001",
+                "market": "cn",
             },
         ])
 
         pipeline = StockAnalysisPipeline.__new__(StockAnalysisPipeline)
         pipeline.config = self.config
-        for code in ("HK00700", "00700.HK"):
+        for code in ("000001", "000001.SZ"):
             with self.subTest(code=code):
                 context = pipeline._load_persisted_intelligence_context(
                     code=code,
-                    stock_name="腾讯控股",
-                    market="hk",
+                    stock_name="平安银行",
+                    market="cn",
                 )
 
                 self.assertIsNotNone(context)
                 assert context is not None
-                self.assertIn("Plain HK code symbol feed", context)
-                self.assertIn("Trimmed HK code symbol feed", context)
+                self.assertIn("Plain CN code symbol feed", context)
+                self.assertIn("Prefixed CN code symbol feed", context)
 
     def test_market_review_merges_persisted_market_intelligence(self) -> None:
         analyzer = MarketAnalyzer(config=self.config, region="cn")

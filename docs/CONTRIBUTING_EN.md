@@ -82,7 +82,7 @@ PRs that only change ordinary `docs/**`, non-governance Markdown, or `LICENSE` k
 
 | Check | Description | Required |
 |-------|-------------|:--------:|
-| `backend-gate` | `scripts/ci_gate.sh` — py_compile + flake8 critical errors + `./scripts/test.sh code` + `./scripts/test.sh yfinance` + offline pytest | ✅ |
+| `backend-gate` | `scripts/ci_gate.sh` — py_compile + flake8 critical errors + A-share code checks + offline pytest | ✅ |
 | `docker-build` | Docker image build and key module import smoke test | ✅ |
 | `web-gate` | `npm run lint` + `npm run build` (triggered when `apps/dsa-web/` changes) | ✅ (when triggered) |
 | `pr-review` | Automatic PR triggering is temporarily paused. Maintainers can still run it by PR number through `workflow_dispatch`; it reads PR metadata and diff through the GitHub API and never checks out or executes fork PR code. | ❌ (advisory) |

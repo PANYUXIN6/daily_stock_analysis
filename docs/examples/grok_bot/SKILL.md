@@ -1,6 +1,6 @@
 ---
 name: daily-stock-analysis
-description: 调用 daily_stock_analysis API 做股票分析。当用户说「分析茅台」「analyze AAPL」「帮我看看 600519」或要大盘复盘时使用。优先用股票代码。
+description: 调用 daily_stock_analysis API 做 A 股分析。当用户说「分析茅台」「帮我看看 600519」或要大盘复盘时使用。优先用股票代码。
 ---
 
 # daily_stock_analysis
@@ -17,7 +17,7 @@ description: 调用 daily_stock_analysis API 做股票分析。当用户说「�
 
 ## 工作流程
 
-1. 提取股票代码：A股 6 位（`600519`）、港股 `hk00700`、美股 `AAPL`、台股 `.TW` / `.TWO`。只有中文名时先提示用户给代码，或使用常见映射（茅台 → `600519`）。
+1. 提取 A 股 6 位股票代码（如 `600519`）。只有中文名时先提示用户给代码，或使用常见映射（茅台 → `600519`）。
 2. 需要完整分析时 POST `{DSA_BASE_URL}/api/v1/analysis/analyze`。**Routine 或预计超过 Bot HTTP 超时的分析，从一开始用异步**，不要先同步再改发异步：同步超时后服务端 `_handle_sync_analysis` 仍会继续跑且不进 `TaskQueue`，再发 `async_mode: true` 会绕过队列去重，重复计费和推送。
 
 ```json

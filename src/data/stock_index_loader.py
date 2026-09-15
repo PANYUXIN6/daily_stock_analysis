@@ -11,7 +11,6 @@ from threading import RLock
 from typing import Dict, Iterable, Optional
 
 from src.data.stock_mapping import is_meaningful_stock_name
-from src.services.market_symbol_utils import get_suffix_market, suffix_base_lookup_allowed
 from src.services.stock_index_remote_service import (
     get_remote_stock_index_cache_path,
     is_valid_remote_stock_index_file,
@@ -87,18 +86,6 @@ def _build_lookup_keys(canonical_code: str, display_code: str) -> Iterable[str]:
         base, suffix = canonical_upper.rsplit(".", 1)
         if suffix in {"SH", "SZ", "SS", "BJ"} and base.isdigit():
             _add_lookup_key(keys, base)
-        elif suffix == "HK" and base.isdigit() and 1 <= len(base) <= 5:
-            digits = base.zfill(5)
-            _add_lookup_key(keys, digits)
-            _add_lookup_key(keys, f"HK{digits}")
-
-    for candidate in (canonical_upper, display_upper):
-        if candidate.startswith("HK"):
-            digits = candidate[2:]
-            if digits.isdigit() and 1 <= len(digits) <= 5:
-                digits = digits.zfill(5)
-                _add_lookup_key(keys, digits)
-                _add_lookup_key(keys, f"HK{digits}")
 
     return keys
 
@@ -142,11 +129,6 @@ def _add_code_lookup(
     lookup.setdefault(candidate, set()).add(canonical)
 
 
-def _is_jp_kr_index_code(code: str) -> bool:
-    """Return True for index-backed JP/KR suffix symbols eligible for lookup."""
-    return get_suffix_market(code) in {"jp", "kr"}
-
-
 def _build_stock_code_candidates(raw_items: list) -> dict[str, set[str]]:
     candidates: dict[str, set[str]] = {}
 
@@ -166,26 +148,12 @@ def _build_stock_code_candidates(raw_items: list) -> dict[str, set[str]]:
             if len(item) > 6
             else ""
         )
-        if indexed_market not in {"cn", "hk", "jp", "kr"}:
-            indexed_market = get_suffix_market(canonical_code) or ""
-        if indexed_market not in {"cn", "hk", "jp", "kr"}:
+        if indexed_market != "cn":
             continue
 
-        if indexed_market in {"jp", "kr"}:
-            _add_code_lookup(candidates, canonical_code, canonical_code)
-            _add_code_lookup(candidates, display_code, canonical_code)
-            if "." in canonical_code and suffix_base_lookup_allowed(canonical_code):
-                base, _suffix = canonical_code.rsplit(".", 1)
-                if base.isdigit():
-                    _add_code_lookup(candidates, base, canonical_code)
-        elif indexed_market == "hk":
-            base = canonical_code.removesuffix(".HK")
-            if base.isdigit():
-                _add_code_lookup(candidates, base.lstrip("0") or "0", canonical_code)
-        elif indexed_market == "cn":
-            base = canonical_code.rsplit(".", 1)[0]
-            if base.isdigit() and len(base) == 6:
-                _add_code_lookup(candidates, base, canonical_code)
+        base = canonical_code.rsplit(".", 1)[0]
+        if base.isdigit() and len(base) == 6:
+            _add_code_lookup(candidates, base, canonical_code)
 
     return candidates
 
@@ -320,9 +288,7 @@ def get_index_stock_name(stock_code: str) -> str | None:
 def resolve_index_stock_code(query: str) -> str | None:
     """Resolve an input code against the stock index pool.
 
-    Exact canonical/display-code matches win first. Bare JP/KR base-code matches
-    are accepted only when unambiguous, so ``005930`` can resolve to
-    ``005930.KS`` when that is the only indexed match.
+    仅返回活动 A 股索引中的唯一代码匹配。
     """
     code = str(query or "").strip().upper()
     if not code:
@@ -331,8 +297,7 @@ def resolve_index_stock_code(query: str) -> str | None:
     candidates = resolve_index_stock_code_candidates(code)
     if len(candidates) != 1:
         return None
-    candidate = candidates[0]
-    return candidate if _is_jp_kr_index_code(candidate) else None
+    return candidates[0]
 
 
 def resolve_index_stock_code_candidates(query: str) -> tuple[str, ...]:
@@ -394,7 +359,7 @@ def get_stock_code_index_map() -> Dict[str, str]:
         merged_lookup = {
             key: values[0]
             for key, values in get_stock_code_candidates_map().items()
-            if len(values) == 1 and _is_jp_kr_index_code(values[0])
+            if len(values) == 1
         }
 
         _STOCK_CODE_LOOKUP_CACHE = merged_lookup

@@ -170,20 +170,20 @@ class IntelligenceServiceTestCase(unittest.TestCase):
                 "published_at": now,
                 "fetched_at": now,
                 "scope_type": "symbol",
-                "scope_value": "AaPl",
-                "market": "us",
+                "scope_value": "sH600519",
+                "market": "cn",
             }
         ])
 
         items = self.service.list_items(
             scope_type="symbol",
-            scope_value="AAPL",
-            market="us",
+            scope_value="SH600519",
+            market="cn",
         )
 
         self.assertEqual(saved, 1)
         self.assertEqual(items["total"], 1)
-        self.assertEqual(items["items"][0]["scope_value"], "AaPl")
+        self.assertEqual(items["items"][0]["scope_value"], "sH600519")
 
     def test_fetch_http_error_does_not_expose_source_query_secret(self) -> None:
         secret_url = "https://feeds.example.com/rss.xml?token=super-secret"
@@ -323,13 +323,6 @@ class IntelligenceServiceTestCase(unittest.TestCase):
         self.assertEqual(result["saved_count"], 1)
         self.assertEqual(result["sample_items"][0]["url"], "https://news.example.com/good")
 
-    def test_source_templates_can_create_disabled_source(self) -> None:
-        templates = self.service.list_source_templates(market="hk")
-        self.assertGreaterEqual(templates["total"], 1)
-        created = self.service.create_source_from_template("hkex-news", {"enabled": False, "name": "hkex-template-copy"})
-        self.assertEqual(created["name"], "hkex-template-copy")
-        self.assertEqual(created["market"], "hk")
-        self.assertFalse(created["enabled"])
 
     def test_newsnow_source_fetches_json_items(self) -> None:
         source = self.service.create_source({
@@ -355,7 +348,7 @@ class IntelligenceServiceTestCase(unittest.TestCase):
         first = self.service.create_default_sources({"enabled": False})
         second = self.service.create_default_sources({"enabled": False})
 
-        self.assertGreaterEqual(first["created_count"], 5)
+        self.assertEqual(first["created_count"], 4)
         self.assertEqual(second["created_count"], 0)
         self.assertEqual(first["total"], second["total"])
         sources = self.service.list_sources(source_type="newsnow", market="cn")
@@ -404,7 +397,7 @@ class IntelligenceServiceTestCase(unittest.TestCase):
 
         self.assertTrue(result["ok"])
         self.assertFalse(result["skipped"])
-        self.assertGreaterEqual(result["bootstrap"]["created_count"], 8)
+        self.assertEqual(result["bootstrap"]["created_count"], 4)
         self.assertGreater(result["saved_count"], 0)
         sources = self.service.list_sources(enabled=True)
         self.assertEqual(sources["total"], result["fetch"]["source_count"])
@@ -413,7 +406,7 @@ class IntelligenceServiceTestCase(unittest.TestCase):
     def test_refresh_auto_sources_enables_existing_default_sources(self) -> None:
         self.service.config.news_intel_auto_fetch_enabled = True
         created = self.service.create_default_sources()
-        self.assertGreaterEqual(created["created_count"], 8)
+        self.assertEqual(created["created_count"], 4)
 
         def fake_get(url, **_kwargs):
             if "newsnow" in url:

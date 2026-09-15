@@ -8,7 +8,7 @@ Covers:
 - AkShare fallback (mocked)
 - Fuzzy match (difflib)
 - Ambiguous names return None
-- Stock dataclass / resolver_name_to_code_list / US_stock_code_match / extend_AkShare
+- Stock dataclass / resolver_name_to_code_list / extend_AkShare
 """
 
 import threading
@@ -25,7 +25,6 @@ from src.services.name_to_code_resolver import (
     Stock,
     resolve_name_to_code,
     resolver_name_to_code_list,
-    US_stock_code_match,
     _is_code_like,
     _normalize_code,
     _build_reverse_map_no_duplicates,
@@ -58,8 +57,8 @@ def clean_db(request):
 # ---------------------------------------------------------------------------
 
 class TestIsCodeLike:
-    def test_a_share_5_digits(self):
-        assert _is_code_like("60051") is True
+    def test_rejects_five_digit_code(self):
+        assert _is_code_like("60051") is False
         assert _is_code_like("600519") is True
 
     def test_a_share_6_digits(self):
@@ -73,13 +72,10 @@ class TestIsCodeLike:
         assert _is_code_like("600519.BJ") is False
         assert _is_code_like("BJ600519") is False
 
-    def test_hk_5_digits(self):
-        assert _is_code_like("00700") is True
-
-    def test_us_stock_letters(self):
-        assert _is_code_like("AAPL") is True
-        assert _is_code_like("TSLA") is True
-        assert _is_code_like("BRK.B") is True
+    def test_rejects_overseas_code_shapes(self):
+        assert _is_code_like("00700") is False
+        assert _is_code_like("AAPL") is False
+        assert _is_code_like("BRK.B") is False
 
     def test_rejects_non_code(self):
         assert _is_code_like("贵州茅台") is False
@@ -110,9 +106,9 @@ class TestNormalizeCode:
         assert _normalize_code("600519.BJ") is None
         assert _normalize_code("BJ600519") is None
 
-    def test_preserves_us_stock(self):
-        assert _normalize_code("AAPL") == "AAPL"
-        assert _normalize_code("brk.b") == "BRK.B"
+    def test_rejects_overseas_stock(self):
+        assert _normalize_code("AAPL") is None
+        assert _normalize_code("00700") is None
 
     def test_returns_none_for_invalid(self):
         assert _normalize_code("") is None
@@ -148,27 +144,27 @@ class TestResolveNameToCode:
         assert resolve_name_to_code("600519") == "600519"
         assert resolve_name_to_code("600519.SH") == "600519"
         assert resolve_name_to_code("920493.BJ") == "920493"
-        assert resolve_name_to_code("  AAPL  ") == "AAPL"
+        assert resolve_name_to_code("  AAPL  ") is None
 
     def test_local_map_exact_match(self):
         assert resolve_name_to_code("贵州茅台") == "600519"
-        assert resolve_name_to_code("腾讯控股") == "00700"
+        assert resolve_name_to_code("平安银行") == "000001"
 
     @patch("src.services.name_to_code_resolver._get_akshare_name_to_code")
     def test_local_hit_does_not_trigger_akshare(self, mock_akshare):
         # 本地表精确命中必须零网络：既有调用方（API/Bot/导入）保持
         # 离线低延迟契约，不被 AkShare 冷启动等待拖住。
         assert resolve_name_to_code("贵州茅台") == "600519"
-        assert resolve_name_to_code("腾讯控股") == "00700"
+        assert resolve_name_to_code("平安银行") == "000001"
         mock_akshare.assert_not_called()
 
     @patch("src.services.name_to_code_resolver._get_akshare_name_to_code")
     def test_local_hit_wins_over_akshare_same_name(self, mock_akshare):
         # 兼容性契约：本地表唯一命中的名字直接返回本地代码，不做跨市场
-        # 合并判定（中国移动：本地仅港股 00941，AkShare 有同名 A 股 600941）。
+        # 合并判定（贵州茅台：本地仅港股 600519，AkShare 有同名 A 股 600519）。
         # 完整跨市场候选由 resolver_name_to_code_list 提供。
-        mock_akshare.return_value = {"中国移动": "600941"}
-        assert resolve_name_to_code("中国移动") == "00941"
+        mock_akshare.return_value = {"贵州茅台": "600519"}
+        assert resolve_name_to_code("贵州茅台") == "600519"
         mock_akshare.assert_not_called()
 
     def test_returns_none_for_empty_or_invalid_input(self):
@@ -240,13 +236,6 @@ class TestResolverNameToCodeList:
     def test_exact_match(self):
         assert resolver_name_to_code_list("贵州茅台") == [Stock("600519", "贵州茅台", "a")]
 
-    @pytest.mark.usefixtures("clean_db")
-    def test_exact_match_cross_market_sorted(self):
-        # 阿里巴巴 in STOCK_NAME_MAP: BABA (us) + 09988 (hk) → hk before us
-        assert resolver_name_to_code_list("阿里巴巴") == [
-            Stock("09988", "阿里巴巴", "hk"),
-            Stock("BABA", "阿里巴巴", "us"),
-        ]
 
     @pytest.mark.usefixtures("clean_db")
     def test_substring_match(self):
@@ -285,35 +274,6 @@ class TestResolverNameToCodeList:
         assert resolver_name_to_code_list("浦发银行") == [Stock("600000", "浦发银行", "a")]
 
 
-    @pytest.mark.parametrize("clean_db", [{"阿里巴巴": "600000"}], indirect=True)
-    def test_local_exact_hit_still_merges_akshare_same_name_a_share(self, clean_db):
-        # 本地已有同名港股/美股时，AkShare 中的同名 A 股也必须被并入。
-        ntc.stockDB.clear()
-        ntc.stockDB.update({"09988": "阿里巴巴", "BABA": "阿里巴巴"})
-        ntc._names_cache[:] = [None, None, None]
-        ntc._pinyin_cache[:] = [None, None]
-        ntc._akshare_merged = None
-        ntc.stockAliases.clear()
-        assert resolver_name_to_code_list("阿里巴巴") == [
-            Stock("600000", "阿里巴巴", "a"),
-            Stock("09988", "阿里巴巴", "hk"),
-            Stock("BABA", "阿里巴巴", "us"),
-        ]
-
-    @pytest.mark.parametrize("clean_db", [{"阿里巴巴": "600000"}], indirect=True)
-    def test_local_single_candidate_gets_a_share_candidate_after_akshare_merge(self, clean_db):
-        # 本地只有单一市场记录时，AkShare 补齐同名 A 股后候选变完整。
-        ntc.stockDB.clear()
-        ntc.stockDB.update({"09988": "阿里巴巴"})
-        ntc._names_cache[:] = [None, None, None]
-        ntc._pinyin_cache[:] = [None, None]
-        ntc._akshare_merged = None
-        ntc.stockAliases.clear()
-        assert resolver_name_to_code_list("阿里巴巴") == [
-            Stock("600000", "阿里巴巴", "a"),
-            Stock("09988", "阿里巴巴", "hk"),
-        ]
-
 class TestCompactLookupInputs:
     """查询侧同源压平：带内嵌空格的"源形态"输入（如自 AkShare 数据复制的
     "五 粮 液"）与常规无空格拼写同样可解析——入库压平后查询入口若只做
@@ -334,21 +294,6 @@ class TestCompactLookupInputs:
     def test_spaced_input_resolves_legacy(self):
         # 本地映射已有无空格拼写：legacy 入口对带空格输入同样命中
         assert resolve_name_to_code("五 粮 液") == "000858"
-
-
-# ---------------------------------------------------------------------------
-# US_stock_code_match
-# ---------------------------------------------------------------------------
-
-class TestUSStockCodeMatch:
-    def test_known_ticker(self):
-        assert US_stock_code_match("AAPL") == [Stock("AAPL", "苹果", "us")]
-        assert US_stock_code_match("aapl") == [Stock("AAPL", "苹果", "us")]
-
-    def test_unknown_word_returns_empty(self):
-        assert US_stock_code_match("HELLO") == []  # ordinary English word
-        assert US_stock_code_match("TOOLONGTICKER") == []
-        assert US_stock_code_match("贵州茅台") == []
 
 
 # ---------------------------------------------------------------------------
@@ -896,4 +841,3 @@ class TestFetchAkshareDfWiring:
         assert captured["timeout"] == ntc._AKSHARE_FETCH_TIMEOUT
         assert captured["call_name"] == "stock_info_a_code_name"
         assert list(df["name"]) == ["浦发银行"]
-

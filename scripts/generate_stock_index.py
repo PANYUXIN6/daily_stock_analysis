@@ -8,7 +8,7 @@ Output to apps/dsa-web/public/stocks.index.json
 
 Two-phase strategy:
 1. MVP: Use existing STOCK_NAME_MAP
-2. Future: Combine with AkShare for complete list
+2. Optionally combine with the A-share CSV for a complete list
 
 Usage:
     python3 scripts/generate_stock_index.py
@@ -64,6 +64,8 @@ def generate_stock_index_from_map() -> List[Dict[str, Any]]:
     index = []
 
     for code, name in STOCK_NAME_MAP.items():
+        if not (code.isdigit() and len(code) == 6):
+            continue
         # Generate pinyin fields.
         pinyin_full = None
         pinyin_abbr = None
@@ -99,36 +101,10 @@ def generate_stock_index_from_map() -> List[Dict[str, Any]]:
 
 
 def determine_market_and_type(code: str) -> tuple:
-    """
-    Determine market and asset type based on stock code
-
-    Args:
-        code: Stock code
-
-    Returns:
-        Tuple of (market, asset_type)
-    """
-    if code.isdigit():
-        if len(code) == 5:
-            # Five digits: likely HK stock or legacy B-share.
-            if code.startswith('0') or code.startswith('2'):
-                return 'HK', 'stock'
-            return 'CN', 'stock'
-        elif len(code) == 6:
-            # Six digits: A-share universe.
-            if code.startswith('6'):
-                return 'CN', 'stock'  # Shanghai
-            elif code.startswith(('0', '2', '3')):
-                return 'CN', 'stock'  # Shenzhen
-            elif code.startswith('8'):
-                return 'BSE', 'stock'  # Beijing Stock Exchange
-            return 'CN', 'stock'
-        elif len(code) == 4:
-            # Four digits: likely a US symbol or special market code.
-            return 'US', 'stock'
-
-    # 字母代码，美股或其他
-    return 'US', 'stock'
+    """Return the fixed A-share market and stock asset type."""
+    if not (code.isdigit() and len(code) == 6):
+        raise ValueError(f"unsupported non-A-share code: {code}")
+    return 'CN', 'stock'
 
 
 def market_to_suffix(market: str) -> str:
@@ -142,12 +118,7 @@ def market_to_suffix(market: str) -> str:
         Market suffix
     """
     suffix_map = {
-        'CN': 'SH',  # 简化处理，默认上海
-        'HK': 'HK',
-        'US': 'US',
-        'INDEX': 'SH',
-        'ETF': 'SH',
-        'BSE': 'BJ',
+        'CN': 'SH',
     }
     return suffix_map.get(market, 'SH')
 

@@ -124,7 +124,7 @@ class TestValidateStructuredStockList:
         stock_errors = [i for i in errors if i.field == "STOCK_LIST"]
         assert stock_errors
         assert "未配置 STOCK_LIST" in stock_errors[0].message
-        assert "600519,hk00700,AAPL" in stock_errors[0].message
+        assert "600519" in stock_errors[0].message
 
     def test_configured_stock_list_no_stock_error(self):
         cfg = _make_config(stock_list=["600519", "000001"])
@@ -152,35 +152,35 @@ class TestValidateStructuredStockList:
         assert not any(i.field == "STOCK_GROUP_N" for i in issues)
 
     def test_stock_email_groups_canonical_normalization_no_false_warning(self):
-        """Equivalent stock code formats (SH600519 vs 600519, 1810.HK vs HK01810)
+        """Equivalent stock code formats (SH600519 vs 600519, 000002.SZ vs 000002)
         should not trigger a subset warning after canonical normalization."""
         cfg = _make_config(
-            stock_list=["600519", "HK00700"],
+            stock_list=["600519", "000001"],
             stock_email_groups=[
-                (["SH600519", "1810.HK"], ["group@example.com"]),
+                (["SH600519", "000002.SZ"], ["group@example.com"]),
             ],
         )
         issues = cfg.validate_structured()
         group_warnings = [i for i in issues if i.field == "STOCK_GROUP_N"]
         # SH600519 normalizes to 600519 (present in stock_list)
-        # 1810.HK normalizes to HK01810 (NOT present — HK00700 ≠ HK01810)
+        # 000002.SZ normalizes to 000002 (NOT present — 000001 ≠ 000002)
         assert len(group_warnings) == 1
-        assert "HK01810" in group_warnings[0].message
+        assert "000002" in group_warnings[0].message
         assert "600519" not in group_warnings[0].message
 
     def test_stock_email_groups_warning_normalizes_and_deduplicates_codes(self):
         cfg = _make_config(
             stock_list=["600519"],
             stock_email_groups=[
-                (["  aapl ", "AAPL", "aapl", " "], ["group@example.com"]),
+                (["  000858 ", "000858", "000858", " "], ["group@example.com"]),
             ],
         )
         issues = cfg.validate_structured()
         warning = next(i for i in issues if i.field == "STOCK_GROUP_N")
         assert warning.severity == "warning"
-        assert "AAPL" in warning.message
-        assert "  aapl " not in warning.message
-        assert warning.message.count("AAPL") == 1
+        assert "000858" in warning.message
+        assert "  000858 " not in warning.message
+        assert warning.message.count("000858") == 1
 
 
 # ---------------------------------------------------------------------------

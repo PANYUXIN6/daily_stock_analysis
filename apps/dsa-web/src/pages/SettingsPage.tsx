@@ -2,7 +2,7 @@ import type React from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, ChevronDown, CircleAlert, CircleDashed, Clock, Play, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
-import { useAuth, useDesktopUpdate, useSystemConfig } from '../hooks';
+import { useAuth, useSystemConfig } from '../hooks';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
 import { createParsedApiError, getParsedApiError, type ParsedApiError } from '../api/error';
 import { analysisApi } from '../api/analysis';
@@ -136,12 +136,12 @@ function isPromptCacheAdvancedSetting(item: { key: string }) {
   return PROMPT_CACHE_ADVANCED_SETTING_KEYS.has(item.key);
 }
 
-function formatEnvBackupFilename(isDesktopRuntime: boolean) {
+function formatEnvBackupFilename() {
   const now = new Date();
   const pad = (value: number) => value.toString().padStart(2, '0');
   const date = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}`;
   const time = `${pad(now.getHours())}${pad(now.getMinutes())}`;
-  return `${isDesktopRuntime ? 'dsa-desktop-env' : 'dsa-env'}_${date}_${time}.env`;
+  return `dsa-env_${date}_${time}.env`;
 }
 
 const SCHEDULE_TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
@@ -700,18 +700,6 @@ const SettingsPage: React.FC = () => {
   const [llmChannelDraftItems, setLlmChannelDraftItems] = useState<SystemConfigUpdateItem[]>([]);
   const envBackupImportRef = useRef<HTMLInputElement | null>(null);
   const setupStatusRequestIdRef = useRef(0);
-  const {
-    isDesktopRuntime,
-    canCheckDesktopUpdate,
-    desktopAppVersion,
-    isBusy: isDesktopUpdateBusy,
-    isChecking: isCheckingDesktopUpdate,
-    notice: desktopUpdateNotice,
-    checkForUpdates: handleDesktopUpdateCheck,
-    openReleasePage: openDesktopReleasePage,
-    installDownloadedUpdate: installDesktopUpdate,
-  } = useDesktopUpdate();
-  const shouldShowDesktopVersionCard = Boolean(desktopAppVersion);
 
   // Set page title
   useEffect(() => {
@@ -809,14 +797,6 @@ const SettingsPage: React.FC = () => {
     }
   }, [categories, location.search, setActiveCategory]);
 
-  useEffect(() => {
-    if (isLoading || activeCategory !== 'system' || location.hash !== '#desktop-version-info') {
-      return;
-    }
-
-    const node = document.getElementById('desktop-version-info');
-    node?.scrollIntoView({ block: 'start' });
-  }, [activeCategory, isLoading, location.hash]);
 
   useEffect(() => {
     void refreshSetupStatus();
@@ -926,7 +906,7 @@ const SettingsPage: React.FC = () => {
     ? activeItems.filter((item) => !isPromptCacheAdvancedSetting(item))
     : activeItems;
   const hasActiveConfigItems = visibleActiveItems.length > 0 || promptCacheAdvancedItems.length > 0;
-  const isEnvBackupAllowed = isDesktopRuntime || authEnabled;
+  const isEnvBackupAllowed = authEnabled;
   const envBackupActionDisabled = isLoading || isSaving || isExportingEnv || isImportingEnv || !isEnvBackupAllowed;
 
   const downloadEnvBackup = async () => {
@@ -939,7 +919,7 @@ const SettingsPage: React.FC = () => {
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = formatEnvBackupFilename(isDesktopRuntime);
+      anchor.download = formatEnvBackupFilename();
       document.body.appendChild(anchor);
       anchor.click();
       document.body.removeChild(anchor);
@@ -1127,11 +1107,7 @@ const SettingsPage: React.FC = () => {
 
   const shouldGuardActiveConfigPanel = activeCategory === 'notification' || activeCategory === 'agent';
   const activeConfigPanelErrorTitle = activeCategory === 'agent' ? t('settings.agentSettings') : t('settings.notificationSettings');
-  const settingsPanelDiagnosticHint = isDesktopRuntime
-    ? uiLanguage === 'en'
-      ? <>Check and provide the desktop log <code>desktop.log</code>, plus the release version, Windows version, and trigger path.</>
-      : <>请查看并提供桌面端日志 <code>desktop.log</code>，同时补充 release 版本、Windows 版本和触发入口。</>
-    : t('settings.diagnosticHintWeb');
+  const settingsPanelDiagnosticHint = t('settings.diagnosticHintWeb');
   const activeCategoryTitle = getCategoryTitle(activeCategory as SystemConfigCategory, t('settings.activePanelTitle'), uiLanguage);
   const activeCategoryDescription = getCategoryDescription(activeCategory as SystemConfigCategory, '', uiLanguage);
   const selectedAgentBackend = (rawActiveItemMap.get('AGENT_BACKEND') || 'auto').trim().toLowerCase();
@@ -1354,13 +1330,13 @@ const SettingsPage: React.FC = () => {
               />
             ) : null}
             {activeCategory === 'system' ? (
-              <div id="desktop-version-info">
+              <div id="version-info">
               <SettingsSectionCard
                 title={t('settings.versionInfo')}
                 description={t('settings.versionInfoDescription')}
               >
                 <div
-                  className={`grid grid-cols-1 gap-3 ${shouldShowDesktopVersionCard ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}
+                  className="grid grid-cols-1 gap-3 md:grid-cols-3"
                 >
                   <div className="rounded-2xl border settings-border bg-background/40 px-4 py-3">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-text">
@@ -1386,61 +1362,10 @@ const SettingsPage: React.FC = () => {
                       {WEB_BUILD_INFO.buildTime}
                     </p>
                   </div>
-                  {shouldShowDesktopVersionCard ? (
-                    <div className="rounded-2xl border settings-border bg-background/40 px-4 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-text">
-                        {t('settings.versionDesktop')}
-                      </p>
-                      <p className="mt-2 break-all font-mono text-sm text-foreground">
-                        {desktopAppVersion}
-                      </p>
-                    </div>
-                  ) : null}
                 </div>
                 <p className="text-xs leading-6 text-muted-text">
                   {t('settings.updateBuildDescription')}
                 </p>
-                {canCheckDesktopUpdate ? (
-                  <div className="mt-4 space-y-3 rounded-2xl border settings-border bg-background/30 px-4 py-4">
-                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{t('settings.desktopUpdate')}</p>
-                        <p className="text-xs leading-6 text-muted-text">
-                          {t('settings.desktopUpdateDescription')}
-                        </p>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="settings-secondary"
-                        onClick={() => void handleDesktopUpdateCheck()}
-                        disabled={isDesktopUpdateBusy}
-                        isLoading={isCheckingDesktopUpdate}
-                        loadingText={t('settings.checkingDesktopUpdate')}
-                      >
-                        {t('settings.checkDesktopUpdate')}
-                      </Button>
-                    </div>
-                    {desktopUpdateNotice ? (
-                      <SettingsAlert
-                        title={desktopUpdateNotice.title}
-                        message={desktopUpdateNotice.message}
-                        variant={desktopUpdateNotice.variant}
-                        actionLabel={desktopUpdateNotice.actionLabel}
-                        onAction={desktopUpdateNotice.actionLabel ? () => {
-                          if (desktopUpdateNotice.actionKind === 'install') {
-                            void installDesktopUpdate();
-                            return;
-                          }
-                          void openDesktopReleasePage();
-                        } : undefined}
-                      />
-                    ) : (
-                      <p className="text-xs leading-6 text-muted-text">
-                        {t('settings.desktopCurrentNoStatus')}
-                      </p>
-                    )}
-                  </div>
-                ) : null}
                 {WEB_BUILD_INFO.isFallbackVersion ? (
                   <p className="text-xs leading-6 text-amber-700 dark:text-amber-300">
                     {t('settings.fallbackVersionWarning')}

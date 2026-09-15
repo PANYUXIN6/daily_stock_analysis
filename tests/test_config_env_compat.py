@@ -84,7 +84,7 @@ class ConfigEnvCompatibilityTestCase(unittest.TestCase):
 
     @patch("src.config.setup_env")
     @patch.object(Config, "_parse_litellm_yaml", return_value=[])
-    def test_market_review_region_accepts_comma_separated_supported_values(
+    def test_market_review_region_ignores_legacy_multi_market_selection(
         self, _mock_parse_litellm_yaml, _mock_setup_env
     ):
         with patch.dict(
@@ -97,28 +97,8 @@ class ConfigEnvCompatibilityTestCase(unittest.TestCase):
         ):
             config = Config._load_from_env()
 
-        self.assertEqual(config.market_review_region, "cn,us,jp")
+        self.assertEqual(config.market_review_region, "cn")
 
-    @patch("src.config.setup_env")
-    @patch.object(Config, "_parse_litellm_yaml", return_value=[])
-    def test_market_review_region_filters_invalid_values_in_comma_subset(
-        self, _mock_parse_litellm_yaml, _mock_setup_env
-    ):
-        with patch.dict(
-            os.environ,
-            {
-                "STOCK_LIST": "600519",
-                "MARKET_REVIEW_REGION": "cn,eu,us,kr,xx",
-            },
-            clear=True,
-        ):
-            config = Config._load_from_env()
-
-        self.assertEqual(config.market_review_region, "cn,us,kr")
-
-    def test_market_review_region_keeps_legacy_mixed_both_and_empty_token_compatibility(self) -> None:
-        self.assertEqual(Config._parse_market_review_region("both,us"), "cn,hk,us,jp,kr")
-        self.assertEqual(Config._parse_market_review_region("cn,,us"), "cn,us")
 
     @patch("src.config.setup_env")
     @patch.object(Config, "_parse_litellm_yaml", return_value=[])
@@ -926,21 +906,6 @@ class ConfigEnvCompatibilityTestCase(unittest.TestCase):
 
         self.assertEqual(parsed, "zh")
 
-    def test_parse_market_review_region_accepts_jp_kr_values_and_comma_lists(self) -> None:
-        self.assertEqual(Config._parse_market_review_region("jp"), "jp")
-        self.assertEqual(Config._parse_market_review_region("KR"), "kr")
-        self.assertEqual(
-            Config._parse_market_review_region("kr,jp,us"),
-            "us,jp,kr",
-        )
-        self.assertEqual(
-            Config._parse_market_review_region("cn,eu,us"),
-            "cn,us",
-        )
-        self.assertEqual(
-            Config._parse_market_review_region("both"),
-            "cn,hk,us,jp,kr",
-        )
 
     @patch("src.config.setup_env")
     @patch.object(Config, "_parse_litellm_yaml", return_value=[])
@@ -1001,8 +966,8 @@ class ConfigEnvCompatibilityTestCase(unittest.TestCase):
         runtime email routing matches the same equivalence used in
         validate_structured()."""
         env = {
-            "STOCK_LIST": "600519,HK00700",
-            "STOCK_GROUP_1": "SH600519,1810.HK",
+            "STOCK_LIST": "600519,000858",
+            "STOCK_GROUP_1": "SH600519,000858.SZ",
             "EMAIL_GROUP_1": "user@example.com",
         }
 
@@ -1010,7 +975,7 @@ class ConfigEnvCompatibilityTestCase(unittest.TestCase):
             config = Config._load_from_env()
 
         stocks, emails = config.stock_email_groups[0]
-        self.assertEqual(stocks, ["600519", "HK01810"])
+        self.assertEqual(stocks, ["600519", "000858"])
         self.assertEqual(emails, ["user@example.com"])
 
 

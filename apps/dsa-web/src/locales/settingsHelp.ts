@@ -287,7 +287,7 @@ const settingsHelpZhCN: SettingsHelpMap = {
   'settings.data_source.TICKFLOW_PRIORITY': {
     title: 'TickFlow 日 K 优先级',
     summary: '控制 TickFlow 在普通 A 股日 K 数据源回退链中的位置。',
-    usage: '填写整数；数字越小越早尝试，默认 2。未配置 TICKFLOW_API_KEY 时该优先级不会生效；已登记指数固定按 Tencent → AkShare → TickFlow → YFinance 降级，不读取本配置。',
+    usage: '填写整数；数字越小越早尝试，默认 2。未配置 TICKFLOW_API_KEY 时该优先级不会生效；已登记指数固定按 Tencent → AkShare → TickFlow 降级，不读取本配置。',
     valueNotes: ['该设置只影响普通 A 股日 K 等通用数据源回退链，不控制已登记指数或实时行情源顺序。'],
     impact: ['影响普通 A 股日 K 获取的数据源尝试顺序；已登记指数和实时行情均使用各自独立顺序。'],
     notes: ['如果希望优先使用 TickFlow 日 K，可以适当调低该值；如果希望实时行情优先使用 TickFlow，请在 REALTIME_SOURCE_PRIORITY 中显式加入 tickflow。'],
@@ -353,10 +353,10 @@ const settingsHelpZhCN: SettingsHelpMap = {
   },
   'settings.data_source.FUTU_OPEND_HOST': {
     title: 'Futu OpenD 地址',
-    summary: '配置 Futu OpenD 服务地址。留空时不启用 Futu 数据源。',
+    summary: '配置 Futu OpenD 服务地址，用于导入沪深 A 股持仓。',
     usage: '填写 IPv4 地址或可解析到 IPv4 的主机名。',
     valueNotes: ['OpenD 必须允许 DSA 容器访问。'],
-    impact: ['影响港股 Futu 实时行情、历史行情和基本面数据访问。'],
+    impact: ['影响 Futu 沪深 A 股持仓导入，不参与行情数据源选择。'],
     notes: ['这是服务地址，不是 Futu 账号密码。'],
   },
   'settings.data_source.FUTU_OPEND_PORT': {
@@ -366,14 +366,6 @@ const settingsHelpZhCN: SettingsHelpMap = {
     valueNotes: ['端口必须与 OpenD 实际监听端口一致。'],
     impact: ['影响 DSA 与 Futu OpenD 的连接。'],
     notes: ['修改后通常需要重启 DSA 服务以重新建立连接。'],
-  },
-  'settings.data_source.FUTU_HK_REALTIME_SOURCE_PRIORITY': {
-    title: 'Futu 港股实时数据源优先级',
-    summary: '配置港股实时行情的 Futu/Longbridge/AkShare/Yfinance 尝试顺序。',
-    usage: '使用英文逗号分隔，可选 futu、longbridge、akshare、yfinance。',
-    valueNotes: ['前面的数据源优先尝试；失败后自动回退。'],
-    impact: ['只影响港股实时行情，不改变 A 股实时数据源优先级。'],
-    notes: ['未配置 Futu OpenD 时会自动跳过 futu。'],
   },
   'settings.data_source.search_api_keys': {
     title: '搜索服务 API Key',
@@ -636,14 +628,14 @@ const settingsHelpZhCN: SettingsHelpMap = {
     usage: '填写运行用户或容器可写的目录路径；本地默认 ./logs，容器内常见路径为 /app/logs。',
     valueNotes: [
       '相对路径按运行进程的工作目录解析。',
-      'Longbridge SDK 等组件也可能在该目录下写入日志文件。',
+      '部分数据源 SDK 也可能在该目录下写入日志文件。',
     ],
     impact: [
       '影响应用日志、部分 SDK 日志和排障文件的落盘位置。',
     ],
     notes: [
       '修改后通常需要重启进程，已初始化的 logger 不一定会立即切换目录。',
-      'Docker、桌面端和本地源码运行的可写路径不同，保存前需确认权限。',
+      'Docker 和本地源码运行的可写路径不同，保存前需确认权限。',
     ],
   },
   'settings.system.WEBUI_ENABLED': {
@@ -700,7 +692,7 @@ const settingsHelpZhCN: SettingsHelpMap = {
     usage: 'SCHEDULE_TIME 使用 HH:MM 24 小时格式；SCHEDULE_TIMES 可配置逗号分隔的多个 HH:MM 时间点；SCHEDULE_ENABLED 控制 runtime scheduler 是否启用；DSA_RUNTIME_SCHEDULER_TIMEOUT_SECONDS 控制单次 Web/API 定时分析的硬超时，默认 2700 秒、最小 60 秒。',
     valueNotes: [
       '已运行的 schedule 模式会在下一轮调度检查中读取新的 SCHEDULE_TIME / SCHEDULE_TIMES 并重建 daily jobs。',
-      'WebUI/API/Desktop 长运行进程保存 SCHEDULE_ENABLED、SCHEDULE_TIME 或 SCHEDULE_TIMES 后会按新配置启停或重建 runtime scheduler。',
+      'WebUI/API 长运行进程保存 SCHEDULE_ENABLED、SCHEDULE_TIME 或 SCHEDULE_TIMES 后会按新配置启停或重建 runtime scheduler。',
       '修改 DSA_RUNTIME_SCHEDULER_TIMEOUT_SECONDS 后，下一次分析会使用新值，无需重建 daily jobs；超时会终止独立分析进程。',
       '定时任务触发时会读取当前保存的 STOCK_LIST。',
     ],
@@ -725,7 +717,7 @@ const settingsHelpZhCN: SettingsHelpMap = {
     title: '交易日检查',
     summary: '控制非交易日是否跳过分析。',
     usage: '默认 true；需要强制运行可设为 false 或使用 --force-run。',
-    valueNotes: ['会结合市场日历判断 A 股、港股、美股等市场是否开市。'],
+    valueNotes: ['会结合上交所交易日历判断 A 股市场是否开市。'],
     impact: ['影响定时任务、CLI 和 GitHub Actions 手动运行是否在休市日执行；Web/API 大盘复盘按钮会直接提交任务。'],
     notes: ['关闭后休市日可能生成缺少实时行情的报告。'],
   },
@@ -1259,11 +1251,11 @@ const settingsHelpZhCN: SettingsHelpMap = {
   },
   'settings.system.market_review': {
     title: '大盘分析',
-    summary: '控制大盘分析功能的开关、支持的市场子集和配色方案。',
-    usage: 'MARKET_REVIEW_ENABLED 开启大盘分析；DAILY_MARKET_CONTEXT_ENABLED 默认开启，会把当日大盘摘要用于个股分析 Prompt 与保守护栏；MARKET_REVIEW_REGION 支持输入逗号分隔的市场子集（如 cn,us,jp 或 cn,us,jp,kr），不传可回退为 cn；MARKET_REVIEW_COLOR_SCHEME 选择配色。',
+    summary: '控制 A 股大盘分析功能的开关和配色方案。',
+    usage: 'MARKET_REVIEW_ENABLED 开启大盘分析；DAILY_MARKET_CONTEXT_ENABLED 默认开启，会把当日大盘摘要用于个股分析 Prompt 与保守护栏；MARKET_REVIEW_REGION 固定为 cn；MARKET_REVIEW_COLOR_SCHEME 选择配色。',
     valueNotes: [
-      'cn 覆盖 A 股，hk 覆盖港股，us 覆盖美股，jp 覆盖日股，kr 覆盖韩股，both 覆盖全部（cn,hk,us,jp,kr）。',
-      'MARKET_REVIEW_REGION 直接写入文本框，支持逗号分隔的子集；空值或非法值会回退到 cn。',
+      '当前仅支持 cn（A 股）。',
+      'MARKET_REVIEW_REGION 仅接受 cn；空值会回退到 cn。',
       '默认开启 DAILY_MARKET_CONTEXT_ENABLED；设为 false 后仍可生成大盘复盘报告，但个股分析不会读取大盘摘要或软化买入/加仓建议。',
       '配色方案影响大盘报告中指数涨跌的颜色显示：green_up 为绿涨红跌，red_up 为红涨绿跌。',
     ],
@@ -1518,7 +1510,7 @@ const settingsHelpEnUS: SettingsHelpMap = {
   'settings.data_source.TICKFLOW_PRIORITY': {
     title: 'TickFlow Daily K-line Priority',
     summary: 'Controls where TickFlow sits in the generic A-share daily K-line provider fallback chain.',
-    usage: 'Use an integer. Lower numbers are tried earlier. The default is 2. This has no effect unless TICKFLOW_API_KEY is configured. Registered indices use the fixed Tencent → AkShare → TickFlow → YFinance chain and ignore this setting.',
+    usage: 'Use an integer. Lower numbers are tried earlier. The default is 2. This has no effect unless TICKFLOW_API_KEY is configured. Registered indices use the fixed Tencent → AkShare → TickFlow chain and ignore this setting.',
     valueNotes: ['This setting only affects generic A-share daily K-lines; it does not control registered-index or realtime-quote provider order.'],
     impact: ['Affects provider order for generic A-share daily K-line fetching. Registered indices and realtime quotes use separate ordering.'],
     notes: ['Lower this value only if you want TickFlow daily K-lines to be tried earlier. Add tickflow to REALTIME_SOURCE_PRIORITY when you want TickFlow realtime quotes in the realtime fallback chain.'],
@@ -1549,10 +1541,10 @@ const settingsHelpEnUS: SettingsHelpMap = {
   },
   'settings.data_source.FUTU_OPEND_HOST': {
     title: 'Futu OpenD Host',
-    summary: 'Configures the Futu OpenD service address. Leave empty to disable Futu.',
+    summary: 'Configures the Futu OpenD service address for importing Shanghai/Shenzhen A-share positions.',
     usage: 'Use an IPv4 address or a hostname resolving to IPv4.',
     valueNotes: ['The OpenD service must be reachable from the DSA container.'],
-    impact: ['Affects Futu HK realtime, historical, and fundamental data access.'],
+    impact: ['Affects Futu A-share position imports; it is not used as a quote provider.'],
     notes: ['This is a service address, not a Futu account credential.'],
   },
   'settings.data_source.FUTU_OPEND_PORT': {
@@ -1562,14 +1554,6 @@ const settingsHelpEnUS: SettingsHelpMap = {
     valueNotes: ['The port must match the OpenD listener.'],
     impact: ['Affects the DSA connection to Futu OpenD.'],
     notes: ['Restarting DSA is normally required after changing it.'],
-  },
-  'settings.data_source.FUTU_HK_REALTIME_SOURCE_PRIORITY': {
-    title: 'Futu HK Realtime Source Priority',
-    summary: 'Configures the Futu/Longbridge/AkShare/Yfinance order for HK realtime quotes.',
-    usage: 'Use comma-separated futu, longbridge, akshare, or yfinance values.',
-    valueNotes: ['Earlier providers are tried first; failures fall back automatically.'],
-    impact: ['Affects HK realtime quotes only, not A-share realtime priority.'],
-    notes: ['The futu entry is skipped when OpenD is not configured.'],
   },
   'settings.data_source.stock_index_remote': {
     title: 'Remote Stock Index',
@@ -1854,12 +1838,12 @@ const settingsHelpEnUS: SettingsHelpMap = {
     usage: 'Use a directory writable by the runtime user or container. The local default is ./logs; container deployments often use /app/logs.',
     valueNotes: [
       'Relative paths are resolved from the process working directory.',
-      'Components such as the Longbridge SDK can also write log files under this directory.',
+      'Some data-source SDKs can also write log files under this directory.',
     ],
     impact: ['Affects application logs, some SDK logs, and troubleshooting files.'],
     notes: [
       'Restart the process after changing this field; already initialized loggers may not switch immediately.',
-      'Docker, desktop, and source deployments can have different writable paths.',
+      'Docker and source deployments can have different writable paths.',
     ],
   },
   'settings.system.WEBUI_ENABLED': {
@@ -1912,7 +1896,7 @@ const settingsHelpEnUS: SettingsHelpMap = {
     usage: 'SCHEDULE_TIME uses HH:MM 24-hour format. SCHEDULE_TIMES accepts comma-separated HH:MM values. SCHEDULE_ENABLED controls whether the runtime scheduler is enabled. DSA_RUNTIME_SCHEDULER_TIMEOUT_SECONDS sets the hard timeout for each Web/API scheduled analysis (default 2700 seconds, minimum 60).',
     valueNotes: [
       'An already-running schedule mode reads new SCHEDULE_TIME / SCHEDULE_TIMES values on the next scheduler check and rebuilds the daily jobs.',
-      'Long-running WebUI/API/Desktop processes start, stop, or rebuild the runtime scheduler after saving SCHEDULE_ENABLED, SCHEDULE_TIME, or SCHEDULE_TIMES.',
+      'Long-running WebUI/API processes start, stop, or rebuild the runtime scheduler after saving SCHEDULE_ENABLED, SCHEDULE_TIME, or SCHEDULE_TIMES.',
       'After DSA_RUNTIME_SCHEDULER_TIMEOUT_SECONDS changes, the next analysis uses the new value without rebuilding daily jobs; the isolated analysis process is terminated on timeout.',
       'Scheduled runs read the currently saved STOCK_LIST.',
     ],
@@ -1937,7 +1921,7 @@ const settingsHelpEnUS: SettingsHelpMap = {
     title: 'Trading Day Check',
     summary: 'Controls whether analysis is skipped on non-trading days.',
     usage: 'Default true. Set false or use --force-run to override.',
-    valueNotes: ['Uses market calendars for A-share, HK, US, and other supported markets.'],
+    valueNotes: ['Uses the A-share trading calendar.'],
     impact: ['Affects scheduled jobs, CLI runs, and GitHub Actions manual runs on holidays; the Web/API market-review button submits directly.'],
     notes: ['Disabling it can produce reports with missing realtime quotes on closed markets.'],
   },
@@ -2471,11 +2455,11 @@ const settingsHelpEnUS: SettingsHelpMap = {
   },
   'settings.system.market_review': {
     title: 'Market Review',
-    summary: 'Controls the market review feature: on/off, market subset input, and color scheme.',
-    usage: 'MARKET_REVIEW_ENABLED toggles market review; DAILY_MARKET_CONTEXT_ENABLED is on by default and controls whether the daily market summary is injected into stock-analysis prompts and conservative guardrails; MARKET_REVIEW_REGION accepts a comma-separated region subset (for example cn,us,jp or cn,us,jp,kr), and `both` keeps all supported markets; invalid or empty values fall back to `cn`; MARKET_REVIEW_COLOR_SCHEME selects colors.',
+    summary: 'Controls the A-share market review feature and color scheme.',
+    usage: 'MARKET_REVIEW_ENABLED toggles market review; DAILY_MARKET_CONTEXT_ENABLED is on by default and controls whether the daily market summary is injected into stock-analysis prompts and conservative guardrails; MARKET_REVIEW_REGION is fixed to cn; MARKET_REVIEW_COLOR_SCHEME selects colors.',
     valueNotes: [
-      'cn covers A-shares, hk covers Hong Kong, us covers US stocks, jp covers Japan, kr covers Korea, and both covers all (cn,hk,us,jp,kr).',
-      'MARKET_REVIEW_REGION is free-text input; you can enter a comma-separated subset like cn,us or cn,us,jp,kr.',
+      'Only cn (A-shares) is currently supported.',
+      'MARKET_REVIEW_REGION only accepts cn; an empty value falls back to cn.',
       'DAILY_MARKET_CONTEXT_ENABLED is enabled by default; set it to false to keep market review reports running without injecting the summary into stock analysis or softening buy/add advice.',
       'Color scheme affects how index changes are displayed: green_up = green for gains/red for losses; red_up = red for gains/green for losses.',
     ],

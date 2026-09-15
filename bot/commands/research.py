@@ -19,9 +19,7 @@ from src.config import get_config
 
 logger = logging.getLogger(__name__)
 
-_RESEARCH_STOCK_CODE_RE = re.compile(
-    r"^\d{6}$|^HK\d{5}$|^[A-Z]{1,5}(?:\.[A-Z]{1,2})?$"
-)
+_RESEARCH_STOCK_CODE_RE = re.compile(r"^\d{6}$")
 
 
 class ResearchCommand(BotCommand):

@@ -268,7 +268,7 @@ class TestIntegration:
 
         assert len(tasks) == 1
         task = tasks[0]
-        assert task.stock_code == "600519.SH"
+        assert task.stock_code == "600519"
         assert task.stock_name == "贵州茅台"
         assert task.original_query == "茅台"
         assert task.selection_source == "autocomplete"

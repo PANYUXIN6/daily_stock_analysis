@@ -18,7 +18,6 @@ flake8_checks() {
 deterministic_checks() {
   echo "==> backend-gate: local deterministic checks"
   ./scripts/test.sh code
-  ./scripts/test.sh yfinance
 }
 
 offline_test_suite() {
@@ -28,7 +27,7 @@ offline_test_suite() {
   # AlphaSift hotspot cases without leaving any traceback). ``-o
   # timeout_method=thread`` makes pytest-timeout use a watcher thread that
   # is reliable even when the test has swallowed Ctrl-C / signal handling
-  # (yfinance, AlphaSift). ``-o faulthandler_timeout=300`` dumps all
+  # (for example AlphaSift). ``-o faulthandler_timeout=300`` dumps all
   # thread + interpreter stacks to stderr after five minutes of total
   # test silence, giving us a post-mortem root cause for any future
   # CI hang instead of ``backend-gate`` being silently cancelled by the

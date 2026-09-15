@@ -33,7 +33,7 @@ class _ProviderDefinition:
             for markets in self.dataset_markets.values()
             for market in markets
         }
-        preferred_order = ("cn", "hk", "us", "jp", "kr", "tw")
+        preferred_order = ("cn",)
         return tuple(market for market in preferred_order if market in supported)
 
 
@@ -54,8 +54,8 @@ _PROVIDER_DEFINITIONS: Sequence[_ProviderDefinition] = (
         label="AkShare",
         fetcher_name="AkshareFetcher",
         dataset_markets={
-            "quote.realtime": ("cn", "hk"),
-            "kline.daily": ("cn", "hk"),
+            "quote.realtime": ("cn",),
+            "kline.daily": ("cn",),
             "index.daily": ("cn",),
             "market.overview": ("cn",),
             "financial.snapshot": ("cn",),
@@ -69,19 +69,6 @@ _PROVIDER_DEFINITIONS: Sequence[_ProviderDefinition] = (
         dataset_markets={
             "kline.daily": ("cn",),
             "index.daily": ("cn",),
-        },
-        builtin=True,
-    ),
-    _ProviderDefinition(
-        name="yfinance",
-        label="YFinance",
-        fetcher_name="YfinanceFetcher",
-        dataset_markets={
-            "quote.realtime": ("hk", "us", "jp", "kr", "tw"),
-            "kline.daily": ("cn", "hk", "us", "jp", "kr", "tw"),
-            "index.daily": ("cn", "us"),
-            "market.overview": ("cn", "hk", "us", "jp", "kr", "tw"),
-            "financial.snapshot": ("hk", "us", "jp", "kr", "tw"),
         },
         builtin=True,
     ),
@@ -107,7 +94,7 @@ _PROVIDER_DEFINITIONS: Sequence[_ProviderDefinition] = (
         fetcher_name="TushareFetcher",
         dataset_markets={
             "quote.realtime": ("cn",),
-            "kline.daily": ("cn", "hk"),
+            "kline.daily": ("cn",),
             "market.overview": ("cn",),
         },
     ),
@@ -120,41 +107,6 @@ _PROVIDER_DEFINITIONS: Sequence[_ProviderDefinition] = (
             "kline.daily": ("cn",),
             "index.daily": ("cn",),
             "market.overview": ("cn",),
-        },
-    ),
-    _ProviderDefinition(
-        name="longbridge",
-        label="Longbridge",
-        fetcher_name="LongbridgeFetcher",
-        dataset_markets={
-            "quote.realtime": ("hk", "us"),
-            "kline.daily": ("hk", "us"),
-        },
-    ),
-    _ProviderDefinition(
-        name="futu",
-        label="Futu OpenD",
-        fetcher_name="FutuFetcher",
-        dataset_markets={
-            "quote.realtime": ("hk",),
-            "kline.daily": ("hk",),
-            "financial.snapshot": ("hk",),
-        },
-    ),
-    _ProviderDefinition(
-        name="finnhub",
-        label="Finnhub",
-        fetcher_name="FinnhubFetcher",
-        dataset_markets={
-            "kline.daily": ("us",),
-        },
-    ),
-    _ProviderDefinition(
-        name="alphavantage",
-        label="Alpha Vantage",
-        fetcher_name="AlphaVantageFetcher",
-        dataset_markets={
-            "kline.daily": ("us",),
         },
     ),
 )
@@ -178,12 +130,7 @@ _REALTIME_SOURCE_PROVIDER = {
     "tencent": "akshare",
     "tushare": "tushare",
     "tickflow": "tickflow",
-    "futu": "futu",
-    "longbridge": "longbridge",
     "akshare": "akshare",
-    "yfinance": "yfinance",
-    "finnhub": "finnhub",
-    "alphavantage": "alphavantage",
 }
 
 _AKSHARE_REALTIME_CIRCUIT_KEYS = {
@@ -209,7 +156,6 @@ _MARKET_OVERVIEW_PROVIDER_MARKETS = {
     "efinance": {"cn"},
     "akshare": {"cn"},
     "tushare": {"cn"},
-    "yfinance": {"cn", "hk", "us", "jp", "kr", "tw"},
 }
 
 
@@ -357,20 +303,6 @@ class DataCapabilityService:
             return _truthy(getattr(self.config, "tushare_token", None))
         if name == "tickflow":
             return _truthy(getattr(self.config, "tickflow_api_key", None))
-        if name == "futu":
-            return _truthy(getattr(self.config, "futu_opend_host", None))
-        if name == "longbridge":
-            app_key = getattr(self.config, "longbridge_app_key", None)
-            app_secret = getattr(self.config, "longbridge_app_secret", None)
-            access_token = getattr(self.config, "longbridge_access_token", None)
-            oauth_client_id = getattr(self.config, "longbridge_oauth_client_id", None)
-            has_legacy_credentials = _truthy(app_key) and _truthy(app_secret) and _truthy(access_token)
-            has_oauth_credentials = _truthy(oauth_client_id) or (_truthy(app_key) and not _truthy(access_token))
-            return has_legacy_credentials or has_oauth_credentials
-        if name == "finnhub":
-            return _truthy(getattr(self.config, "finnhub_api_key", None))
-        if name == "alphavantage":
-            return _truthy(getattr(self.config, "alphavantage_api_key", None))
         return False
 
     def _provider_priority(self, definition: _ProviderDefinition, fetcher: Any) -> Optional[int]:
@@ -399,16 +331,9 @@ class DataCapabilityService:
             if getattr(fetcher, "name", None)
             and self._fetcher_available_for_capability(fetcher, capability="daily_data")
         ]
-        cn_index_daily = ["tencent", "akshare", "tickflow", "yfinance"]
+        cn_index_daily = ["tencent", "akshare", "tickflow"]
         market_overview = self._market_overview_priority(generic_daily)
         screening_priority = self._screening_snapshot_priority()
-        hk_realtime_priority = _split_priority(
-            getattr(self.config, "futu_hk_realtime_source_priority", "")
-        )
-        if not self._is_provider_configured(_PROVIDER_DEFINITION_MAP["futu"]):
-            hk_realtime_priority = [
-                provider for provider in hk_realtime_priority if provider != "futu"
-            ]
 
         return [
             self._priority_view(
@@ -416,18 +341,6 @@ class DataCapabilityService:
                 _split_priority(getattr(self.config, "realtime_source_priority", "")),
                 "Config.realtime_source_priority",
                 known_sources=_CN_REALTIME_SOURCES,
-            ),
-            self._priority_view(
-                "hk.realtime",
-                hk_realtime_priority,
-                "Config.futu_hk_realtime_source_priority",
-                known_sources={"futu", "longbridge", "akshare", "yfinance"},
-            ),
-            self._priority_view(
-                "us.realtime",
-                self._us_realtime_priority(fetchers),
-                "DataFetcherManager US realtime route",
-                known_sources={"longbridge", "yfinance"},
             ),
             self._priority_view(
                 "daily.generic",
@@ -482,16 +395,6 @@ class DataCapabilityService:
             logger.debug("Failed to resolve screening snapshot priority: %s", exc)
             return _split_priority("sina,efinance,akshare_em,em_datacenter")
 
-    def _us_realtime_priority(self, fetchers: Sequence[Any]) -> List[str]:
-        fetcher_map = {str(getattr(fetcher, "name", "")): fetcher for fetcher in fetchers}
-        longbridge = fetcher_map.get("LongbridgeFetcher")
-        if longbridge is not None and self._fetcher_available_for_capability(
-            longbridge,
-            capability="realtime_quote",
-        ):
-            return ["longbridge", "yfinance"]
-        return ["yfinance", "longbridge"]
-
     @staticmethod
     def _priority_view(
         scenario: str,
@@ -530,12 +433,6 @@ class DataCapabilityService:
                         "warnings": [],
                     },
                     "cn.index.csi": {"providers": ["efinance"], "warnings": []},
-                    "hk": priority_map.get("hk.realtime", {}),
-                    "us": priority_map.get("us.realtime", {}),
-                    "us.index": {"providers": ["yfinance"], "warnings": []},
-                    "jp": {"providers": ["yfinance"], "warnings": []},
-                    "kr": {"providers": ["yfinance"], "warnings": []},
-                    "tw": {"providers": ["yfinance"], "warnings": []},
                 },
                 provider_map=provider_map,
                 status_resolvers={
@@ -551,7 +448,6 @@ class DataCapabilityService:
                         provider_map,
                         efinance_circuit_key="efinance_index",
                     ),
-                    "hk": self._hk_realtime_status_resolver(provider_map),
                 },
                 disabled=not bool(getattr(self.config, "enable_realtime_quote", True)),
                 disabled_warning="realtime_quote_disabled",
@@ -567,13 +463,11 @@ class DataCapabilityService:
                 market_priorities={
                     "cn.exchange": priority_map.get("cn.index.daily", {}),
                     "cn.csi": {"providers": ["akshare"], "warnings": []},
-                    "us": {"providers": ["yfinance"], "warnings": []},
                 },
                 provider_map=provider_map,
                 status_resolvers={
                     "cn.exchange": self._index_daily_status_resolver(fetchers, provider_map),
                     "cn.csi": self._index_daily_status_resolver(fetchers, provider_map),
-                    "us": self._us_index_daily_status_resolver(fetchers, provider_map),
                 },
             ),
             self._aggregate_market_dataset(
@@ -618,16 +512,6 @@ class DataCapabilityService:
 
         return {
             "cn": generic_market_priority("cn"),
-            "hk": generic_market_priority("hk"),
-            "us": {
-                "providers": self._us_daily_priority(fetchers),
-                "warnings": [],
-                "empty_status": "unavailable",
-            },
-            **{
-                market: generic_market_priority(market)
-                for market in ("jp", "kr", "tw")
-            },
         }
 
     def _market_overview_market_priorities(
@@ -643,7 +527,7 @@ class DataCapabilityService:
                 market=market,
                 warnings=warnings,
             )
-            for market in ("cn", "hk", "us", "jp", "kr", "tw")
+            for market in ("cn",)
         }
 
     def _daily_status_resolvers(
@@ -662,7 +546,7 @@ class DataCapabilityService:
                 provider_map=provider_map,
                 fetcher_map=fetcher_map,
             )
-            for market in ("cn", "hk", "us", "jp", "kr", "tw")
+            for market in ("cn",)
         }
 
     def _index_daily_status_resolver(
@@ -677,22 +561,6 @@ class DataCapabilityService:
         }
         return self._market_daily_status_resolver(
             market="cn_index",
-            provider_map=provider_map,
-            fetcher_map=fetcher_map,
-        )
-
-    def _us_index_daily_status_resolver(
-        self,
-        fetchers: Sequence[Any],
-        provider_map: Dict[str, Dict[str, Any]],
-    ) -> Callable[[str], str]:
-        fetcher_map = {
-            str(getattr(fetcher, "name", "")): fetcher
-            for fetcher in fetchers
-            if getattr(fetcher, "name", None)
-        }
-        return self._market_daily_status_resolver(
-            market="us",
             provider_map=provider_map,
             fetcher_map=fetcher_map,
         )
@@ -762,20 +630,8 @@ class DataCapabilityService:
         return market in definition.dataset_markets.get(dataset, ())
 
     def _fundamental_market_priorities(self) -> Dict[str, Dict[str, Any]]:
-        hk_providers = (
-            ["futu", "yfinance"]
-            if self._is_provider_configured(
-                next(item for item in _PROVIDER_DEFINITIONS if item.name == "futu")
-            )
-            else ["yfinance"]
-        )
         return {
             "cn": {"providers": ["akshare"], "warnings": []},
-            "hk": {"providers": hk_providers, "warnings": []},
-            "us": {"providers": ["yfinance"], "warnings": []},
-            "jp": {"providers": ["yfinance"], "warnings": []},
-            "kr": {"providers": ["yfinance"], "warnings": []},
-            "tw": {"providers": ["yfinance"], "warnings": []},
         }
 
     def _cn_realtime_status_resolver(
@@ -804,46 +660,6 @@ class DataCapabilityService:
             return self._source_token_status(token, provider_map)
 
         return resolve
-
-    def _hk_realtime_status_resolver(
-        self,
-        provider_map: Dict[str, Dict[str, Any]],
-    ) -> Callable[[str], str]:
-        supported_sources = {"futu", "longbridge", "akshare", "yfinance"}
-
-        def resolve(token: str) -> str:
-            if token not in supported_sources:
-                return "unsupported"
-            if token == "akshare":
-                try:
-                    from data_provider.realtime_types import get_realtime_circuit_breaker
-
-                    circuit_status = get_realtime_circuit_breaker().get_status()
-                    if all(
-                        circuit_status.get(key) == "open"
-                        for key in ("akshare_hk_em", "akshare_hk_sina")
-                    ):
-                        return "cooldown"
-                except Exception as exc:  # noqa: BLE001 - diagnostics must fail open.
-                    logger.debug("Failed to read HK realtime circuit status: %s", exc)
-            return DataCapabilityService._source_token_status(token, provider_map)
-
-        return resolve
-
-    def _us_daily_priority(self, fetchers: Sequence[Any]) -> List[str]:
-        available = {
-            provider
-            for fetcher in fetchers
-            if (provider := _FETCHER_TO_PROVIDER.get(str(getattr(fetcher, "name", ""))))
-            in {"longbridge", "finnhub", "alphavantage", "yfinance"}
-            and self._fetcher_available_for_capability(fetcher, capability="daily_data")
-        }
-        preferred = (
-            ["longbridge", "finnhub", "alphavantage", "yfinance"]
-            if "longbridge" in available
-            else ["finnhub", "alphavantage", "yfinance", "longbridge"]
-        )
-        return [provider for provider in preferred if provider in available]
 
     @staticmethod
     def _fetcher_available_for_capability(fetcher: Any, *, capability: str) -> bool:

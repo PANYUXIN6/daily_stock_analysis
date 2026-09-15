@@ -32,8 +32,7 @@ _LINKED_COMPARE_PATTERN = re.compile(
     r"(?:和|与|跟|同)(?P<body>[^，。,.!?！？]{0,40})(?:差异(?!化)|区别|不同|相比|对照|比一比)"
 )
 _SWITCH_PATTERN = re.compile(r"换成|改看|分析|看看|研究|诊断")
-_LOWERCASE_TICKER_PATTERN = re.compile(r"(?<![a-zA-Z.])([a-z]{2,5}(?:\.[a-z]{1,2})?)(?![a-zA-Z0-9])")
-_EXCHANGE_TOKEN_CANDIDATES = {"SH", "SZ", "BJ", "HK", "SS"}
+_EXCHANGE_TOKEN_CANDIDATES = {"SH", "SZ", "BJ", "SS"}
 _CONTEXTUAL_INDICATOR_TOKENS = {"MA"}
 _INDICATOR_CONTEXT_PATTERN = re.compile(
     r"指标|均线|移动平均|排列|多头|空头|金叉|死叉|支撑|压力|MA\d|SMA|EMA",
@@ -122,19 +121,23 @@ class StockScopeResolution:
 
 
 def _normalize_stock_code(value: Any, registry: Optional[Any] = None) -> str:
-    """Normalize a code, preserving exact registered index canonicals."""
+    """Normalize an A-share code, preserving registered index canonicals."""
     if not isinstance(value, str):
         return ""
     text = value.strip()
     if not text:
         return ""
     try:
-        from src.agent.tools.execution import _normalize_tool_stock_code
+        from src.services.stock_list_parser import ParseStatus, parse_analysis_target
 
-        normalized = _normalize_tool_stock_code(text, registry)
+        target = parse_analysis_target(text, registry)
     except Exception:
-        normalized = text.strip().upper()
-    return normalized if isinstance(normalized, str) else str(normalized)
+        return ""
+    if target.asset_type == ParseStatus.INDEX:
+        return target.canonical_id
+    if target.asset_type == ParseStatus.STOCK:
+        return target.normalized_code or ""
+    return ""
 
 
 def _is_denied_candidate(candidate: str, text: str = "") -> bool:
@@ -143,12 +146,7 @@ def _is_denied_candidate(candidate: str, text: str = "") -> bool:
         return True
     if token in _CONTEXTUAL_INDICATOR_TOKENS and _INDICATOR_CONTEXT_PATTERN.search(text or ""):
         return True
-    try:
-        from src.agent.orchestrator import _COMMON_WORDS
-
-        return token in _COMMON_WORDS
-    except Exception:
-        return False
+    return False
 
 
 def _append_candidate(
@@ -179,11 +177,7 @@ def extract_stock_codes(text: str, registry: Optional[Any] = None) -> List[str]:
 
     for pattern, flags in (
         (r"(?<![a-zA-Z])(?:SH|SZ|BJ)\d{6}(?!\d)", re.IGNORECASE),
-        (r"(?<![a-zA-Z])hk\d{4,5}(?!\d)", re.IGNORECASE),
-        (r"(?<![a-zA-Z])\d{1,5}\.HK(?![a-zA-Z])", re.IGNORECASE),
         (r"(?<!\d)(?:[03648]\d{5}|92\d{4})(?!\d)", 0),
-        (r"(?<!\d)\d{5}(?!\d)", 0),
-        (r"(?<![a-zA-Z.])([A-Z]{2,5}(?:\.[A-Z]{1,2})?)(?![a-zA-Z0-9])", 0),
     ):
         for match in re.finditer(pattern, text, flags):
             start, end = match.span()
@@ -193,20 +187,6 @@ def extract_stock_codes(text: str, registry: Optional[Any] = None) -> List[str]:
                 continue
             raw = match.group(1) if match.lastindex else match.group(0)
             _append_candidate(candidates, raw, text, registry)
-
-    if (
-        _SWITCH_PATTERN.search(text)
-        or _STRONG_COMPARE_PATTERN.search(text)
-        or _WEAK_COMPARE_HINT_PATTERN.search(text)
-        or _CHOICE_COMPARE_PATTERN.search(text)
-    ):
-        for match in _LOWERCASE_TICKER_PATTERN.finditer(text):
-            start, end = match.span(1)
-            if registry is not None and not _has_ascii_token_boundaries(text, start, end):
-                continue
-            if _is_inside_index_span(start, end, index_spans):
-                continue
-            _append_candidate(candidates, match.group(1), text, registry)
 
     return candidates
 
@@ -269,18 +249,21 @@ def resolve_stock_scope(
     """Resolve one turn with a shared registry, failing open to stock semantics."""
     if registry is None:
         try:
-            from src.services.stock_list_parser import default_index_registry
+            from src.services.stock_list_parser import IndexRegistry, default_index_registry
 
             registry = default_index_registry()
         except Exception:
-            registry = None
-    if registry is not None and not getattr(registry, "_entries", ()):
-        registry = None
+            registry = IndexRegistry()
 
     original_context = dict(context or {})
     message_text = message or ""
-    current_code = _normalize_stock_code(original_context.get("stock_code"), registry)
-    invalid_context_code = bool(current_code and _is_denied_candidate(current_code, message_text))
+    raw_context_code = original_context.get("stock_code")
+    current_code = _normalize_stock_code(raw_context_code, registry)
+    invalid_context_code = bool(
+        isinstance(raw_context_code, str)
+        and raw_context_code.strip()
+        and not current_code
+    ) or bool(current_code and _is_denied_candidate(current_code, message_text))
     original_context.pop("allowed_stock_codes", None)
     if invalid_context_code:
         original_context.pop("stock_code", None)

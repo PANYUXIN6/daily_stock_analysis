@@ -75,7 +75,7 @@ Grok Bot Skill 正文见 [`docs/examples/grok_bot/SKILL.md`](examples/grok_bot/S
 
 - **MCP**：把上表 REST 包成 tool 即可（`analyze_stock`、`get_latest_signal`、`market_review`）。本仓库暂不内置 MCP server，以免和 FastAPI 契约双源漂移。
 - **Connectors**：Grok Bot 可登录飞书 / 邮件等；DSA 自己的通知渠道仍走 `.env` 里已有的 webhook，不必经 Bot 转发。
-- **Computer use**：仅当 Bot 的云电脑里已经 clone 并配好 `.env` 时，才适合跑 `python main.py --stocks 600519,AAPL` 或 `python main.py --market-review`。默认仍推荐 HTTP，便于鉴权、超时和异步任务。
+- **Computer use**：仅当 Bot 的云电脑里已经 clone 并配好 `.env` 时，才适合跑 `python main.py --stocks 600519,300750` 或 `python main.py --market-review`。默认仍推荐 HTTP，便于鉴权、超时和异步任务。
 
 ## 认证
 
@@ -92,6 +92,6 @@ Grok Bot Skill 正文见 [`docs/examples/grok_bot/SKILL.md`](examples/grok_bot/S
 
 1. DSA：`python scripts/check_env.py --config`；若走 xAI 模型再跑 `python scripts/check_env.py --llm`。
 2. `GET {DSA_BASE_URL}/api/health` 成功。
-3. Bot Skill 对一只真实代码（如 `AAPL` 或 `600519`）拿到 `operation_advice` 或 `action`（异步路径从 `result.report` 读）。
+3. Bot Skill 对一只真实 A 股代码（如 `600519` 或 `300750`）拿到 `operation_advice` 或 `action`（异步路径从 `result.report` 读）。
 4. 大盘复盘能从 status 拿到 `market_review_report` 或 `market_review_payload`，而不是只拿到 202 accepted。
 5. Routine 能读到 `GET /api/v1/decision-signals/latest/{stock_code}` 的 JSON，而无需重跑分析。

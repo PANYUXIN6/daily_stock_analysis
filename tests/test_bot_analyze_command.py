@@ -120,14 +120,6 @@ class TestAnalyzeCommandDispatcherGate(unittest.TestCase):
         self.assertEqual(target.asset_type, ParseStatus.INDEX)
         self.assertEqual(target.canonical_id, "sh000016")
 
-    def test_dotted_us_ticker_keeps_legacy_path_without_target(self):
-        """``BRK.B`` is a dotted US ticker the legacy gate accepts; it must
-        resolve to ``BRK.B`` with no structured target."""
-        response, stub = self._dispatch("/analyze BRK.B")
-        self.assertIn("分析任务已提交", response.text)
-        call = stub.calls[0]
-        self.assertEqual(call["code"], "BRK.B")
-        self.assertIsNone(call["analysis_target"])
 
     def test_parser_index_alias_ss_dotted_prefix_submits_index_target(self):
         """``SS.000300`` is a parser-recognized dotted-prefix alias of the
@@ -204,33 +196,14 @@ class TestAnalyzeCommandDispatcherGate(unittest.TestCase):
         self.assertEqual(call["code"], "600519")
         self.assertIsNone(call["analysis_target"])
 
-    def test_hk_and_us_stock_keep_legacy_code(self):
-        # ``hk00700`` is uppercased to ``HK00700`` by the legacy resolver —
-        # the same behavior the pre-PR command already had.
-        for content, expected in (("/analyze hk00700", "HK00700"), ("/analyze AAPL", "AAPL")):
-            response, stub = self._dispatch(content)
-            self.assertIn("分析任务已提交", response.text)
-            call = stub.calls[0]
-            self.assertEqual(call["code"], expected)
-            self.assertIsNone(call["analysis_target"])
-
-    def test_lowercase_us_ticker_keeps_legacy_uppercase_path(self):
-        """``usfd`` is a real US ticker the old gate accepted (case-insensitive
-        1-5 letters); it must resolve to ``USFD`` with no target, exactly as
-        before this change."""
-        response, stub = self._dispatch("/analyze usfd")
-        self.assertIn("分析任务已提交", response.text)
-        call = stub.calls[0]
-        self.assertEqual(call["code"], "USFD")
-        self.assertIsNone(call["analysis_target"])
 
     def test_legacy_invalid_shapes_return_error_without_submission(self):
         """Shapes the old validate_args gate rejected must stay rejected —
         explicit error and no TaskService call."""
-        for code in ("12345", "00700", "600519.SH", "sh999999"):
+        for code in ("12345", "00700", "600519.BJ", "1234567.SH"):
             with self.subTest(code=code):
                 response, stub = self._dispatch(f"/analyze {code}")
-                self.assertIn("无效的标的代码", response.text)
+                self.assertIn("无法分析", response.text)
                 self.assertEqual(len(stub.calls), 0)
 
     def test_unregistered_csi_returns_error_and_does_not_submit(self):

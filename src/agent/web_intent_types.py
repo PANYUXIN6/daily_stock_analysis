@@ -58,17 +58,17 @@ TAG_STOCK_CODE = "stock_code"          # 库命中的股票代码（stocks 附�
 # 代码辨认失败态按市场细分（_identify_stock_codes 产出）：
 #   wrong_{market}_code   — 确定不存在：形态非法（交易所静态规则），或该市场库已
 #                           全量（A 股 AkShare 已并入）仍未命中
-#   unknown_{market}_code — 存疑：该市场库非全量（hk/us 本地精选库）未命中，
+#   unknown_{market}_code — 存疑：A 股库尚未完整加载且未命中，
 #                           交下游 LLM 判断，绝不硬猜
 
 
 def wrong_code_tag(market: str) -> str:
-    """确定非法代码的 tag（market ∈ a/hk/us → wrong_a_code / wrong_hk_code / wrong_us_code）。"""
+    """确定非法 A 股代码的 tag。"""
     return f"wrong_{market}_code"
 
 
 def unknown_code_tag(market: str) -> str:
-    """存疑代码的 tag（market ∈ a/hk/us → unknown_a_code / unknown_hk_code / unknown_us_code）。"""
+    """存疑 A 股代码的 tag。"""
     return f"unknown_{market}_code"
 
 TAG_STOCK_NAME = "stock_name"          # 股票实体（全名或一对一缩写），Step 1 仅全名精确匹配、Step 6 多策略匹配提取
@@ -76,9 +76,9 @@ TAG_STOCK_NAME = "stock_name"          # 股票实体（全名或一对一缩写
 # --- 意图主题 ---
 TAG_SUBJECT_RESEARCH = "subject_research"       # 研究主题（走势/趋势/技术面/基本面/筹码）
 TAG_SUBJECT_PORTFOLIO = "subject_portfolio"     # 持仓主题（持仓/仓位/自选股/盈亏）
-TAG_SUBJECT_MARKET = "subject_market"           # 市场标识（A股/港股/美股/沪市…）
+TAG_SUBJECT_MARKET = "subject_market"           # 市场标识（A股/沪市/深市…）
 TAG_SUBJECT_MARKET_BROAD = "subject_market_broad"  # 泛市场概念（大盘/行情/指数/两市）
-TAG_SUBJECT_INDEX = "subject_index"             # 具体指数（上证/恒生/纳斯达克/沪深300…）
+TAG_SUBJECT_INDEX = "subject_index"             # 具体 A 股指数（上证/深证/沪深300…）
 
 # --- 动作 ---
 TAG_REQUEST = "request"                       # 分析动作词（分析/看看/研究/诊断/查一下/评估）
@@ -100,8 +100,6 @@ class Market(str, Enum):
     """市场标识枚举（str 子类，成员可直接与字符串比较）。"""
 
     A = "a"    # A 股
-    HK = "hk"  # 港股
-    US = "us"  # 美股
 
 
 # =========================================================================
@@ -112,8 +110,6 @@ class Market(str, Enum):
 
 _MARKET_KEYWORD_MAP: Dict[Market, tuple] = {
     Market.A: ("a股", "大a", "沪市", "深市", "沪深"),
-    Market.HK: ("港股", "h股", "香港"),
-    Market.US: ("美股", "美国"),
 }
 
 # 按照是否影响股票实体混合匹配，关键词分两池：clean 无歧义可直接分词，置信度较高；
@@ -147,9 +143,7 @@ _TAG_KEYWORD_LISTS_CLEAN: Dict[str, List[str]] = {
         "大盘", "行情", "两市", "北向", "股市", "market", "sector", "指数",
     ],
     TAG_SUBJECT_INDEX: [
-        "上证", "深证", "创业板", 
-        "恒指", "纳斯达克", "纳指",
-        "标普", "道琼斯", "道指", 
+        "上证", "深证", "创业板",
         "沪指", "深成指", "深证成指",
         "科创", "科创板", "index", "indices",
         # 含数字指数词（CJK+数字复合词）：数字段与裸数字共形，Step 3 由
@@ -281,9 +275,8 @@ _DIGIT_KEYWORDS_RE = (
 )
 
 # 全部纯 ASCII 关键词的大写集合：Step 3 代码候选的放行谓词（大小写不敏
-# 感）——"PK"/"Buy"/"AI" 等关键词形态不得被美股 ticker 正则抠走，否则
-# 关键词语义丢失、误入代码辨认（含原 sector 词池精确匹配放行的 "AI"，
-# 取代其职责；"HK"/"US" 非关键词，仍照常作为代码候选）
+# 感）——"PK"/"Buy"/"AI" 等关键词形态不得被代码正则抠走，否则
+# 关键词语义丢失、误入代码辨认（含原 sector 词池精确匹配放行的 "AI"）。
 _ASCII_KEYWORD_UPPER: frozenset = frozenset(
     kw.upper() for kw in _KEYWORD_TAG_MAP if kw.isascii() and kw.isalpha()
 )
@@ -320,7 +313,7 @@ def _compile_kw_pattern(*tags: str, extra: str = "") -> re.Pattern:
     return re.compile("|".join(fragments))
 
 
-# Step 5 关键词分词正则（排除市场类 tag，Step 4 独立处理，避免 "大港股份" 消歧失效）
+# Step 5 关键词分词正则（排除市场类 tag，由 Step 4 独立处理）
 _NON_MARKET_TAGS = frozenset({
     TAG_REQUEST, TAG_SUBJECT_RESEARCH, TAG_ACTION_RESEARCH, TAG_QUESTION,
     TAG_SUBJECT_PORTFOLIO, TAG_ACTION_PORTFOLIO,
@@ -353,7 +346,7 @@ _SPECIAL_PUNCT_CHARS = (
     ",!?;:\"'()[]{}<>/@#$%^&+=~`|\\\\"
 )
 # 空白（普通/全角空格、制表、换行）同为词界一并切分：ASCII 词与代码间
-# 的分隔（"tsla aapl"）此前仅靠 Step 3 大写或标点兜底，小写多词整段漏给
+# 的分隔（"600519 300750"）与逗号分隔保持一致，空白 token 无内容，
 # LLM；空白 token 无内容，由管道末端 _HAS_CONTENT_PATTERN 过滤丢弃
 _SPECIAL_PUNCT_RE = re.compile("[" + re.escape(_SPECIAL_PUNCT_CHARS) + r"|\s]")
 

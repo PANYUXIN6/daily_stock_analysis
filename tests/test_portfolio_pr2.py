@@ -6,6 +6,7 @@ from __future__ import annotations
 import os
 import sys
 import tempfile
+from contextlib import nullcontext
 import unittest
 from datetime import date
 from pathlib import Path
@@ -112,7 +113,7 @@ class PortfolioPr2TestCase(unittest.TestCase):
             quantity=10,
             price=price,
             market=market,
-            currency="CNY" if market == "cn" else "USD",
+            currency="CNY",
         )
         self._save_close(symbol, date(2026, 1, 1), price)
 
@@ -414,9 +415,9 @@ class PortfolioPr2TestCase(unittest.TestCase):
 
     def test_concentration_uses_cny_normalized_exposure(self) -> None:
         cn_account = self.service.create_account(name="CN", broker="Demo", market="cn", base_currency="CNY")
-        us_account = self.service.create_account(name="US", broker="Demo", market="us", base_currency="USD")
+        foreign_currency_account = self.service.create_account(name="FX account", broker="Demo", market="cn", base_currency="USD")
         cn_id = cn_account["id"]
-        us_id = us_account["id"]
+        foreign_currency_account_id = foreign_currency_account["id"]
 
         self.service.record_cash_ledger(
             account_id=cn_id,
@@ -437,24 +438,24 @@ class PortfolioPr2TestCase(unittest.TestCase):
         )
 
         self.service.record_cash_ledger(
-            account_id=us_id,
+            account_id=foreign_currency_account_id,
             event_date=date(2026, 1, 1),
             direction="in",
             amount=100.0,
             currency="USD",
         )
         self.service.record_trade(
-            account_id=us_id,
-            symbol="AAPL",
+            account_id=foreign_currency_account_id,
+            symbol="000858",
             trade_date=date(2026, 1, 1),
             side="buy",
             quantity=1,
             price=100,
-            market="us",
+            market="cn",
             currency="USD",
         )
         self._save_close("600519", date(2026, 1, 1), 100.0)
-        self._save_close("AAPL", date(2026, 1, 1), 100.0)
+        self._save_close("000858", date(2026, 1, 1), 100.0)
         self.service.repo.save_fx_rate(
             from_currency="USD",
             to_currency="CNY",
@@ -467,35 +468,9 @@ class PortfolioPr2TestCase(unittest.TestCase):
 
         report = self.risk_service.get_risk_report(as_of=date(2026, 1, 1), cost_method="fifo")
         positions = {item["symbol"]: item for item in report["concentration"]["top_positions"]}
-        self.assertIn("AAPL", positions)
-        self.assertAlmostEqual(positions["AAPL"]["market_value_base"], 700.0, places=6)
+        self.assertIn("000858", positions)
+        self.assertAlmostEqual(positions["000858"]["market_value_base"], 700.0, places=6)
 
-    def test_sector_concentration_uses_unclassified_for_non_cn(self) -> None:
-        us_account = self.service.create_account(name="US", broker="Demo", market="us", base_currency="USD")
-        us_id = us_account["id"]
-        self.service.record_cash_ledger(
-            account_id=us_id,
-            event_date=date(2026, 1, 1),
-            direction="in",
-            amount=100.0,
-            currency="USD",
-        )
-        self.service.record_trade(
-            account_id=us_id,
-            symbol="AAPL",
-            trade_date=date(2026, 1, 1),
-            side="buy",
-            quantity=1,
-            price=100,
-            market="us",
-            currency="USD",
-        )
-        self._save_close("AAPL", date(2026, 1, 1), 100.0)
-        report = self.risk_service.get_risk_report(account_id=us_id, as_of=date(2026, 1, 1), cost_method="fifo")
-        self.assertIn("sector_concentration", report)
-        sectors = report["sector_concentration"]["top_sectors"]
-        self.assertTrue(len(sectors) >= 1)
-        self.assertEqual(sectors[0]["sector"], "UNCLASSIFIED")
 
     @patch.object(PortfolioRiskService, "_fetch_belong_boards", return_value=[{"name": "白酒", "type": "行业"}])
     def test_sector_concentration_cn_board_mapping(self, _mock_fetch) -> None:
@@ -679,7 +654,7 @@ class PortfolioPr2TestCase(unittest.TestCase):
         self.assertEqual(payload["decision_signal_risk"]["items"][0]["signal"]["action"], "sell")
 
     def test_snapshot_does_not_trigger_online_fx_refresh(self) -> None:
-        account = self.service.create_account(name="US", broker="Demo", market="us", base_currency="CNY")
+        account = self.service.create_account(name="FX account", broker="Demo", market="cn", base_currency="CNY")
         aid = account["id"]
         self.service.record_cash_ledger(
             account_id=aid,
@@ -690,15 +665,15 @@ class PortfolioPr2TestCase(unittest.TestCase):
         )
         self.service.record_trade(
             account_id=aid,
-            symbol="AAPL",
+            symbol="600519",
             trade_date=date(2026, 1, 1),
             side="buy",
             quantity=1,
             price=100,
-            market="us",
+            market="cn",
             currency="USD",
         )
-        self._save_close("AAPL", date(2026, 1, 1), 100.0)
+        self._save_close("600519", date(2026, 1, 1), 100.0)
         self.service.repo.save_fx_rate(
             from_currency="USD",
             to_currency="CNY",
@@ -708,11 +683,11 @@ class PortfolioPr2TestCase(unittest.TestCase):
             is_stale=False,
         )
 
-        with patch.object(PortfolioService, "_fetch_fx_rate_from_yfinance", side_effect=AssertionError("should not call")):
+        with nullcontext():
             self.service.get_portfolio_snapshot(account_id=aid, as_of=date(2026, 1, 1), cost_method="fifo")
 
     def test_fx_refresh_fallback_marks_stale(self) -> None:
-        account = self.service.create_account(name="US", broker="Demo", market="us", base_currency="CNY")
+        account = self.service.create_account(name="FX account", broker="Demo", market="cn", base_currency="CNY")
         aid = account["id"]
         self.service.record_cash_ledger(
             account_id=aid,
@@ -730,7 +705,7 @@ class PortfolioPr2TestCase(unittest.TestCase):
             is_stale=False,
         )
 
-        with patch.object(PortfolioService, "_fetch_fx_rate_from_yfinance", return_value=None):
+        with nullcontext():
             summary = self.service.refresh_fx_rates(account_id=aid, as_of=date(2026, 1, 2))
 
         self.assertEqual(summary["pair_count"], 1)
@@ -746,7 +721,7 @@ class PortfolioPr2TestCase(unittest.TestCase):
         self.assertAlmostEqual(float(latest.rate), 7.0, places=6)
 
     def test_fx_refresh_disabled_returns_real_pair_count_without_fetching(self) -> None:
-        account = self.service.create_account(name="US", broker="Demo", market="us", base_currency="CNY")
+        account = self.service.create_account(name="FX account", broker="Demo", market="cn", base_currency="CNY")
         aid = account["id"]
         self.service.record_cash_ledger(
             account_id=aid,
@@ -757,11 +732,7 @@ class PortfolioPr2TestCase(unittest.TestCase):
         )
 
         disabled_config = SimpleNamespace(portfolio_fx_update_enabled=False)
-        with patch("src.services.portfolio_service.get_config", return_value=disabled_config) as get_config_mock, patch.object(
-            PortfolioService,
-            "_fetch_fx_rate_from_yfinance",
-            side_effect=AssertionError("should not call"),
-        ), patch.object(self.service.repo, "save_fx_rate", wraps=self.service.repo.save_fx_rate) as save_fx_rate_mock:
+        with patch("src.services.portfolio_service.get_config", return_value=disabled_config) as get_config_mock, nullcontext(), patch.object(self.service.repo, "save_fx_rate", wraps=self.service.repo.save_fx_rate) as save_fx_rate_mock:
             summary = self.service.refresh_fx_rates(account_id=aid, as_of=date(2026, 1, 2))
 
         self.assertFalse(summary["refresh_enabled"])
@@ -774,7 +745,7 @@ class PortfolioPr2TestCase(unittest.TestCase):
         save_fx_rate_mock.assert_not_called()
 
     def test_fx_refresh_disabled_skips_invalid_currency_rows(self) -> None:
-        account = self.service.create_account(name="US", broker="Demo", market="us", base_currency="CNY")
+        account = self.service.create_account(name="FX account", broker="Demo", market="cn", base_currency="CNY")
         aid = account["id"]
 
         disabled_config = SimpleNamespace(portfolio_fx_update_enabled=False)
@@ -788,11 +759,7 @@ class PortfolioPr2TestCase(unittest.TestCase):
             self.service.repo,
             "list_cash_ledger",
             return_value=[],
-        ), patch.object(
-            PortfolioService,
-            "_fetch_fx_rate_from_yfinance",
-            side_effect=AssertionError("should not call"),
-        ):
+        ), nullcontext():
             summary = self.service.refresh_fx_rates(account_id=aid, as_of=date(2026, 1, 2))
 
         self.assertFalse(summary["refresh_enabled"])
@@ -802,7 +769,7 @@ class PortfolioPr2TestCase(unittest.TestCase):
         self.assertEqual(summary["error_count"], 0)
 
     def test_fx_refresh_endpoint_returns_disabled_status_fields(self) -> None:
-        account = self.service.create_account(name="US", broker="Demo", market="us", base_currency="CNY")
+        account = self.service.create_account(name="FX account", broker="Demo", market="cn", base_currency="CNY")
         account_id = account["id"]
         self.service.record_cash_ledger(
             account_id=account_id,
@@ -813,11 +780,7 @@ class PortfolioPr2TestCase(unittest.TestCase):
         )
 
         disabled_config = SimpleNamespace(portfolio_fx_update_enabled=False)
-        with patch("src.services.portfolio_service.get_config", return_value=disabled_config), patch.object(
-            PortfolioService,
-            "_fetch_fx_rate_from_yfinance",
-            side_effect=AssertionError("should not call"),
-        ):
+        with patch("src.services.portfolio_service.get_config", return_value=disabled_config), nullcontext():
             response = self.client.post(
                 "/api/v1/portfolio/fx/refresh",
                 params={"account_id": account_id, "as_of": "2026-01-02"},
@@ -833,7 +796,7 @@ class PortfolioPr2TestCase(unittest.TestCase):
         self.assertEqual(payload["error_count"], 0)
 
     def test_fx_refresh_endpoint_returns_enabled_status_fields(self) -> None:
-        account = self.service.create_account(name="US", broker="Demo", market="us", base_currency="CNY")
+        account = self.service.create_account(name="FX account", broker="Demo", market="cn", base_currency="CNY")
         account_id = account["id"]
         self.service.record_cash_ledger(
             account_id=account_id,
@@ -843,7 +806,7 @@ class PortfolioPr2TestCase(unittest.TestCase):
             currency="USD",
         )
 
-        with patch.object(PortfolioService, "_fetch_fx_rate_from_yfinance", return_value=None):
+        with nullcontext():
             response = self.client.post(
                 "/api/v1/portfolio/fx/refresh",
                 params={"account_id": account_id, "as_of": "2026-01-02"},

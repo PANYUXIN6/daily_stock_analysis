@@ -461,23 +461,6 @@ def test_stats_default_statuses_exclude_archived(isolated_db) -> None:
     assert archived_stats["total"] == 1
 
 
-def test_stock_code_filter_uses_hk_aliases_without_widening_market_filter(isolated_db) -> None:
-    hk_id = _add_signal(isolated_db, code="HK00700", market="hk", horizon="1d")
-    cn_id = _add_signal(isolated_db, code="00700", market="cn", horizon="1d")
-    _seed_bars(isolated_db, code="HK00700", closes=[104.0])
-    _seed_bars(isolated_db, code="00700", closes=[102.0])
-    service = DecisionSignalOutcomeService(db_manager=isolated_db)
-
-    broad = service.run_outcomes(stock_code="00700", horizons=["1d"], limit=10)
-    forced = service.run_outcomes(stock_code="00700", horizons=["1d"], force=True, limit=10)
-    hk_only = service.run_outcomes(stock_code="00700", market="hk", horizons=["1d"], force=True, limit=10)
-
-    assert {item["signal_id"] for item in broad["items"]} == {hk_id, cn_id}
-    assert {item["signal_id"] for item in forced["items"]} == {hk_id, cn_id}
-    assert [item["signal_id"] for item in hk_only["items"]] == [hk_id]
-    assert hk_only["evaluated"] == 1
-
-
 def test_not_up_uses_defensive_direction_not_down_direction(isolated_db) -> None:
     reduce_hit_id = _add_signal(isolated_db, code="600519", action="reduce", horizon="3d")
     reduce_miss_id = _add_signal(isolated_db, code="000001", action="reduce", horizon="3d")

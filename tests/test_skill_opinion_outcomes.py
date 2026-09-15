@@ -230,7 +230,7 @@ def test_effective_daily_bar_date_requires_exact_start_bar(isolated_db) -> None:
         ),
         (
             {"phase": "postmarket", "market": "us"},
-            "invalid_market_phase_context",
+            "invalid_stock_code",
         ),
         (
             {"phase": "unknown", "market": "cn"},
@@ -267,51 +267,6 @@ def test_permanently_invalid_start_metadata_is_terminal_unable(
         sample_id=sample_id,
         horizons=["1d"],
     )["processed_keys"] == 0
-
-
-def test_outcome_rebuilds_legacy_cn_snapshot_before_using_effective_date(
-    isolated_db,
-) -> None:
-    _, sample_id = _add_sample(
-        isolated_db,
-        code="7203.T",
-        context_snapshot={
-            "enhanced_context": {"date": "2026-01-01"},
-            "market_phase_summary": {
-                "market": "cn",
-                "phase": "postmarket",
-                "market_local_time": "2026-01-01T10:00:00+08:00",
-                "session_date": "2026-01-01",
-                "effective_daily_bar_date": "2025-12-31",
-                "is_trading_day": True,
-                "is_market_open_now": False,
-                "is_partial_bar": False,
-                "trigger_source": "scheduled_job",
-                "analysis_intent": "postmarket",
-                "warnings": ["legacy_snapshot"],
-            },
-        },
-        created_at=datetime(2026, 1, 1, 0, 0, 0),
-    )
-    _seed_bars(
-        isolated_db,
-        code="7203.T",
-        bars=[
-            (date(2025, 12, 30), 100.0),
-            (date(2026, 1, 5), 105.0),
-        ],
-    )
-
-    item = SkillOpinionOutcomeService(db_manager=isolated_db).run_outcomes(
-        sample_id=sample_id,
-        horizons=["1d"],
-    )["items"][0]
-
-    assert item["eval_status"] == "evaluated"
-    assert item["start_trade_date"] == "2025-12-30"
-    assert item["end_trade_date"] == "2026-01-05"
-    assert item["start_price"] == pytest.approx(100.0)
-    assert item["end_close"] == pytest.approx(105.0)
 
 
 def test_outcome_reuses_resolver_to_choose_newest_complete_equivalent_window(

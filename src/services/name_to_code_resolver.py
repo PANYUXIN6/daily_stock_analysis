@@ -15,7 +15,6 @@ import difflib
 import json
 import logging
 import os
-import re
 import threading
 import time
 import unicodedata
@@ -381,7 +380,7 @@ def warmup_akshare_cache() -> None:
 
 @dataclass(frozen=True)
 class Stock:
-    """股票条目：code / name / market（"a" | "hk" | "us"）。"""
+    """A 股条目：code / name / market。"""
 
     code: str
     name: str = ""
@@ -403,7 +402,7 @@ stockDB: Dict[str, str] = {
 # 避免证券改名后旧名称彻底不可解析。
 stockAliases: Dict[str, Set[str]] = {}
 
-_MARKET_ORDER: Dict[str, int] = {"a": 0, "hk": 1, "us": 2}
+_MARKET_ORDER: Dict[str, int] = {"a": 0}
 
 # 已合并的 AkShare 缓存对象（幂等短路：同一份缓存不重复合并）
 _akshare_merged: Optional[Dict[str, str]] = None
@@ -595,11 +594,9 @@ def _fix_name(fragment: str, database: Dict[str, str]) -> List[str]:
 
 
 def _infer_code_market(code: str) -> Optional[str]:
-    """根据代码格式推断市场：6 位数字→"a"，5 位数字→"hk"，字母→"us"。"""
+    """根据代码格式推断 A 股市场。"""
     c = code.strip()
-    if c.isdigit():
-        return {5: "hk", 6: "a"}.get(len(c))
-    return "us" if re.fullmatch(r"[A-Z]{1,5}(\.[A-Z])?", c) else None
+    return "a" if c.isdigit() and len(c) == 6 else None
 
 
 def _find_codes_for_name(name: str, database: Dict[str, str]) -> List[Tuple[str, str]]:
@@ -630,10 +627,7 @@ def resolver_name_to_code_list(name: str) -> List[Stock]:
     2. 在 ``stockDB`` 上做精确匹配。
     3. 在扩充后的数据库上做混合匹配（精确/子串/拼音/模糊）。
 
-    结果按 A 股 → 港股 → 美股 排序。
-
     示例：
-        "阿里巴巴" → [Stock("09988", "阿里巴巴", "hk"), Stock("BABA", "阿里巴巴", "us")]
         "茅台"     → [Stock("600519", "贵州茅台", "a")]
         "你好世界"  → []
     """
@@ -648,8 +642,7 @@ def resolver_name_to_code_list(name: str) -> List[Stock]:
 
     # A 股名称全是 CJK —— 非 CJK 输入无法从网络扩充获益，但仍可参与本地
     # 混合（拼音）匹配。
-    # 即使是本地精确命中也要先执行 AkShare 扩充：本地已有的同名港股/美股
-    # 不能阻止 AkShare 中同名 A 股被并入，否则跨市场候选会不完整。
+    # CJK 输入先执行 AkShare 扩充，补齐本地未覆盖的 A 股名称。
     if _contains_cjk(s):
         extend_AkShare()
 
@@ -671,49 +664,27 @@ def resolver_name_to_code_list(name: str) -> List[Stock]:
     return stocks[:5]
 
 
-def US_stock_code_match(segment: str) -> List[Stock]:
-    """匹配美股代码：1~5 个英文字母的 ticker，仅本地库存在该代码时才返回。
-
-    避免把普通英文单词（hello/open/...）误判为股票代码。
-    """
-    if not isinstance(segment, str) or not segment.isascii() or not segment.isalpha():
-        return []
-    if not 1 <= len(segment) <= 5:
-        return []
-    upper = segment.upper()
-    name = stockDB.get(upper, "")
-    return [Stock(code=upper, name=name, market="us")] if name else []
-
-
 def lookup_stock_by_code(code: str) -> Optional[Stock]:
     """按规范化代码查库，返回完整 (code/name/market) 三元组；查不到返回 None。
 
     格式合法不等于存在：stockDB 未命中即 None，绝不虚构（LLM 幻觉/过期
-    代码不得直接注入 stocks）。本地库港股键为裸 5 位（"00700"），HK 前缀
-    形态（"HK00700"）自动补查去前缀裸键。
+    代码不得直接注入 stocks）。
     """
     c = (code or "").strip().upper()
     if not c:
         return None
     with _db_lock:
         name = stockDB.get(c)
-        if not name and c.startswith("HK"):
-            name = stockDB.get(c[2:])
         if not name:
             return None
-    if c.startswith("HK"):
-        market = "hk"
-    else:
-        market = _infer_code_market(c) or ""
+    market = _infer_code_market(c) or ""
     return Stock(code=c, name=name, market=market)
 
 
 def is_market_db_complete(market: str) -> bool:
     """该市场名称库是否已扩展为全量（库未命中即可断定代码不存在）。
 
-    A 股：AkShare 全量列表已并入 stockDB（extend_AkShare 成功过，
-    ``_akshare_merged`` 非空）。港股/美股：本地精选库，永不视为全量，
-    未命中只能存疑交下游判断。
+    AkShare 全量 A 股列表已并入 stockDB 时视为完整。
     """
     return market == "a" and _akshare_merged is not None
 
@@ -739,7 +710,7 @@ def resolve_name_to_code(name: str) -> Optional[str]:
     Resolve stock name to code.
 
     Strategy (in order):
-    1. If input looks like a code (5-6 digits or 1-5 letters), return it normalized.
+    1. If input looks like a six-digit A-share code, return it normalized.
     2. Local STOCK_NAME_MAP reverse (exclude ambiguous names).
     3. Pinyin match against local names.
     4. AkShare online fallback (A-shares).

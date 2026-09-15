@@ -7,7 +7,7 @@ Responsibilities:
 - Position sizing suggestions (equal-weight / volatility-adjusted)
 - Correlation & sector concentration warnings
 - Portfolio-level risk metrics (beta, drawdown, sector exposure)
-- Cross-market linkage (A-share ↔ HK ↔ US spillover)
+- A-share portfolio concentration and market-factor risk
 
 The PortfolioAgent consumes pre-computed per-stock opinions
 (from the normal orchestrator pipeline) and overlays portfolio
@@ -56,7 +56,7 @@ class PortfolioAgent(BaseAgent):
     def system_prompt(self, ctx: AgentContext) -> str:
         return (
             "You are a professional **portfolio analyst** specializing in "
-            "multi-asset allocation for A-share, HK, and US equity portfolios.\n\n"
+            "A-share portfolio allocation and risk management.\n\n"
             "## Your task\n"
             "Given individual stock analysis opinions, produce a **Portfolio Assessment** "
             "that covers:\n"
@@ -64,7 +64,7 @@ class PortfolioAgent(BaseAgent):
             "adjusted by conviction and volatility).\n"
             "2. **Sector Concentration** — warn if > 40% in one sector.\n"
             "3. **Correlation Risk** — flag highly correlated pairs.\n"
-            "4. **Cross-Market Linkage** — note HK/US spill-over effects on A-shares.\n"
+            "4. **Market-Factor Risk** — note policy, liquidity and sector-cycle effects.\n"
             "5. **Portfolio Risk Score** — 1-10 scale.\n"
             "6. **Rebalance Suggestions** — trim/add recommendations.\n\n"
             "## Output format\n"
@@ -79,7 +79,7 @@ class PortfolioAgent(BaseAgent):
             "  ],\n"
             '  "sector_warnings": ["Consumer sector > 40%"],\n'
             '  "correlation_warnings": ["600519 & 000858 high correlation"],\n'
-            '  "cross_market_notes": ["US tariff risk may impact export-heavy positions"],\n'
+            '  "market_factor_notes": ["Policy changes may impact export-heavy positions"],\n'
             '  "rebalance_suggestions": ["Trim 000858, add defensive sector exposure"],\n'
             '  "summary": "Portfolio is moderately concentrated ..."\n'
             "}\n"

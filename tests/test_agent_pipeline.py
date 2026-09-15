@@ -2323,14 +2323,14 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
             mock_build_executor.return_value = mock_executor
 
             result = pipeline._analyze_with_agent(
-                code="AAPL",
+                code="600519",
                 report_type=ReportType.SIMPLE,
                 query_id="q-agent-daily-final",
-                stock_name="Apple",
+                stock_name="贵州茅台",
                 realtime_quote=None,
                 chip_data=None,
                 daily_market_context=DailyMarketContext(
-                    region="us",
+                    region="cn",
                     trade_date=date(2026, 7, 19),
                     summary="High risk and risk-off; remain conservative.",
                     risk_tags=["high_risk", "conservative"],

@@ -83,7 +83,6 @@ def _make_pipeline(enable_realtime_quote: bool, realtime_quote=None) -> StockAna
     pipeline.db.get_data_range.return_value = []
     pipeline.db.get_analysis_context.return_value = {}
     pipeline.search_service = SimpleNamespace(is_available=False)
-    pipeline.social_sentiment_service = SimpleNamespace(is_available=False)
     pipeline.query_source = "system"
     pipeline.trend_analyzer = MagicMock()
     pipeline.analyzer = MagicMock()

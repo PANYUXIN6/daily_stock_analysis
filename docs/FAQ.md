@@ -6,25 +6,7 @@
 
 ## 📊 数据相关
 
-### Q1: 美股代码（如 AMD, AAPL）分析时价格显示不正确？
-
-**现象**：输入美股代码后，显示的价格明显不对（如 AMD 显示 7.33 元），或被误识别为 A 股。
-
-**原因**：早期版本代码匹配逻辑优先尝试国内 A 股规则，导致代码冲突。
-
-**解决方案**：
-1. 已在 v2.3.0 修复，系统现在支持美股代码自动识别
-2. 如仍有问题，可在 `.env` 中设置：
-   ```bash
-   YFINANCE_PRIORITY=0
-   ```
-   这将优先使用 Yahoo Finance 数据源获取美股数据
-
-> 📌 相关 Issue: [#153](https://github.com/ZhuLinsen/daily_stock_analysis/issues/153)
-
----
-
-### Q2: 报告中"量比"字段显示为空或 N/A？
+### Q1: 报告中"量比"字段显示为空或 N/A？
 
 **现象**：分析报告中量比数据缺失，影响 AI 对缩放量的判断。
 
@@ -347,7 +329,6 @@ OPENAI_MODEL=deepseek-v4-flash
 1. 仓库的 Docker 发布由 `.github/workflows/docker-publish.yml` 触发，只有推送 `v*.*.*` 形式的 Git tag（例如 `v3.12.0`）时才会生成对应发布镜像。
 2. 这意味着 Docker 镜像版本本质上跟随 **GitHub Release / Git tag**，而不是写死在 `main.py`、`server.py` 或其他后端源码里。
 3. `apps/dsa-web/package.json` 里的 `version` 当前是占位值 `0.0.0`，WebUI “版本信息”卡片更适合用来确认静态资源是否已重建，不应当作 Docker 发布版本。
-4. 桌面端版本是单独维护的，写在 `apps/dsa-desktop/package.json` 的 `version` 字段；它只代表 Electron 桌面端，不代表 Docker 镜像版本。
 
 **怎么查当前 Docker 版本**：
 1. **先看部署命令或 Compose 文件里的镜像 tag**：例如 `ghcr.io/zhulinsen/daily_stock_analysis:v3.12.0`，其中 `v3.12.0` 就是当前部署版本。
@@ -358,28 +339,6 @@ OPENAI_MODEL=deepseek-v4-flash
 
 ---
 
-## 🖥️ 桌面端相关
-
-### Q15: macOS 提示“应用已损坏”或无法打开桌面端？
-
-**原因**：当前 macOS DMG 尚未使用 Apple Developer 证书签名和公证。从浏览器下载后，macOS Gatekeeper 可能给应用添加 quarantine（下载隔离）属性并阻止启动。
-
-**解决方案**：
-
-1. 只从项目的 [GitHub Releases](https://github.com/ZhuLinsen/daily_stock_analysis/releases) 下载附件，并确认安装包架构与 Mac 一致。不要对第三方转载或来源不明的应用绕过 Gatekeeper。
-2. 将 `Daily Stock Analysis` 拖入“应用程序”，先在“系统设置 → 隐私与安全性”中尝试“仍要打开”。
-3. 如果仍无法启动，并且已经确认文件来自项目官方 Release，可在终端只针对该应用移除 quarantine 属性并启动：
-
-   ```bash
-   xattr -dr com.apple.quarantine "/Applications/Daily Stock Analysis.app"
-   open "/Applications/Daily Stock Analysis.app"
-   ```
-
-如果应用不在 `/Applications`，请替换为实际 `.app` 路径。不要对整个 `/Applications` 目录执行 `xattr`。该命令只是临时放行受信任的 unsigned 应用，不等同于签名或公证；完整排查说明见 [桌面端打包与发布](desktop-package.md#macos-提示应用已损坏无法打开)。
-
-> 📌 相关 Issue: [#2113](https://github.com/ZhuLinsen/daily_stock_analysis/issues/2113)
-
----
 
 ## 🔧 其他问题
 

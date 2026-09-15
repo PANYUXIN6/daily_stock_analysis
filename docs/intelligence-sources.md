@@ -97,8 +97,7 @@ GET {NEWSNOW_BASE_URL}/api/s?id=cls-hot
 - `cls-hot`：财联社热门，偏 A 股和题材热点。
 - `xueqiu-hotstock`：雪球热门股票，偏个股关注度。
 - `wallstreetcn-quick`：华尔街见闻快讯，偏宏观、商品和市场事件。
-- `jin10`：金十数据，偏全球宏观和外盘事件。
-- `gelonghui`：格隆汇事件，偏港股和中概股上下文。
+- `jin10`：金十数据，可补充宏观与商品事件。
 
 如果需要更多国内平台，可以继续通过 `POST /sources` 手动添加 NewsNow 源，`source_type=newsnow`，`url` 填 `https://<your-newsnow>/api/s?id=<source_id>`。如果更偏好 RSS，也可以用 RSSHub 等合规 RSS 源继续按 `source_type=rss` 接入。
 

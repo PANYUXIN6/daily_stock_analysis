@@ -51,7 +51,7 @@ describe('stockIndexLoader', () => {
       pinyinFull: 'tengxunkonggu',
       pinyinAbbr: 'txkg',
       aliases: ['腾讯'],
-      market: 'HK',
+      market: 'CN',
       assetType: 'stock',
       active: true,
       popularity: 95,
@@ -63,7 +63,7 @@ describe('stockIndexLoader', () => {
       pinyinFull: 'pingguo',
       pinyinAbbr: 'pg',
       aliases: [],
-      market: 'US',
+      market: 'CN',
       assetType: 'stock',
       active: true,
       popularity: 98,
@@ -302,7 +302,7 @@ describe('stockIndexLoader', () => {
           pinyinFull: 'test',
           pinyinAbbr: 'test',
           aliases: [],
-          market: 'US',
+          market: 'CN',
           assetType: 'stock',
           active: true,
           popularity: 50,
@@ -323,7 +323,7 @@ describe('stockIndexLoader', () => {
           pinyinFull: 'test',
           pinyinAbbr: 'test',
           aliases: undefined as unknown as string[],
-          market: 'US',
+          market: 'CN',
           assetType: 'stock',
           active: true,
           popularity: 50,
@@ -413,7 +413,7 @@ describe('stockIndexLoader', () => {
           pinyinFull: 'test',
           pinyinAbbr: 'test',
           aliases: [],
-          market: 'US',
+          market: 'CN',
           assetType: 'stock',
           active: false,
           popularity: 100,
@@ -433,7 +433,7 @@ describe('stockIndexLoader', () => {
           pinyinFull: 'a',
           pinyinAbbr: 'a',
           aliases: [],
-          market: 'US',
+          market: 'CN',
           assetType: 'stock',
           active: true,
           popularity: 100,
@@ -445,7 +445,7 @@ describe('stockIndexLoader', () => {
           pinyinFull: 'b',
           pinyinAbbr: 'b',
           aliases: [],
-          market: 'US',
+          market: 'CN',
           assetType: 'stock',
           active: true,
           popularity: 100,
@@ -463,10 +463,8 @@ describe('stockIndexLoader', () => {
     test('groups different markets correctly', () => {
       const result = groupStocksByMarket(mockIndexData);
 
-      expect(result.size).toBe(3); // CN, HK, US
-      expect(result.get('CN')).toHaveLength(2);
-      expect(result.get('HK')).toHaveLength(1);
-      expect(result.get('US')).toHaveLength(1);
+      expect(result.size).toBe(1); // A-share market only
+      expect(result.get('CN')).toHaveLength(4);
     });
 
     test('filters out inactive stocks', () => {
@@ -491,7 +489,7 @@ describe('stockIndexLoader', () => {
           pinyinFull: 'a',
           pinyinAbbr: 'a',
           aliases: [],
-          market: 'US',
+          market: 'CN',
           assetType: 'stock',
           active: false,
           popularity: 100,
@@ -535,7 +533,7 @@ describe('stockIndexLoader', () => {
         pinyinFull: `test${i}`,
         pinyinAbbr: `t${i}`,
         aliases: [],
-        market: 'US',
+        market: 'CN',
         assetType: 'stock',
         active: i % 2 === 0,
         popularity: i % 100,
@@ -555,7 +553,7 @@ describe('stockIndexLoader', () => {
           pinyinFull: 'test-gongsi',
           pinyinAbbr: 'test',
           aliases: ['测试(集团)'],
-          market: 'US',
+          market: 'CN',
           assetType: 'stock',
           active: true,
           popularity: 50,

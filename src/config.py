@@ -886,13 +886,6 @@ class Config:
     tickflow_batch_size: int = 100
     futu_opend_host: Optional[str] = None
     futu_opend_port: int = 11111
-    futu_hk_realtime_source_priority: str = "futu,longbridge,akshare,yfinance"
-    finnhub_api_key: Optional[str] = None
-    alphavantage_api_key: Optional[str] = None
-    longbridge_app_key: Optional[str] = None
-    longbridge_app_secret: Optional[str] = None
-    longbridge_access_token: Optional[str] = None
-    longbridge_oauth_client_id: Optional[str] = None
     stock_index_remote_update_enabled: bool = True
 
     # === Built-in stock screening ===
@@ -984,10 +977,6 @@ class Config:
     searxng_base_urls: List[str] = field(default_factory=list)  # SearXNG instance URLs (self-hosted, no quota)
     searxng_public_instances_enabled: bool = False  # Opt in to public discovery when base URLs are absent
     searxng_timeout_seconds: int = 10  # 自建 SearXNG 单次搜索超时（秒）
-
-    # === Social Sentiment (US stocks only, api.adanos.org) ===
-    social_sentiment_api_key: Optional[str] = None
-    social_sentiment_api_url: str = "https://api.adanos.org"
 
     # === 新闻与分析筛选配置 ===
     news_max_age_days: int = 3   # 新闻最大时效（天）
@@ -1204,7 +1193,7 @@ class Config:
     run_immediately: bool = True              # 启动时是否立即执行一次（非定时模式）
     market_review_enabled: bool = True        # 是否启用大盘复盘
     daily_market_context_enabled: bool = True   # 是否将大盘环境摘要用于个股分析 Prompt 与保守护栏
-    # 大盘复盘市场区域：cn(A股)、hk(港股)、us(美股)、jp(日股)、kr(韩股)、both(全部市场)
+    # 大盘复盘市场区域：仅支持 cn（A 股）
     market_review_region: str = "cn"
     market_review_color_scheme: str = "green_up"
     # 交易日检查：默认启用，非交易日跳过执行；设为 false 或 --force-run 可强制执行（Issue #373）
@@ -1800,13 +1789,6 @@ class Config:
             tickflow_batch_size=parse_env_int(os.getenv('TICKFLOW_BATCH_SIZE'), 100, field_name='TICKFLOW_BATCH_SIZE', minimum=1),
             futu_opend_host=os.getenv('FUTU_OPEND_HOST') or None,
             futu_opend_port=parse_env_int(os.getenv('FUTU_OPEND_PORT'), 11111, field_name='FUTU_OPEND_PORT', minimum=1, maximum=65535),
-            futu_hk_realtime_source_priority=os.getenv('FUTU_HK_REALTIME_SOURCE_PRIORITY', 'futu,longbridge,akshare,yfinance'),
-            finnhub_api_key=os.getenv('FINNHUB_API_KEY') or None,
-            alphavantage_api_key=os.getenv('ALPHAVANTAGE_API_KEY') or None,
-            longbridge_app_key=os.getenv('LONGBRIDGE_APP_KEY') or None,
-            longbridge_app_secret=os.getenv('LONGBRIDGE_APP_SECRET') or None,
-            longbridge_access_token=os.getenv('LONGBRIDGE_ACCESS_TOKEN') or None,
-            longbridge_oauth_client_id=os.getenv('LONGBRIDGE_OAUTH_CLIENT_ID') or None,
             stock_index_remote_update_enabled=parse_env_bool(
                 os.getenv('STOCK_INDEX_REMOTE_UPDATE_ENABLED'),
                 default=True,
@@ -1884,8 +1866,6 @@ class Config:
             searxng_timeout_seconds=parse_env_int(
                 os.getenv('SEARXNG_TIMEOUT_SECONDS'), 10, field_name='SEARXNG_TIMEOUT_SECONDS', minimum=1
             ),
-            social_sentiment_api_key=os.getenv('SOCIAL_SENTIMENT_API_KEY') or None,
-            social_sentiment_api_url=os.getenv('SOCIAL_SENTIMENT_API_URL', 'https://api.adanos.org').rstrip('/'),
             news_max_age_days=parse_env_int(os.getenv('NEWS_MAX_AGE_DAYS'), 3, field_name='NEWS_MAX_AGE_DAYS', minimum=1),
             news_strategy_profile=cls._parse_news_strategy_profile(
                 os.getenv('NEWS_STRATEGY_PROFILE', 'short')
@@ -2915,7 +2895,7 @@ class Config:
             return normalized
 
         logging.getLogger(__name__).warning(
-            f"MARKET_REVIEW_REGION 配置值 '{value}' 无效，已回退为默认值 'cn'（合法值：cn / hk / us / jp / kr / both；支持逗号分隔有效值）"
+            f"MARKET_REVIEW_REGION 配置值 '{value}' 无效，已回退为默认值 'cn'（仅支持 cn）"
         )
         return 'cn'
 
@@ -3087,7 +3067,7 @@ class Config:
         if not self.stock_list:
             issues.append(ConfigIssue(
                 severity="error",
-                message="未配置 STOCK_LIST。请设置至少一个股票代码，例如：600519,hk00700,AAPL。",
+                message="未配置 STOCK_LIST。请设置至少一个A股代码，例如：600519。",
                 field="STOCK_LIST",
             ))
         elif self.stock_email_groups:

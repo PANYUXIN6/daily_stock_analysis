@@ -52,10 +52,7 @@ class AskCommand(BotCommand):
         if not args:
             return "", []
 
-        code_like = re.compile(
-            r"^,?(\d{6}|hk\d{5}|[A-Za-z]{1,5}(\.[A-Za-z]{1,2})?),?$",
-            re.IGNORECASE,
-        )
+        code_like = re.compile(r"^,?\d{6},?$")
         raw_codes_parts = [args[0]]
         rest_args = list(args[1:])
 
@@ -93,12 +90,8 @@ class AskCommand(BotCommand):
     def _validate_single_code(self, code: str) -> Optional[str]:
         """Validate a single stock code format."""
         normalized = code.upper()
-        is_a_stock = re.match(r"^\d{6}$", normalized)
-        is_hk_stock = re.match(r"^HK\d{5}$", normalized)
-        is_us_stock = re.match(r"^[A-Z]{1,5}(\.[A-Z]{1,2})?$", normalized)
-
-        if not (is_a_stock or is_hk_stock or is_us_stock):
-            return f"无效的股票代码: {normalized}（A股6位数字 / 港股HK+5位数字 / 美股1-5个字母）"
+        if not re.fullmatch(r"\d{6}", normalized):
+            return f"无效的股票代码: {normalized}（请输入A股6位数字代码）"
         return None
 
     def validate_args(self, args: List[str]) -> Optional[str]:

@@ -639,14 +639,12 @@ class AgentNewsEvidenceTestCase(unittest.TestCase):
 class NewsEvidenceSourcesTestCase(unittest.TestCase):
     """披露断言的是「结论有没有用到新闻面证据」，不是「搜索命中了几条」。
 
-    `news_context` 由三路来源拼成，只有实时检索会产生计数：
+    `news_context` 由两路来源拼成，只有实时检索会产生计数：
 
     1. 实时多维检索 —— 更新 news_result_count
-    2. 社交情绪（美股）—— 不更新计数
-    3. 本地已落库的资讯池 —— 不更新计数
+    2. 本地已落库的资讯池 —— 不更新计数
 
-    只看计数就会把后两路参与的分析误报成「未纳入新闻面证据」
-    （review OR-COR-2e4b9d61 点名了第 3 路；第 2 路是同一缺陷类，一并锁住）。
+    只看计数就会把本地资讯参与的分析误报成「未纳入新闻面证据」。
     """
 
     def _result(self, *, count, evidence):
@@ -662,8 +660,8 @@ class NewsEvidenceSourcesTestCase(unittest.TestCase):
         self.assertNotIn(NO_CHANNEL_DISCLOSURE, report)
         self.assertNotIn(ZERO_HIT_DISCLOSURE, report)
 
-    def test_social_sentiment_without_search_hits_is_not_reported_as_missing(self):
-        """社交情绪同样进入 news_context，零命中也不能否认已用证据。"""
+    def test_local_intel_without_search_hits_is_not_reported_as_missing(self):
+        """本地资讯同样进入 news_context，零命中也不能否认已用证据。"""
         report = NotificationService.generate_daily_report(
             _make_service(),
             [self._result(count=0, evidence=True)],
@@ -690,13 +688,12 @@ class NewsEvidenceSourcesTestCase(unittest.TestCase):
     def test_evidence_helper_registers_sources_one_by_one(self):
         from src.services.empty_news import news_evidence_present
 
-        # 真实命中数 / 社交情绪 / 本地资讯池，任一为真即算有证据
-        self.assertTrue(news_evidence_present(4, None, None))
-        self.assertTrue(news_evidence_present(0, "reddit 讨论……", None))
-        self.assertTrue(news_evidence_present(0, None, "## 本地资讯证据池"))
-        self.assertFalse(news_evidence_present(0, None, None))
-        self.assertFalse(news_evidence_present(0, "", "   \n\t "))
-        self.assertFalse(news_evidence_present(None, None, None))
+        # 真实命中数 / 本地资讯池，任一为真即算有证据
+        self.assertTrue(news_evidence_present(4, None))
+        self.assertTrue(news_evidence_present(0, "## 本地资讯证据池"))
+        self.assertFalse(news_evidence_present(0, None))
+        self.assertFalse(news_evidence_present(0, "   \n\t "))
+        self.assertFalse(news_evidence_present(None, None))
 
     def test_zero_hit_placeholder_report_is_not_mistaken_for_evidence(self):
         """零命中时 format_intel_report 仍吐占位文本，绝不能被当成证据。
@@ -727,7 +724,7 @@ class NewsEvidenceSourcesTestCase(unittest.TestCase):
         self.assertIn("未找到相关信息", placeholder)
 
         # 按来源登记：实时 0 条、无社交、无本地资讯池 —— 必须判定为没有证据
-        self.assertFalse(news_evidence_present(0, None, None))
+        self.assertFalse(news_evidence_present(0, None))
 
         # 端到端：这种情况报告必须出现零命中披露
         report = NotificationService.generate_daily_report(
@@ -773,8 +770,7 @@ class NewsEvidenceSourcesTestCase(unittest.TestCase):
         calls = code_only.count("result.news_evidence_present = news_evidence_present(")
         self.assertEqual(2, calls, "普通路径与 Agent 路径各要有一次登记")
 
-        # 三路来源都要出现在登记参数里
-        self.assertIn("social_evidence_context", code_only)
+        # 本地资讯必须参与证据判定
         self.assertIn("persisted_intelligence_context", code_only)
 
         # 整段 news_context 不许再被交给判定函数

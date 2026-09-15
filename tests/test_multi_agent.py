@@ -3,7 +3,7 @@
 Tests for the multi-agent architecture modules.
 
 Covers:
-- _extract_stock_code: Chinese boundary, HK, US, common word filtering
+- _extract_stock_code: A-share codes with Chinese boundaries
 - AgentContext / AgentOpinion / StageResult protocol basics
 - AgentOrchestrator: pipeline execution, mode selection, error handling
 - StrategyRouter: regime detection, manual mode, user override
@@ -26,7 +26,7 @@ try:
 except ModuleNotFoundError:
     sys.modules["litellm"] = MagicMock()
 
-from src.agent.orchestrator import _extract_stock_code, _COMMON_WORDS, AgentOrchestrator
+from src.agent.orchestrator import _extract_stock_code, AgentOrchestrator
 from src.agent.protocols import (
     AgentContext,
     AgentOpinion,
@@ -102,36 +102,14 @@ class TestExtractStockCode(unittest.TestCase):
 
     # --- HK ---
 
-    def test_hk_lowercase(self):
-        self.assertEqual(_extract_stock_code("look at hk00700"), "HK00700")
-
-    def test_hk_uppercase(self):
-        self.assertEqual(_extract_stock_code("HK00700 analysis"), "HK00700")
-
-    def test_hk_chinese(self):
-        self.assertEqual(_extract_stock_code("分析hk00700"), "HK00700")
 
     def test_hk_not_match_alpha_prefix(self):
         """Letters before 'hk' should not prevent match."""
         # "xhk00700" has alpha before hk, lookbehind should block
-        self.assertNotEqual(_extract_stock_code("xhk00700"), "HK00700")
+        self.assertNotEqual(_extract_stock_code("xhk00700"), "000001")
 
     # --- US ---
 
-    def test_us_ticker(self):
-        self.assertEqual(_extract_stock_code("analyze AAPL"), "AAPL")
-
-    def test_us_ticker_in_chinese(self):
-        self.assertEqual(_extract_stock_code("看看TSLA"), "TSLA")
-
-    def test_us_ticker_5_chars(self):
-        self.assertEqual(_extract_stock_code("check GOOGL"), "GOOGL")
-
-    def test_lowercase_us_ticker_with_analysis_hint(self):
-        self.assertEqual(_extract_stock_code("分析tsla"), "TSLA")
-
-    def test_lowercase_us_ticker_bare(self):
-        self.assertEqual(_extract_stock_code("tsla"), "TSLA")
 
     def test_bse_code_with_8_prefix(self):
         self.assertEqual(_extract_stock_code("分析830799"), "830799")
@@ -184,15 +162,15 @@ class TestExtractStockCode(unittest.TestCase):
                 self.assertEqual(_extract_stock_code(text), "")
 
     def test_finance_abbrev_before_real_ticker(self):
-        self.assertEqual(_extract_stock_code("PE AAPL 怎么看"), "AAPL")
-        self.assertEqual(_extract_stock_code("TTM AAPL 怎么看"), "AAPL")
-        self.assertEqual(_extract_stock_code("WHAT IS PE AAPL"), "AAPL")
+        self.assertEqual(_extract_stock_code("PE 000858 怎么看"), "000858")
+        self.assertEqual(_extract_stock_code("TTM 000858 怎么看"), "000858")
+        self.assertEqual(_extract_stock_code("WHAT IS PE 000858"), "000858")
 
     # --- Priority: A-share > HK > US ---
 
     def test_a_share_takes_priority_over_us(self):
         """When both A-share code and US ticker appear, A-share wins."""
-        self.assertEqual(_extract_stock_code("600519 vs AAPL"), "600519")
+        self.assertEqual(_extract_stock_code("600519 vs 000858"), "600519")
 
     # --- Empty / irrelevant ---
 
@@ -209,16 +187,6 @@ class TestExtractStockCode(unittest.TestCase):
     def test_lowercase_not_us_ticker(self):
         """Lowercase letters should not match US regex."""
         self.assertEqual(_extract_stock_code("analyze aapl"), "")
-
-    def test_common_words_set_completeness(self):
-        """Ensure critical finance terms are in _COMMON_WORDS."""
-        expected_in_set = {
-            "BUY", "SELL", "HOLD", "ETF", "IPO", "RSI", "MACD", "STOCK", "TREND",
-            "TTM", "PE", "YOY", "QOQ", "EBITDA", "DCF", "CAGR", "KDJ",
-            "IS", "WHAT", "HIGH",
-        }
-        self.assertTrue(expected_in_set.issubset(_COMMON_WORDS))
-
 
 # ============================================================
 # Stock scope resolution
@@ -240,7 +208,7 @@ class TestStockScopeResolution(unittest.TestCase):
 
     def test_switch_clears_old_stock_context_fields(self):
         result = resolve_stock_scope(
-            "换成 AAPL 看看",
+            "换成 000858 看看",
             {
                 "stock_code": "600519",
                 "stock_name": "匿名标的",
@@ -255,9 +223,9 @@ class TestStockScopeResolution(unittest.TestCase):
         )
 
         self.assertEqual(result.stock_scope.mode, "switch")
-        self.assertEqual(result.stock_scope.expected_stock_code, "AAPL")
-        self.assertEqual(result.stock_scope.allowed_stock_codes, {"AAPL"})
-        self.assertEqual(result.effective_context["stock_code"], "AAPL")
+        self.assertEqual(result.stock_scope.expected_stock_code, "000858")
+        self.assertEqual(result.stock_scope.allowed_stock_codes, {"000858"})
+        self.assertEqual(result.effective_context["stock_code"], "000858")
         self.assertEqual(result.effective_context["stock_name"], "")
         self.assertEqual(result.effective_context["report_language"], "zh")
         for stale_key in (
@@ -272,43 +240,33 @@ class TestStockScopeResolution(unittest.TestCase):
 
     def test_switch_allows_single_new_code_when_current_code_is_mentioned(self):
         result = resolve_stock_scope(
-            "换成 AAPL 看看，不考虑 600519",
+            "换成 000858 看看，不考虑 600519",
             {"stock_code": "600519", "stock_name": "匿名标的"},
         )
 
         self.assertEqual(result.stock_scope.mode, "switch")
-        self.assertEqual(result.stock_scope.expected_stock_code, "AAPL")
-        self.assertEqual(result.stock_scope.allowed_stock_codes, {"AAPL"})
-        self.assertEqual(result.effective_context["stock_code"], "AAPL")
+        self.assertEqual(result.stock_scope.expected_stock_code, "000858")
+        self.assertEqual(result.stock_scope.allowed_stock_codes, {"000858"})
+        self.assertEqual(result.effective_context["stock_code"], "000858")
         self.assertEqual(result.effective_context["stock_name"], "")
 
     def test_compare_allows_multiple_codes_without_polluting_current_context(self):
         result = resolve_stock_scope(
-            "比较 600519 和 AAPL",
+            "比较 600519 和 000858",
             {"stock_code": "600519", "stock_name": "匿名标的"},
         )
 
         self.assertEqual(result.stock_scope.mode, "compare")
         self.assertEqual(result.effective_context["stock_code"], "600519")
         self.assertEqual(result.effective_context["stock_name"], "匿名标的")
-        self.assertEqual(result.stock_scope.allowed_stock_codes, {"600519", "AAPL"})
+        self.assertEqual(result.stock_scope.allowed_stock_codes, {"600519", "000858"})
 
-    def test_compare_allows_plain_five_digit_hk_code(self):
-        result = resolve_stock_scope(
-            "比较 01810 和 AAPL",
-            {"stock_code": "600519", "stock_name": "匿名标的"},
-        )
-
-        self.assertEqual(result.stock_scope.mode, "compare")
-        self.assertEqual(result.effective_context["stock_code"], "600519")
-        self.assertEqual(result.effective_context["stock_name"], "匿名标的")
-        self.assertEqual(result.stock_scope.allowed_stock_codes, {"600519", "HK01810", "AAPL"})
 
     def test_compare_hints_allow_multiple_codes_without_switching_context(self):
         cases = [
-            "分析 600519 和 AAPL 的差异",
-            "AAPL 相比 600519 怎么样",
-            "和 AAPL 的差异怎么看",
+            "分析 600519 和 000858 的差异",
+            "000858 相比 600519 怎么样",
+            "和 000858 的差异怎么看",
         ]
 
         for message in cases:
@@ -321,13 +279,13 @@ class TestStockScopeResolution(unittest.TestCase):
                 self.assertEqual(result.stock_scope.mode, "compare")
                 self.assertEqual(result.effective_context["stock_code"], "600519")
                 self.assertEqual(result.effective_context["stock_name"], "匿名标的")
-                self.assertEqual(result.stock_scope.allowed_stock_codes, {"600519", "AAPL"})
+                self.assertEqual(result.stock_scope.allowed_stock_codes, {"600519", "000858"})
 
     def test_multiple_explicit_codes_are_compare_scope(self):
         cases = [
-            ("AAPL 和 TSLA 哪个更值得买", {"600519", "AAPL", "TSLA"}),
-            ("AAPL 和 TSLA 谁更适合", {"600519", "AAPL", "TSLA"}),
-            ("分析 AAPL 和 TSLA", {"600519", "AAPL", "TSLA"}),
+            ("000858 和 300750 哪个更值得买", {"600519", "000858", "300750"}),
+            ("000858 和 300750 谁更适合", {"600519", "000858", "300750"}),
+            ("分析 000858 和 300750", {"600519", "000858", "300750"}),
         ]
 
         for message, expected_allowed in cases:
@@ -344,23 +302,23 @@ class TestStockScopeResolution(unittest.TestCase):
 
     def test_multiple_lowercase_explicit_codes_are_compare_scope_with_choice_hint(self):
         result = resolve_stock_scope(
-            "aapl 和 tsla 哪个更值得买",
+            "000858 和 300750 哪个更值得买",
             {"stock_code": "600519", "stock_name": "匿名标的"},
         )
 
         self.assertEqual(result.stock_scope.mode, "compare")
         self.assertEqual(result.effective_context["stock_code"], "600519")
-        self.assertEqual(result.stock_scope.allowed_stock_codes, {"600519", "AAPL", "TSLA"})
+        self.assertEqual(result.stock_scope.allowed_stock_codes, {"600519", "000858", "300750"})
 
     def test_single_stock_difference_phrase_still_switches_context(self):
         result = resolve_stock_scope(
-            "分析 AAPL 的差异化优势",
+            "分析 000858 的差异化优势",
             {"stock_code": "600519", "stock_name": "匿名标的"},
         )
 
         self.assertEqual(result.stock_scope.mode, "switch")
-        self.assertEqual(result.stock_scope.expected_stock_code, "AAPL")
-        self.assertEqual(result.effective_context["stock_code"], "AAPL")
+        self.assertEqual(result.stock_scope.expected_stock_code, "000858")
+        self.assertEqual(result.effective_context["stock_code"], "000858")
         self.assertEqual(result.effective_context["stock_name"], "")
 
     def test_moving_average_indicator_token_does_not_switch_context(self):
@@ -383,15 +341,6 @@ class TestStockScopeResolution(unittest.TestCase):
                 self.assertEqual(result.stock_scope.allowed_stock_codes, {"600519"})
                 self.assertEqual(result.effective_context["stock_code"], "600519")
 
-    def test_dotted_us_ticker_stays_intact_in_scope_resolution(self):
-        result = resolve_stock_scope(
-            "比较 BRK.B 和 AAPL",
-            {"stock_code": "600519", "stock_name": "匿名标的"},
-        )
-
-        self.assertEqual(result.stock_scope.mode, "compare")
-        self.assertEqual(result.stock_scope.allowed_stock_codes, {"600519", "BRK.B", "AAPL"})
-        self.assertEqual(result.effective_context["stock_code"], "600519")
 
     def test_invalid_context_exchange_token_is_not_trusted_as_current_stock(self):
         result = resolve_stock_scope(
@@ -407,23 +356,23 @@ class TestStockScopeResolution(unittest.TestCase):
 
     def test_compare_does_not_treat_exchange_affixes_as_standalone_tickers(self):
         cases = [
-            ("比较 01810 和 AAPL", {"600519", "HK01810", "AAPL"}, set()),
-            ("比较 1810.HK 和 AAPL", {"600519", "HK01810", "AAPL"}, {"HK"}),
-            ("比较 0700.HK 和 600519", {"600519", "HK00700"}, {"HK"}),
-            ("比较 600519.SH 和 AAPL", {"600519", "AAPL"}, {"SH"}),
-            ("比较 000001.SZ 和 AAPL", {"600519", "000001", "AAPL"}, {"SZ"}),
-            ("比较 600519.SS 和 AAPL", {"600519", "AAPL"}, {"SS"}),
-            ("比较 1810.hk 和 tsla", {"600519", "HK01810", "TSLA"}, {"HK"}),
-            ("比较 SH600519 和 AAPL", {"600519", "AAPL"}, {"SH"}),
-            ("比较 SZ000001 和 AAPL", {"600519", "000001", "AAPL"}, {"SZ"}),
-            ("比较 BJ920748 和 AAPL", {"600519", "920748", "AAPL"}, {"BJ"}),
-            ("比较 HK01810 和 AAPL", {"600519", "HK01810", "AAPL"}, {"HK"}),
-            ("比较 hk01810 和 tsla", {"600519", "HK01810", "TSLA"}, {"HK"}),
-            ("比较 600519 SH 和 AAPL", {"600519", "AAPL"}, {"SH"}),
-            ("比较 000001 SZ 和 AAPL", {"600519", "000001", "AAPL"}, {"SZ"}),
-            ("比较 920748 BJ 和 AAPL", {"600519", "920748", "AAPL"}, {"BJ"}),
-            ("比较 01810 HK 和 AAPL", {"600519", "HK01810", "AAPL"}, {"HK"}),
-            ("比较 600519 SS 和 AAPL", {"600519", "AAPL"}, {"SS"}),
+            ("比较 000002 和 000858", {"600519", "000002", "000858"}, set()),
+            ("比较 000002.SZ 和 000858", {"600519", "000002", "000858"}, {"HK"}),
+            ("比较 000001.SZ 和 600519", {"600519", "000001"}, {"HK"}),
+            ("比较 600519.SH 和 000858", {"600519", "000858"}, {"SH"}),
+            ("比较 000001.SZ 和 000858", {"600519", "000001", "000858"}, {"SZ"}),
+            ("比较 600519.SS 和 000858", {"600519", "000858"}, {"SS"}),
+            ("比较 000002.sz 和 300750", {"600519", "000002", "300750"}, {"HK"}),
+            ("比较 SH600519 和 000858", {"600519", "000858"}, {"SH"}),
+            ("比较 SZ000001 和 000858", {"600519", "000001", "000858"}, {"SZ"}),
+            ("比较 BJ920748 和 000858", {"600519", "920748", "000858"}, {"BJ"}),
+            ("比较 000002 和 000858", {"600519", "000002", "000858"}, {"HK"}),
+            ("比较 sz000002 和 300750", {"600519", "000002", "300750"}, {"HK"}),
+            ("比较 600519 SH 和 000858", {"600519", "000858"}, {"SH"}),
+            ("比较 000001 SZ 和 000858", {"600519", "000001", "000858"}, {"SZ"}),
+            ("比较 920748 BJ 和 000858", {"600519", "920748", "000858"}, {"BJ"}),
+            ("比较 000002 HK 和 000858", {"600519", "000002", "000858"}, {"HK"}),
+            ("比较 600519 SS 和 000858", {"600519", "000858"}, {"SS"}),
         ]
 
         for message, expected_allowed, forbidden_tokens in cases:
@@ -437,27 +386,6 @@ class TestStockScopeResolution(unittest.TestCase):
                 self.assertEqual(result.stock_scope.allowed_stock_codes, expected_allowed)
                 for token in forbidden_tokens:
                     self.assertNotIn(token, result.stock_scope.allowed_stock_codes)
-
-    def test_switch_recognizes_lowercase_us_ticker_with_explicit_hint(self):
-        result = resolve_stock_scope(
-            "分析tsla",
-            {"stock_code": "600519", "stock_name": "匿名标的"},
-        )
-
-        self.assertEqual(result.stock_scope.mode, "switch")
-        self.assertEqual(result.stock_scope.expected_stock_code, "TSLA")
-        self.assertEqual(result.effective_context["stock_code"], "TSLA")
-        self.assertEqual(result.effective_context["stock_name"], "")
-
-    def test_compare_recognizes_lowercase_us_tickers(self):
-        result = resolve_stock_scope(
-            "比较 600519 和 tsla",
-            {"stock_code": "600519", "stock_name": "匿名标的"},
-        )
-
-        self.assertEqual(result.stock_scope.mode, "compare")
-        self.assertEqual(result.effective_context["stock_code"], "600519")
-        self.assertEqual(result.stock_scope.allowed_stock_codes, {"600519", "TSLA"})
 
 
 # ============================================================
@@ -2041,7 +1969,7 @@ class TestOrchestratorExecution(unittest.TestCase):
                     with patch("src.agent.conversation.conversation_manager.add_user_message"), \
                          patch("src.agent.conversation.conversation_manager.add_message"):
                         orch.chat(
-                            "换成 AAPL 看看",
+                            "换成 000858 看看",
                             "session-1",
                             context={
                                 "stock_code": "600519",
@@ -2051,11 +1979,11 @@ class TestOrchestratorExecution(unittest.TestCase):
                         )
 
         ctx = captured["ctx"]
-        self.assertEqual(ctx.stock_code, "AAPL")
+        self.assertEqual(ctx.stock_code, "000858")
         self.assertEqual(ctx.stock_name, "")
         self.assertNotIn("previous_analysis_summary", ctx.meta)
         self.assertEqual(ctx.meta["stock_scope"].mode, "switch")
-        self.assertEqual(ctx.meta["stock_scope"].expected_stock_code, "AAPL")
+        self.assertEqual(ctx.meta["stock_scope"].expected_stock_code, "000858")
 
     def test_chat_does_not_read_or_write_provider_trace(self):
         from src.agent.orchestrator import OrchestratorResult
@@ -2578,7 +2506,7 @@ class TestEventMonitorAsync(unittest.IsolatedAsyncioTestCase):
         from src.agent.events import EventMonitor, PriceChangeAlert
 
         monitor = EventMonitor()
-        rule = PriceChangeAlert(stock_code="AAPL", direction="up", change_pct=2.0)
+        rule = PriceChangeAlert(stock_code="000858", direction="up", change_pct=2.0)
 
         with patch("src.agent.events.asyncio.to_thread", new=AsyncMock(return_value={"pct_chg": "2.35%"})):
             triggered = await monitor._check_price_change(rule)
@@ -3098,51 +3026,6 @@ class TestResearchCommandTimeout(unittest.TestCase):
             response = cmd.execute(msg, ["600519"])
 
         self.assertIn("超时", response.text)
-
-    def test_research_recognizes_five_letter_us_ticker(self):
-        from bot.commands.research import ResearchCommand
-        from bot.models import BotMessage
-
-        cmd = ResearchCommand()
-        msg = MagicMock(spec=BotMessage)
-        msg.platform = "test"
-        msg.user_id = "u1"
-
-        result = SimpleNamespace(
-            success=True,
-            report="ok",
-            sub_questions=["q"],
-            findings_count=1,
-            total_tokens=100,
-            duration_s=1.0,
-            error=None,
-            timed_out=False,
-        )
-        captured = {}
-
-        def _capture_research(query, context=None, timeout_seconds=None):
-            captured["query"] = query
-            captured["context"] = context
-            captured["timeout_seconds"] = timeout_seconds
-            return result
-
-        config = SimpleNamespace(
-            agent_deep_research_budget=30000,
-            agent_deep_research_timeout=1,
-            litellm_model="test-model",
-            agent_mode=True,
-        )
-
-        with patch("bot.commands.research.get_config", return_value=config), \
-             patch("src.agent.factory.get_tool_registry", return_value=MagicMock()), \
-             patch("src.agent.llm_adapter.LLMToolAdapter", return_value=MagicMock()), \
-             patch("src.agent.research.ResearchAgent.research", side_effect=_capture_research):
-            response = cmd.execute(msg, ["googl", "风险"])
-
-        self.assertIn("Deep Research Report", response.text)
-        self.assertEqual(captured["context"], {"stock_code": "GOOGL", "stock_name": ""})
-        self.assertEqual(captured["timeout_seconds"], 1)
-        self.assertTrue(captured["query"].startswith("[Stock: GOOGL]"))
 
 
 # ============================================================

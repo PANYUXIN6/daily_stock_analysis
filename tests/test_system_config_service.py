@@ -1628,13 +1628,13 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         self.assertEqual(storage_check["status"], "configured")
         self.assertFalse(missing_parent.exists())
 
-    def test_export_desktop_env_returns_raw_text(self) -> None:
+    def test_export_env_returns_raw_text(self) -> None:
         self.env_path.write_text(
             "# Desktop config\nSTOCK_LIST=600519,000001\n\nGEMINI_API_KEY=secret-key-value\n",
             encoding="utf-8",
         )
 
-        payload = self.service.export_desktop_env()
+        payload = self.service.export_env()
 
         self.assertEqual(
             payload["content"],
@@ -1642,21 +1642,21 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         )
         self.assertEqual(payload["config_version"], self.manager.get_config_version())
 
-    def test_export_desktop_env_preserves_hidden_web_settings_keys(self) -> None:
+    def test_export_env_preserves_hidden_web_settings_keys(self) -> None:
         self.env_path.write_text(
             "STOCK_LIST=600519\nDATABASE_PATH=./custom/stock_analysis.db\nUSE_PROXY=true\n",
             encoding="utf-8",
         )
 
-        payload = self.service.export_desktop_env()
+        payload = self.service.export_env()
 
         self.assertIn("DATABASE_PATH=./custom/stock_analysis.db\n", payload["content"])
         self.assertIn("USE_PROXY=true\n", payload["content"])
 
-    def test_import_desktop_env_merges_keys_without_deleting_unspecified_values(self) -> None:
+    def test_import_env_merges_keys_without_deleting_unspecified_values(self) -> None:
         current_version = self.manager.get_config_version()
 
-        payload = self.service.import_desktop_env(
+        payload = self.service.import_env(
             config_version=current_version,
             content="STOCK_LIST=300750\nCUSTOM_NOTE=desktop backup\n",
             reload_now=False,
@@ -1668,10 +1668,10 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         self.assertEqual(current_map["CUSTOM_NOTE"], "desktop backup")
         self.assertEqual(current_map["GEMINI_API_KEY"], "secret-key-value")
 
-    def test_import_desktop_env_preserves_hidden_web_settings_keys(self) -> None:
+    def test_import_env_preserves_hidden_web_settings_keys(self) -> None:
         current_version = self.manager.get_config_version()
 
-        self.service.import_desktop_env(
+        self.service.import_env(
             config_version=current_version,
             content="DATABASE_PATH=./custom/stock_analysis.db\nPROXY_HOST=127.0.0.1\n",
             reload_now=False,
@@ -1681,10 +1681,10 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         self.assertEqual(current_map["DATABASE_PATH"], "./custom/stock_analysis.db")
         self.assertEqual(current_map["PROXY_HOST"], "127.0.0.1")
 
-    def test_import_desktop_env_treats_mask_token_as_literal_value(self) -> None:
+    def test_import_env_treats_mask_token_as_literal_value(self) -> None:
         current_version = self.manager.get_config_version()
 
-        self.service.import_desktop_env(
+        self.service.import_env(
             config_version=current_version,
             content="GEMINI_API_KEY=******\n",
             reload_now=False,
@@ -1693,10 +1693,10 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         current_map = self.manager.read_config_map()
         self.assertEqual(current_map["GEMINI_API_KEY"], "******")
 
-    def test_import_desktop_env_uses_last_duplicate_assignment(self) -> None:
+    def test_import_env_uses_last_duplicate_assignment(self) -> None:
         current_version = self.manager.get_config_version()
 
-        self.service.import_desktop_env(
+        self.service.import_env(
             config_version=current_version,
             content="STOCK_LIST=000001\nSTOCK_LIST=300750\n",
             reload_now=False,
@@ -1705,10 +1705,10 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         current_map = self.manager.read_config_map()
         self.assertEqual(current_map["STOCK_LIST"], "300750")
 
-    def test_import_desktop_env_allows_empty_assignment(self) -> None:
+    def test_import_env_allows_empty_assignment(self) -> None:
         current_version = self.manager.get_config_version()
 
-        self.service.import_desktop_env(
+        self.service.import_env(
             config_version=current_version,
             content="LOG_LEVEL=\n",
             reload_now=False,
@@ -1717,7 +1717,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         current_map = self.manager.read_config_map()
         self.assertEqual(current_map["LOG_LEVEL"], "")
 
-    def test_import_desktop_env_preserves_exported_braced_webhook_template(self) -> None:
+    def test_import_env_preserves_exported_braced_webhook_template(self) -> None:
         template = '{"content":${content_json}}'
 
         save_payload = self.service.update(
@@ -1726,7 +1726,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
             reload_now=False,
         )
         self.assertTrue(save_payload["success"])
-        backup_content = self.service.export_desktop_env()["content"]
+        backup_content = self.service.export_env()["content"]
         self.assertIn(
             'CUSTOM_WEBHOOK_BODY_TEMPLATE={"content":$${content_json}}\n',
             backup_content,
@@ -1739,7 +1739,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         )
         self.assertTrue(clear_payload["success"])
 
-        restore_payload = self.service.import_desktop_env(
+        restore_payload = self.service.import_env(
             config_version=self.manager.get_config_version(),
             content=backup_content,
             reload_now=False,
@@ -1751,17 +1751,17 @@ class SystemConfigServiceTestCase(unittest.TestCase):
             template,
         )
 
-    def test_import_desktop_env_rejects_empty_or_comment_only_content(self) -> None:
+    def test_import_env_rejects_empty_or_comment_only_content(self) -> None:
         with self.assertRaises(ConfigImportError):
-            self.service.import_desktop_env(
+            self.service.import_env(
                 config_version=self.manager.get_config_version(),
                 content="   \n# only comments\n\n",
                 reload_now=False,
             )
 
-    def test_import_desktop_env_raises_conflict_for_stale_version(self) -> None:
+    def test_import_env_raises_conflict_for_stale_version(self) -> None:
         with self.assertRaises(ConfigConflictError):
-            self.service.import_desktop_env(
+            self.service.import_env(
                 config_version="stale-version",
                 content="STOCK_LIST=300750\n",
                 reload_now=False,
@@ -2504,9 +2504,8 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         market_review_schema = items["MARKET_REVIEW_REGION"]["schema"]
         self.assertEqual(
             market_review_schema["validation"]["allowed_values"],
-            ["cn", "hk", "us", "jp", "kr", "both"],
+            ["cn"],
         )
-        self.assertEqual(market_review_schema["validation"]["delimiter"], ",")
         self.assertEqual(
             items["AGENT_CONTEXT_COMPRESSION_TRIGGER_TOKENS"]["schema"]["default_value"],
             "",
@@ -2590,7 +2589,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
 
     def test_validate_accepts_comma_separated_market_review_region(self) -> None:
         validation = self.service.validate(
-            items=[{"key": "MARKET_REVIEW_REGION", "value": "cn,jp,us"}]
+            items=[{"key": "MARKET_REVIEW_REGION", "value": "cn"}]
         )
 
         self.assertTrue(validation["valid"])
@@ -4390,14 +4389,14 @@ class SystemConfigServiceTestCase(unittest.TestCase):
             if "已同步清理失效的运行时模型引用" in warning
         )
         self.assertIn("主模型 / Agent 主模型 / Vision 模型 / 备选模型中的失效项", warning)
-        self.assertIn("桌面端导出备份", warning)
+        self.assertIn("Web 导出备份", warning)
 
     def test_update_market_review_region_does_not_trigger_runtime_model_cleanup(self) -> None:
         litellm_config_path = Path(self.temp_dir.name) / "litellm_config.yaml"
         litellm_config_path.write_text("model_list: []\n", encoding="utf-8")
 
         self._rewrite_env(
-            "MARKET_REVIEW_REGION=cn",
+            "MARKET_REVIEW_REGION=both",
             "LITELLM_MODEL=openai/gpt-4o-mini",
             "AGENT_LITELLM_MODEL=openai/gpt-4o",
             "LITELLM_FALLBACK_MODELS=openai/gpt-4o-mini,openai/gpt-4o",
@@ -4416,14 +4415,14 @@ class SystemConfigServiceTestCase(unittest.TestCase):
 
         response = self.service.update(
             config_version=self.manager.get_config_version(),
-            items=[{"key": "MARKET_REVIEW_REGION", "value": "both"}],
+            items=[{"key": "MARKET_REVIEW_REGION", "value": "cn"}],
             reload_now=False,
         )
 
         self.assertTrue(response["success"])
         self.assertIn("MARKET_REVIEW_REGION", response["updated_keys"])
         current_map = self.manager.read_config_map()
-        self.assertEqual(current_map["MARKET_REVIEW_REGION"], "both")
+        self.assertEqual(current_map["MARKET_REVIEW_REGION"], "cn")
         self.assertEqual(current_map["LITELLM_MODEL"], "openai/gpt-4o-mini")
         self.assertEqual(current_map["AGENT_LITELLM_MODEL"], "openai/gpt-4o")
         self.assertEqual(current_map["LITELLM_FALLBACK_MODELS"], "openai/gpt-4o-mini,openai/gpt-4o")
@@ -4446,27 +4445,27 @@ class SystemConfigServiceTestCase(unittest.TestCase):
     def test_update_market_review_region_accepts_comma_separated_regions(self) -> None:
         response = self.service.update(
             config_version=self.manager.get_config_version(),
-            items=[{"key": "MARKET_REVIEW_REGION", "value": "cn,jp,us"}],
+            items=[{"key": "MARKET_REVIEW_REGION", "value": "cn"}],
             reload_now=False,
         )
 
         self.assertTrue(response["success"])
         self.assertIn("MARKET_REVIEW_REGION", response["updated_keys"])
         current_map = self.manager.read_config_map()
-        self.assertEqual(current_map["MARKET_REVIEW_REGION"], "cn,jp,us")
+        self.assertEqual(current_map["MARKET_REVIEW_REGION"], "cn")
 
-    def test_import_env_market_review_region_accepts_comma_separated_regions(self) -> None:
+    def test_import_env_market_review_region_accepts_cn(self) -> None:
         response = self.service.import_env(
             config_version=self.manager.get_config_version(),
-            content="MARKET_REVIEW_REGION=jp,kr\n",
+            content="MARKET_REVIEW_REGION=cn\n",
             reload_now=False,
         )
 
         self.assertTrue(response["success"])
         current_map = self.manager.read_config_map()
-        self.assertEqual(current_map["MARKET_REVIEW_REGION"], "jp,kr")
+        self.assertEqual(current_map["MARKET_REVIEW_REGION"], "cn")
 
-    def test_import_desktop_env_restores_runtime_models_after_cleanup(self) -> None:
+    def test_import_env_restores_runtime_models_after_cleanup(self) -> None:
         self._rewrite_env(
             "STOCK_LIST=600519,000001",
             "LLM_CHANNELS=deepseek",
@@ -4480,7 +4479,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
             "VISION_MODEL=deepseek/deepseek-v4-flash",
         )
 
-        backup_content = self.service.export_desktop_env()["content"]
+        backup_content = self.service.export_env()["content"]
         pre_clear_map = dict(self.manager.read_config_map())
 
         clear_response = self.service.update(
@@ -4502,7 +4501,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         self.assertEqual(cleared_map["VISION_MODEL"], "")
         self.assertEqual(cleared_map["LITELLM_FALLBACK_MODELS"], "deepseek/deepseek-v4-flash")
 
-        restore_payload = self.service.import_desktop_env(
+        restore_payload = self.service.import_env(
             config_version=self.manager.get_config_version(),
             content=backup_content,
             reload_now=False,
@@ -4515,7 +4514,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         self.assertEqual(restored_map["VISION_MODEL"], pre_clear_map["VISION_MODEL"])
         self.assertEqual(restored_map["LITELLM_FALLBACK_MODELS"], pre_clear_map["LITELLM_FALLBACK_MODELS"])
 
-    def test_import_desktop_env_restores_provider_and_base_url_after_provider_cleanup(self) -> None:
+    def test_import_env_restores_provider_and_base_url_after_provider_cleanup(self) -> None:
         self._rewrite_env(
             "STOCK_LIST=600519,000001",
             "LITELLM_MODEL=openai/gpt-4o-mini",
@@ -4524,7 +4523,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
             "OPENAI_API_KEY=legacy-openai-key",
         )
 
-        backup_content = self.service.export_desktop_env()["content"]
+        backup_content = self.service.export_env()["content"]
         pre_clear_map = dict(self.manager.read_config_map())
 
         clear_response = self.service.update(
@@ -4545,7 +4544,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
         self.assertEqual(cleared_map["OPENAI_BASE_URL"], "")
         self.assertEqual(cleared_map["OPENAI_API_KEY"], "")
 
-        restore_payload = self.service.import_desktop_env(
+        restore_payload = self.service.import_env(
             config_version=self.manager.get_config_version(),
             content=backup_content,
             reload_now=False,

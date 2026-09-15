@@ -101,9 +101,6 @@ class RealtimeSource(Enum):
     TICKFLOW = "tickflow"           # TickFlow
     TENCENT = "tencent"             # 腾讯直连
     SINA = "sina"                   # 新浪直连
-    STOOQ = "stooq"                 # Stooq 美股兜底
-    LONGBRIDGE = "longbridge"       # 长桥（美股/港股兜底）
-    FUTU = "futu"                   # 富途 OpenD（港股）
     FALLBACK = "fallback"           # 降级兜底
 
 
@@ -127,8 +124,8 @@ class UnifiedRealtimeQuote:
     is_stale: Optional[bool] = None              # provider_timestamp 超过最小 TTL 阈值时为 True
     stale_seconds: Optional[int] = None          # provider_timestamp 距 fetched_at 的秒数
     fallback_from: Optional[str] = None          # 整源 fallback 的失败首选源 token
-    market: Optional[str] = None                 # 市场标签（cn/hk/us/jp/kr/tw）
-    currency: Optional[str] = None               # 报价币种（JPY/KRW/TWD/USD/HKD/CNY 等）
+    market: Optional[str] = None                 # 市场标签（固定为 cn）
+    currency: Optional[str] = None               # 报价币种（CNY）
     data_quality: Optional[str] = None           # ok/partial/unavailable
     missing_fields: Optional[list[str]] = None   # provider 缺失的关键字段
     

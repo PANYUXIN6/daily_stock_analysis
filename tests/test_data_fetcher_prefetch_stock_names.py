@@ -129,13 +129,13 @@ class TestPrefetchStockNames(unittest.TestCase):
         manager._fetchers = []
         manager.get_realtime_quote = MagicMock()
 
-        with patch.dict("data_provider.base.STOCK_NAME_MAP", {"AAPL": "苹果"}, clear=True):
+        with patch.dict("data_provider.base.STOCK_NAME_MAP", {"000858": "五粮液"}, clear=True):
             with patch("data_provider.base.get_index_stock_name", return_value="APPLE"):
-                name = DataFetcherManager.get_stock_name(manager, "AAPL")
+                name = DataFetcherManager.get_stock_name(manager, "000858")
 
-        self.assertEqual(name, "苹果")
+        self.assertEqual(name, "五粮液")
         manager.get_realtime_quote.assert_not_called()
-        self.assertEqual(manager._stock_name_cache["AAPL"], "苹果")
+        self.assertEqual(manager._stock_name_cache["000858"], "五粮液")
 
     def test_get_stock_name_prefers_index_mapping_before_realtime_quote(self):
         manager = DataFetcherManager.__new__(DataFetcherManager)

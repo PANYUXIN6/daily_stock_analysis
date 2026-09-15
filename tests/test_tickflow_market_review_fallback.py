@@ -91,19 +91,6 @@ class TestTickFlowMarketReviewFallback(unittest.TestCase):
         self.assertEqual(data, [{"code": "fallback"}])
         self.assertEqual(fallback.index_calls, 1)
 
-    def test_manager_skips_tickflow_for_non_cn_indices(self):
-        manager = DataFetcherManager.__new__(DataFetcherManager)
-        fallback = _DummyFetcher("YfinanceFetcher", indices=[{"code": "^GSPC"}])
-        manager._fetchers = [fallback]
-        manager._get_tickflow_fetcher = lambda: self.fail(
-            "TickFlow should not be called for non-CN indices"
-        )
-
-        data = DataFetcherManager.get_main_indices(manager, region="us")
-
-        self.assertEqual(data, [{"code": "^GSPC"}])
-        self.assertEqual(fallback.index_calls, 1)
-
     def test_manager_falls_back_when_tickflow_market_stats_fails(self):
         manager = DataFetcherManager.__new__(DataFetcherManager)
         fallback = _DummyFetcher(

@@ -87,20 +87,6 @@ class IntelligenceApiTestCase(unittest.TestCase):
         self.assertEqual(second.status_code, 400)
         self.assertEqual(second.json()["error"], "validation_error")
 
-    def test_list_and_create_from_builtin_source_template(self) -> None:
-        templates = self.client.get("/api/v1/intelligence/sources/templates", params={"market": "hk"})
-        self.assertEqual(templates.status_code, 200)
-        body = templates.json()
-        self.assertGreaterEqual(body["total"], 1)
-        self.assertTrue(any(item["template_id"] == "hkex-news" for item in body["items"]))
-
-        created = self.client.post(
-            "/api/v1/intelligence/sources/templates/hkex-news",
-            json={"name": "hkex-copy", "enabled": False},
-        )
-        self.assertEqual(created.status_code, 200)
-        self.assertEqual(created.json()["name"], "hkex-copy")
-        self.assertFalse(created.json()["enabled"])
 
     def test_create_builtin_default_sources_is_idempotent(self) -> None:
         first = self.client.post("/api/v1/intelligence/sources/defaults", json={"enabled": False})
@@ -108,14 +94,14 @@ class IntelligenceApiTestCase(unittest.TestCase):
 
         self.assertEqual(first.status_code, 200)
         self.assertEqual(second.status_code, 200)
-        self.assertGreaterEqual(first.json()["created_count"], 5)
+        self.assertEqual(first.json()["created_count"], 4)
         self.assertEqual(second.json()["created_count"], 0)
         self.assertEqual(first.json()["total"], second.json()["total"])
         newsnow_sources = [
             item["source"] for item in first.json()["items"]
             if item["source"]["source_type"] == "newsnow"
         ]
-        self.assertGreaterEqual(len(newsnow_sources), 5)
+        self.assertEqual(len(newsnow_sources), 4)
         self.assertTrue(all(not item["enabled"] for item in newsnow_sources))
 
     def test_fetch_source_internal_error_is_sanitized(self) -> None:
@@ -150,7 +136,7 @@ class IntelligenceApiTestCase(unittest.TestCase):
             item["source"] for item in default_resp.json()["items"]
             if item["source"]["source_type"] == "newsnow"
         ]
-        self.assertGreaterEqual(len(newsnow_sources), 5)
+        self.assertEqual(len(newsnow_sources), 4)
         self.assertTrue(all(not item["enabled"] for item in newsnow_sources))
 
     def test_upstream_fetch_errors_do_not_expose_query_secret(self) -> None:

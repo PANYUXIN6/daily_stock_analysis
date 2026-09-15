@@ -181,8 +181,8 @@ class AnalysisApiContractTestCase(unittest.TestCase):
                 return Future()
 
         cases = (
-            ("us", None, "us"),
-            ("us", "kr,jp", "jp,kr"),
+            ("cn", None, "cn"),
+            ("cn", "cn", "cn"),
         )
         original_queue_instance = AnalysisTaskQueue._instance
         try:
@@ -416,7 +416,7 @@ class AnalysisApiContractTestCase(unittest.TestCase):
 
         request = analysis_endpoint_module.MarketReviewRequest.model_validate({
             "send_notification": False,
-            "region": " KR, jp, KR ",
+            "region": " CN ",
         })
         config = SimpleNamespace(report_language="zh", market_review_region="cn")
         task_payload: dict[str, object] = {}
@@ -451,9 +451,9 @@ class AnalysisApiContractTestCase(unittest.TestCase):
             task_payload["background_task"]()
 
         self.assertEqual(response.task_id, "market-task-region")
-        self.assertEqual(response.region, "jp,kr")
-        self.assertEqual(task_queue.submit_background_task.call_args.kwargs["region"], "jp,kr")
-        self.assertEqual(run_market_review.call_args.kwargs["override_region"], "jp,kr")
+        self.assertEqual(response.region, "cn")
+        self.assertEqual(task_queue.submit_background_task.call_args.kwargs["region"], "cn")
+        self.assertEqual(run_market_review.call_args.kwargs["override_region"], "cn")
         self.assertEqual(config.market_review_region, "cn")
 
     def test_market_review_background_uses_runtime_region_when_request_omits_override(self) -> None:
@@ -1318,10 +1318,10 @@ class AnalysisApiContractTestCase(unittest.TestCase):
                 report_type="market_review",
                 raw_result={"raw_response": "# 🎯 大盘复盘\n\n复盘正文"},
                 context_snapshot={
-                    "market_review_region": "jp,kr",
+                    "market_review_region": "cn",
                     "market_review_payload": {
                         "kind": "market_review",
-                        "region": "jp,kr",
+                        "region": "cn",
                         "sections": [],
                     },
                 },
@@ -1336,8 +1336,8 @@ class AnalysisApiContractTestCase(unittest.TestCase):
 
         self.assertEqual(result.status, "completed")
         self.assertEqual(result.market_review_report, "# 🎯 大盘复盘\n\n复盘正文")
-        self.assertEqual(result.region, "jp,kr")
-        self.assertEqual(result.market_review_payload["region"], "jp,kr")
+        self.assertEqual(result.region, "cn")
+        self.assertEqual(result.market_review_payload["region"], "cn")
         self.assertIsNone(result.result)
 
     def test_get_analysis_status_completed_db_snapshot_reads_change_pct_from_raw_when_price_present(self) -> None:
@@ -2184,92 +2184,6 @@ class AnalysisApiContractTestCase(unittest.TestCase):
         self.assertIsNotNone(report.meta.market_phase_summary)
         self.assertEqual(report.meta.market_phase_summary.phase, "intraday")
 
-    def test_build_analysis_report_repairs_bare_kr_code_and_phase_summary(self) -> None:
-        if _build_analysis_report is None:
-            self.skipTest("analysis endpoint helpers unavailable in this environment")
-
-        persisted_phase_summary = {
-            **_market_phase_summary(),
-            "phase": "postmarket",
-            "market_local_time": "2025-01-02T16:10:00+09:00",
-            "session_date": "2025-01-02",
-            "effective_daily_bar_date": "2025-01-02",
-            "is_market_open_now": False,
-            "is_partial_bar": False,
-            "minutes_to_open": 900,
-            "minutes_to_close": None,
-            "trigger_source": "scheduled_job",
-            "analysis_intent": "postmarket",
-            "warnings": ["legacy_snapshot"],
-        }
-
-        with patch("api.v1.endpoints.analysis.resolve_index_stock_code", return_value="005930.KS"):
-            report = _build_analysis_report(
-                report_data={
-                    "meta": {"stock_code": "005930"},
-                    "summary": {},
-                    "strategy": {},
-                    "details": {},
-                },
-                query_id="q-kr-phase",
-                stock_code="005930",
-                stock_name="三星电子",
-                context_snapshot={"market_phase_summary": persisted_phase_summary},
-                fallback_fundamental_payload=None,
-            )
-
-        self.assertEqual(report.meta.stock_code, "005930.KS")
-        self.assertIsNotNone(report.meta.market_phase_summary)
-        self.assertEqual(report.meta.market_phase_summary.market, "kr")
-        self.assertEqual(report.meta.market_phase_summary.phase, "postmarket")
-        self.assertEqual(
-            report.meta.market_phase_summary.market_local_time,
-            "2025-01-02T16:10:00+09:00",
-        )
-        self.assertEqual(report.meta.market_phase_summary.session_date, "2025-01-02")
-        self.assertEqual(
-            report.meta.market_phase_summary.effective_daily_bar_date,
-            "2025-01-02",
-        )
-        self.assertEqual(report.meta.market_phase_summary.trigger_source, "scheduled_job")
-        self.assertEqual(report.meta.market_phase_summary.analysis_intent, "postmarket")
-
-    def test_build_analysis_report_rebuilds_legacy_cn_market_summary_for_kr_code(self) -> None:
-        if _build_analysis_report is None:
-            self.skipTest("analysis endpoint helpers unavailable in this environment")
-
-        legacy_cn_summary = {
-            **_market_phase_summary(),
-            "market": "cn",
-            "phase": "intraday",
-            "market_local_time": "2026-03-27T10:00:00+08:00",
-            "session_date": "2026-03-27",
-            "effective_daily_bar_date": "2026-03-26",
-            "analysis_intent": "intraday",
-            "trigger_source": "history_snapshot",
-            "warnings": ["legacy_cn_snapshot"],
-        }
-
-        with patch("api.v1.endpoints.analysis.resolve_index_stock_code", return_value="005930.KS"):
-            report = _build_analysis_report(
-                report_data={
-                    "meta": {"stock_code": "005930"},
-                    "summary": {},
-                    "strategy": {},
-                    "details": {},
-                },
-                query_id="q-kr-legacy-cn",
-                stock_code="005930",
-                stock_name="三星电子",
-                context_snapshot={"market_phase_summary": legacy_cn_summary},
-                fallback_fundamental_payload=None,
-            )
-
-        self.assertIsNotNone(report.meta.market_phase_summary)
-        self.assertEqual(report.meta.stock_code, "005930.KS")
-        self.assertEqual(report.meta.market_phase_summary.market, "kr")
-        self.assertTrue(report.meta.market_phase_summary.market_local_time.endswith("+09:00"))
-        self.assertIn("legacy_cn_snapshot", report.meta.market_phase_summary.warnings)
 
     def test_build_analysis_report_merges_partial_top_level_context_with_fallback(self) -> None:
         if _build_analysis_report is None:
@@ -3002,82 +2916,6 @@ class AnalysisApiContractTestCase(unittest.TestCase):
         self.assertEqual(ctx.exception.detail["message"], "请输入有效的股票代码或股票名称")
         queue_mock.assert_not_called()
 
-    def test_trigger_analysis_accepts_us_suffix_code(self) -> None:
-        if trigger_analysis is None:
-            self.skipTest("fastapi is not installed in this test environment")
-
-        queue = MagicMock()
-        queue.submit_tasks_batch.return_value = ([], [])
-
-        with patch("api.v1.endpoints.analysis.get_task_queue", return_value=queue), \
-             patch("api.v1.endpoints.analysis.resolve_name_to_code") as resolve_mock:
-            response = trigger_analysis(
-                request=SimpleNamespace(
-                    stock_code="AAPL.US",
-                    stock_codes=None,
-                    stock_name=None,
-                    original_query="AAPL.US",
-                    selection_source="manual",
-                    report_type="detailed",
-                    force_refresh=False,
-                    async_mode=True,
-                    notify=True,
-                    analysis_phase="auto",
-                ),
-                config=SimpleNamespace(),
-            )
-
-        self.assertEqual(response.status_code, 202)
-        resolve_mock.assert_not_called()
-        queue.submit_tasks_batch.assert_called_once_with(
-            stock_codes=["AAPL.US"],
-            stock_name=None,
-            original_query="AAPL.US",
-            selection_source="manual",
-            report_type="detailed",
-            analysis_phase="auto",
-            force_refresh=False,
-            notify=True,
-        )
-
-    def test_trigger_analysis_resolves_bare_code_from_stock_index_before_default_market(self) -> None:
-        if trigger_analysis is None:
-            self.skipTest("fastapi is not installed in this test environment")
-
-        queue = MagicMock()
-        queue.submit_tasks_batch.return_value = ([], [])
-
-        with patch("api.v1.endpoints.analysis.get_task_queue", return_value=queue), \
-             patch("api.v1.endpoints.analysis.resolve_index_stock_code", return_value="005930.KS"), \
-             patch("api.v1.endpoints.analysis.resolve_name_to_code") as resolve_mock:
-            response = trigger_analysis(
-                request=SimpleNamespace(
-                    stock_code="005930",
-                    stock_codes=None,
-                    stock_name=None,
-                    original_query="005930",
-                    selection_source="manual",
-                    report_type="detailed",
-                    force_refresh=False,
-                    async_mode=True,
-                    notify=True,
-                    analysis_phase="auto",
-                ),
-                config=SimpleNamespace(),
-            )
-
-        self.assertEqual(response.status_code, 202)
-        resolve_mock.assert_not_called()
-        queue.submit_tasks_batch.assert_called_once_with(
-            stock_codes=["005930.KS"],
-            stock_name=None,
-            original_query="005930",
-            selection_source="manual",
-            report_type="detailed",
-            analysis_phase="auto",
-            force_refresh=False,
-            notify=True,
-        )
 
     def test_trigger_analysis_resolves_bare_4_digit_jp_code_before_name_resolution(self) -> None:
         if trigger_analysis is None:
@@ -3651,42 +3489,6 @@ class AnalysisApiContractTestCase(unittest.TestCase):
             notify=True,
         )
 
-    def test_trigger_analysis_accepts_hk_suffix_code_from_autocomplete(self) -> None:
-        if trigger_analysis is None:
-            self.skipTest("fastapi is not installed in this test environment")
-
-        queue = MagicMock()
-        queue.submit_tasks_batch.return_value = ([], [])
-
-        with patch("api.v1.endpoints.analysis.get_task_queue", return_value=queue), \
-             patch("api.v1.endpoints.analysis.resolve_name_to_code") as resolve_mock:
-            response = trigger_analysis(
-                request=SimpleNamespace(
-                    stock_code="00700.HK",
-                    stock_codes=None,
-                    stock_name="腾讯控股",
-                    original_query="00700",
-                    selection_source="autocomplete",
-                    report_type="detailed",
-                    force_refresh=False,
-                    async_mode=True,
-                    analysis_phase="auto",
-                ),
-                config=SimpleNamespace(),
-            )
-
-        self.assertEqual(response.status_code, 202)
-        resolve_mock.assert_not_called()
-        queue.submit_tasks_batch.assert_called_once_with(
-            stock_codes=["00700.HK"],
-            stock_name="腾讯控股",
-            original_query="00700",
-            selection_source="autocomplete",
-            report_type="detailed",
-            analysis_phase="auto",
-            force_refresh=False,
-            notify=True,
-        )
 
     def test_trigger_analysis_accepts_bse_suffix_code_from_autocomplete(self) -> None:
         if trigger_analysis is None:
@@ -3716,7 +3518,7 @@ class AnalysisApiContractTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 202)
         resolve_mock.assert_not_called()
         queue.submit_tasks_batch.assert_called_once_with(
-            stock_codes=["920493.BJ"],
+            stock_codes=["920493"],
             stock_name="示例北交所股票",
             original_query="920493",
             selection_source="autocomplete",
@@ -3758,42 +3560,6 @@ class AnalysisApiContractTestCase(unittest.TestCase):
                 resolve_mock.assert_not_called()
                 queue.submit_tasks_batch.assert_not_called()
 
-    def test_trigger_analysis_accepts_hk_prefixed_code(self) -> None:
-        if trigger_analysis is None:
-            self.skipTest("fastapi is not installed in this test environment")
-
-        queue = MagicMock()
-        queue.submit_tasks_batch.return_value = ([], [])
-
-        with patch("api.v1.endpoints.analysis.get_task_queue", return_value=queue), \
-             patch("api.v1.endpoints.analysis.resolve_name_to_code") as resolve_mock:
-            response = trigger_analysis(
-                request=SimpleNamespace(
-                    stock_code="HK00700",
-                    stock_codes=None,
-                    stock_name=None,
-                    original_query="HK00700",
-                    selection_source="manual",
-                    report_type="detailed",
-                    force_refresh=False,
-                    async_mode=True,
-                    analysis_phase="auto",
-                ),
-                config=SimpleNamespace(),
-            )
-
-        self.assertEqual(response.status_code, 202)
-        resolve_mock.assert_not_called()
-        queue.submit_tasks_batch.assert_called_once_with(
-            stock_codes=["HK00700"],
-            stock_name=None,
-            original_query="HK00700",
-            selection_source="manual",
-            report_type="detailed",
-            analysis_phase="auto",
-            force_refresh=False,
-            notify=True,
-        )
 
     def test_trigger_analysis_allows_stock_names_with_star_and_hyphen(self) -> None:
         if trigger_analysis is None:
@@ -3950,7 +3716,7 @@ class AnalysisApiContractTestCase(unittest.TestCase):
             self.assertEqual(first.status_code, 202)
             self.assertEqual(second.status_code, 409)
             self.assertEqual(json.loads(second.body)["error"], "duplicate_task")
-            self.assertEqual(json.loads(second.body)["stock_code"], "600519.SH")
+            self.assertEqual(json.loads(second.body)["stock_code"], "600519")
             self.assertEqual(
                 json.loads(second.body)["existing_task_id"],
                 json.loads(first.body)["task_id"],
@@ -4567,7 +4333,7 @@ class BatchTaskQueueContractTestCase(unittest.TestCase):
 
         self.assertEqual(accepted_again, [])
         self.assertEqual(len(duplicates_again), 1)
-        self.assertEqual(duplicates_again[0].stock_code, "600519.SH")
+        self.assertEqual(duplicates_again[0].stock_code, "600519")
         self.assertEqual(duplicates_again[0].existing_task_id, accepted[0].task_id)
 
     def test_submit_task_rejects_blank_stock_code(self) -> None:

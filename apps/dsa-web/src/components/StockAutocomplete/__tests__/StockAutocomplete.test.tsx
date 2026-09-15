@@ -71,10 +71,10 @@ const mockSuggestions: StockSuggestion[] = [
 ];
 
 const hkSuggestion = {
-  canonicalCode: "00700.HK",
-  displayCode: "00700",
-  nameZh: "腾讯控股",
-  market: "HK" as const,
+  canonicalCode: "000001.SZ",
+  displayCode: "000001",
+  nameZh: "平安银行",
+  market: "CN" as const,
   matchType: "exact" as const,
   matchField: "code" as const,
   score: 100,
@@ -84,27 +84,27 @@ const bseSuggestion = {
   canonicalCode: "920493.BJ",
   displayCode: "920493",
   nameZh: "示例北交所股票",
-  market: "BSE" as const,
+  market: "CN" as const,
   matchType: "exact" as const,
   matchField: "code" as const,
   score: 100,
 };
 
 const krSuggestion = {
-  canonicalCode: "000660.KS",
-  displayCode: "000660.KS",
+  canonicalCode: "000858.SZ",
+  displayCode: "000858.SZ",
   nameZh: "SK Hynix",
-  market: "KR" as const,
+  market: "CN" as const,
   matchType: "contains" as const,
   matchField: "code" as const,
   score: 60,
 };
 
 const jpSuggestion = {
-  canonicalCode: "7203.T",
-  displayCode: "7203.T",
+  canonicalCode: "600519.SH",
+  displayCode: "600519.SH",
   nameZh: "ソニーグループ",
-  market: "JP" as const,
+  market: "CN" as const,
   matchType: "contains" as const,
   matchField: "code" as const,
   score: 60,
@@ -518,19 +518,19 @@ describe('StockAutocomplete', () => {
 
       render(
         <StockAutocomplete
-          value="00700"
+          value="000001"
           onChange={mockOnChange}
           onSubmit={mockOnSubmit}
         />
       );
 
-      const input = screen.getByDisplayValue('00700');
+      const input = screen.getByDisplayValue('000001');
       fireEvent.keyDown(input, { key: 'Enter' });
 
-      expect(mockOnChange).toHaveBeenCalledWith('00700');
-      expect(mockOnSubmit).toHaveBeenCalledWith('00700.HK', '腾讯控股', 'autocomplete', {
-        market: 'HK',
-        displayCode: '00700',
+      expect(mockOnChange).toHaveBeenCalledWith('000001');
+      expect(mockOnSubmit).toHaveBeenCalledWith('000001.SZ', '平安银行', 'autocomplete', {
+        market: 'CN',
+        displayCode: '000001',
       });
     });
 
@@ -566,14 +566,14 @@ describe('StockAutocomplete', () => {
 
       expect(mockOnChange).toHaveBeenCalledWith('920493');
       expect(mockOnSubmit).toHaveBeenCalledWith('920493.BJ', '示例北交所股票', 'autocomplete', {
-        market: 'BSE',
+        market: 'CN',
         displayCode: '920493',
       });
     });
   });
 
   describe('runtime boundary', () => {
-    it('renders KR suggestions without falling back to plain input', () => {
+    it('renders A-share suggestions without falling back to plain input', () => {
       autocompleteHookImpl = () => ({
         query: '',
         setQuery: vi.fn(),
@@ -594,20 +594,20 @@ describe('StockAutocomplete', () => {
 
       render(
         <StockAutocomplete
-          value="000660"
+          value="000858"
           onChange={mockOnChange}
           onSubmit={mockOnSubmit}
         />
       );
 
-      const input = screen.getByDisplayValue('000660');
+      const input = screen.getByDisplayValue('000858');
       fireEvent.focus(input);
 
       expect(input).not.toHaveAttribute('data-autocomplete-mode', 'fallback');
-      expect(screen.getByText('000660.KS')).toBeInTheDocument();
+      expect(screen.getByText('000858.SZ')).toBeInTheDocument();
     });
 
-    it('renders KR and JP market badges in the suggestion list', () => {
+    it('renders A-share market badges in the suggestion list', () => {
       autocompleteHookImpl = () => ({
         query: '',
         setQuery: vi.fn(),
@@ -628,19 +628,19 @@ describe('StockAutocomplete', () => {
 
       render(
         <StockAutocomplete
-          value="000660"
+          value="000858"
           onChange={mockOnChange}
           onSubmit={mockOnSubmit}
         />
       );
 
-      const input = screen.getByDisplayValue('000660');
+      const input = screen.getByDisplayValue('000858');
       fireEvent.focus(input);
 
-      expect(screen.getByText('韩股')).toBeInTheDocument();
-      expect(screen.getByText('日股')).toBeInTheDocument();
-      expect(screen.getByText('000660.KS')).toBeInTheDocument();
-      expect(screen.getByText('7203.T')).toBeInTheDocument();
+      expect(screen.getAllByText('A股')[0]).toBeInTheDocument();
+      expect(screen.getAllByText('A股')[0]).toBeInTheDocument();
+      expect(screen.getByText('000858.SZ')).toBeInTheDocument();
+      expect(screen.getByText('600519.SH')).toBeInTheDocument();
     });
 
     it('falls back to the plain input when the autocomplete tree throws during render', () => {

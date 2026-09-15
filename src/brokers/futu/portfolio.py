@@ -10,7 +10,6 @@ import os
 from dataclasses import dataclass
 from typing import Any, Iterable, List, Optional
 
-from data_provider.us_index_mapping import is_us_stock_code
 from src.services.stock_code_utils import normalize_code
 
 
@@ -44,7 +43,7 @@ class _FutuApi:
 
 
 _SUPPORTED_ACCOUNT_ROLES = frozenset({"NORMAL", "MASTER"})
-_SUPPORTED_ANALYSIS_MARKETS = frozenset({"US", "HK", "SH", "SZ"})
+_SUPPORTED_ANALYSIS_MARKETS = frozenset({"SH", "SZ"})
 _UNKNOWN_SECURITY_TYPES = frozenset({"", "N/A", "NONE", "UNKNOWN", "NAN"})
 _STATIC_INFO_BATCH_SIZE = 100
 
@@ -341,14 +340,6 @@ def _to_analysis_code(futu_code: str) -> Optional[str]:
         return None
     prefix = prefix.upper()
     symbol = symbol.upper()
-    if prefix == "US":
-        normalized = normalize_code(symbol)
-        if normalized == symbol and is_us_stock_code(normalized):
-            return normalized
-        return None
-    if prefix == "HK":
-        normalized = normalize_code(f"HK.{symbol}")
-        return f"HK{normalized}" if normalized is not None else None
     if prefix in {"SH", "SZ"}:
         normalized = normalize_code(f"{prefix}.{symbol}")
         return normalized if normalized == symbol else None
@@ -361,7 +352,7 @@ def _filter_stock_codes(
     port: int,
     position_codes: List[str],
 ) -> List[str]:
-    """Keep A/HK/US stocks and report unsupported Futu market codes."""
+    """Keep Shanghai/Shenzhen A shares and report unsupported holdings."""
 
     if not position_codes:
         return []
@@ -466,8 +457,8 @@ def load_futu_stock_codes() -> List[str]:
     account role, while read-only describes this integration's query-only API
     calls. Firm discovery uses the SDK's ``SecurityFirm.NONE`` auto-detection
     unless ``FUTU_SECURITY_FIRM`` is explicitly set. Position data is always
-    refreshed. Symbol conversion is limited to A/HK/US stocks; holdings from
-    other Futu markets are logged with their codes and skipped.
+    refreshed. Symbol conversion is limited to Shanghai/Shenzhen A shares;
+    holdings from other markets are logged with their codes and skipped.
     """
     api = _load_futu_api()
     host, port = _connection_settings()

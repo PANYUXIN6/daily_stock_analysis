@@ -147,7 +147,7 @@ function makeSnapshot(options: {
         accountName: `Account ${accountId}`,
         ownerId: null,
         broker: 'Demo',
-        market: 'us',
+        market: 'cn',
         baseCurrency: 'CNY',
         asOf: '2026-03-19',
         costMethod: 'fifo' as const,
@@ -330,7 +330,7 @@ describe('PortfolioPage FX refresh', () => {
       taskId: 'task-portfolio-1',
       traceId: 'task-portfolio-1',
       status: 'pending',
-      message: '分析任务已加入队列: HK00700',
+      message: '分析任务已加入队列: 000001',
       analysisPhase: 'auto',
     });
     getLatestDecisionSignals.mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 1 });
@@ -551,15 +551,15 @@ describe('PortfolioPage FX refresh', () => {
 
   it('renders backend-provided position valuation fields and stale missing-price hint', async () => {
     getSnapshot.mockResolvedValueOnce(makeSnapshot({ fxStale: true, positions: [
-      { symbol: 'HK00700', market: 'hk', currency: 'HKD', quantity: 10, avgCost: 400, totalCost: 4000, lastPrice: 420, marketValueBase: 4200, unrealizedPnlBase: 200, unrealizedPnlPct: 5, valuationCurrency: 'HKD', priceSource: 'history_close', priceDate: '2026-03-18', priceStale: true, priceAvailable: true },
-      { symbol: 'AAPL', market: 'us', currency: 'USD', quantity: 5, avgCost: 100, totalCost: 500, lastPrice: 0, marketValueBase: 0, unrealizedPnlBase: 0, unrealizedPnlPct: null, valuationCurrency: 'USD', priceSource: 'missing', priceDate: null, priceStale: true, priceAvailable: false },
+      { symbol: '000001', market: 'cn', currency: 'HKD', quantity: 10, avgCost: 400, totalCost: 4000, lastPrice: 420, marketValueBase: 4200, unrealizedPnlBase: 200, unrealizedPnlPct: 5, valuationCurrency: 'HKD', priceSource: 'history_close', priceDate: '2026-03-18', priceStale: true, priceAvailable: true },
+      { symbol: '000858', market: 'cn', currency: 'USD', quantity: 5, avgCost: 100, totalCost: 500, lastPrice: 0, marketValueBase: 0, unrealizedPnlBase: 0, unrealizedPnlPct: null, valuationCurrency: 'USD', priceSource: 'missing', priceDate: null, priceStale: true, priceAvailable: false },
     ] }));
 
     render(<PortfolioPage />);
 
     await waitForInitialLoad();
 
-    expect(await screen.findByText('HK00700')).toBeInTheDocument();
+    expect(await screen.findByText('000001')).toBeInTheDocument();
     expect(screen.getByText('420.0000')).toBeInTheDocument();
     expect(screen.getByText('HKD 4,200.00')).toBeInTheDocument();
     expect(screen.getByText('+5.00%')).toBeInTheDocument();
@@ -567,15 +567,15 @@ describe('PortfolioPage FX refresh', () => {
     expect(screen.getByText('缺价')).toBeInTheDocument();
     expect(screen.getAllByText('--').length).toBeGreaterThanOrEqual(2);
 
-    const hkRow = screen.getByText('HK00700').closest('tr');
-    const aaplRow = screen.getByText('AAPL').closest('tr');
+    const hkRow = screen.getByText('000001').closest('tr');
+    const wuliangyeRow = screen.getByText('000858').closest('tr');
     expect(hkRow).not.toBeNull();
-    expect(aaplRow).not.toBeNull();
+    expect(wuliangyeRow).not.toBeNull();
 
     const hkRowCells = within(hkRow as HTMLTableRowElement).getAllByRole('cell');
-    const aaplRowCells = within(aaplRow as HTMLTableRowElement).getAllByRole('cell');
+    const wuliangyeRowCells = within(wuliangyeRow as HTMLTableRowElement).getAllByRole('cell');
     expect(hkRowCells.at(-3)).toHaveClass('text-success');
-    expect(aaplRowCells.at(-3)).toHaveClass('text-secondary');
+    expect(wuliangyeRowCells.at(-3)).toHaveClass('text-secondary');
   });
 
   it('loads latest active signals for holdings without scanning paginated signal lists', async () => {
@@ -741,8 +741,8 @@ describe('PortfolioPage FX refresh', () => {
     getSnapshot.mockResolvedValueOnce(makeSnapshot({ positions: [
       { symbol: '600519', market: 'cn', currency: 'CNY', quantity: 1, avgCost: 1500, totalCost: 1500, lastPrice: 1600, marketValueBase: 1600, unrealizedPnlBase: 100, unrealizedPnlPct: 6.67, valuationCurrency: 'CNY', priceSource: 'history_close', priceDate: '2026-06-17', priceStale: false, priceAvailable: true },
       { symbol: 'SH600519', market: 'cn', currency: 'CNY', quantity: 1, avgCost: 1500, totalCost: 1500, lastPrice: 1600, marketValueBase: 1600, unrealizedPnlBase: 100, unrealizedPnlPct: 6.67, valuationCurrency: 'CNY', priceSource: 'history_close', priceDate: '2026-06-17', priceStale: false, priceAvailable: true },
-      { symbol: '00700.HK', market: 'hk', currency: 'HKD', quantity: 10, avgCost: 400, totalCost: 4000, lastPrice: 420, marketValueBase: 4200, unrealizedPnlBase: 200, unrealizedPnlPct: 5, valuationCurrency: 'HKD', priceSource: 'history_close', priceDate: '2026-06-17', priceStale: false, priceAvailable: true },
-      { symbol: 'AAPL', market: 'us', currency: 'USD', quantity: 2, avgCost: 180, totalCost: 360, lastPrice: 190, marketValueBase: 380, unrealizedPnlBase: 20, unrealizedPnlPct: 5.56, valuationCurrency: 'USD', priceSource: 'history_close', priceDate: '2026-06-17', priceStale: false, priceAvailable: true },
+      { symbol: '000001', market: 'cn', currency: 'HKD', quantity: 10, avgCost: 400, totalCost: 4000, lastPrice: 420, marketValueBase: 4200, unrealizedPnlBase: 200, unrealizedPnlPct: 5, valuationCurrency: 'HKD', priceSource: 'history_close', priceDate: '2026-06-17', priceStale: false, priceAvailable: true },
+      { symbol: '000858', market: 'cn', currency: 'USD', quantity: 2, avgCost: 180, totalCost: 360, lastPrice: 190, marketValueBase: 380, unrealizedPnlBase: 20, unrealizedPnlPct: 5.56, valuationCurrency: 'USD', priceSource: 'history_close', priceDate: '2026-06-17', priceStale: false, priceAvailable: true },
     ] }));
     getLatestDecisionSignals.mockImplementation(async (stockCode: string) => {
       if (stockCode.includes('600519')) {
@@ -753,9 +753,9 @@ describe('PortfolioPage FX refresh', () => {
           pageSize: 1,
         };
       }
-      if (stockCode.includes('00700')) {
+      if (stockCode.includes('000001')) {
         return {
-          items: [makeDecisionSignal({ id: 2, stockCode: 'HK00700', market: 'hk', riskSummary: '港股风险', watchConditions: '观察回购' })],
+          items: [makeDecisionSignal({ id: 2, stockCode: '000001', market: 'cn', riskSummary: '平安银行风险', watchConditions: '观察回购' })],
           total: 1,
           page: 1,
           pageSize: 1,
@@ -767,23 +767,23 @@ describe('PortfolioPage FX refresh', () => {
     render(<PortfolioPage />);
 
     expect(await screen.findAllByText('A 股风险')).toHaveLength(2);
-    expect(screen.getByText('港股风险')).toBeInTheDocument();
+    expect(screen.getByText('平安银行风险')).toBeInTheDocument();
     const latestLookupSymbols = getLatestDecisionSignals.mock.calls.map(([stockCode]) => String(stockCode));
     expect(latestLookupSymbols.filter((stockCode) => stockCode.includes('600519'))).toEqual(['600519']);
     expect(getLatestDecisionSignals).toHaveBeenCalledTimes(3);
-    expect(getLatestDecisionSignals).toHaveBeenCalledWith('00700.HK', {
-      market: 'hk',
+    expect(getLatestDecisionSignals).toHaveBeenCalledWith('600519', {
+      market: 'cn',
       limit: 1,
     });
-    const aaplRow = screen.getByText('AAPL').closest('tr');
-    expect(aaplRow).not.toBeNull();
-    expect(within(aaplRow as HTMLTableRowElement).getByText('—')).toBeInTheDocument();
+    const wuliangyeRow = screen.getByText('000858').closest('tr');
+    expect(wuliangyeRow).not.toBeNull();
+    expect(within(wuliangyeRow as HTMLTableRowElement).getByText('—')).toBeInTheDocument();
   });
 
   it('shows a visible partial warning when one latest holding signal lookup fails', async () => {
     getSnapshot.mockResolvedValueOnce(makeSnapshot({ positions: [
       { symbol: '600519', market: 'cn', currency: 'CNY', quantity: 1, avgCost: 1500, totalCost: 1500, lastPrice: 1600, marketValueBase: 1600, unrealizedPnlBase: 100, unrealizedPnlPct: 6.67, valuationCurrency: 'CNY', priceSource: 'history_close', priceDate: '2026-06-17', priceStale: false, priceAvailable: true },
-      { symbol: 'AAPL', market: 'us', currency: 'USD', quantity: 2, avgCost: 180, totalCost: 360, lastPrice: 190, marketValueBase: 380, unrealizedPnlBase: 20, unrealizedPnlPct: 5.56, valuationCurrency: 'USD', priceSource: 'history_close', priceDate: '2026-06-17', priceStale: false, priceAvailable: true },
+      { symbol: '000858', market: 'cn', currency: 'USD', quantity: 2, avgCost: 180, totalCost: 360, lastPrice: 190, marketValueBase: 380, unrealizedPnlBase: 20, unrealizedPnlPct: 5.56, valuationCurrency: 'USD', priceSource: 'history_close', priceDate: '2026-06-17', priceStale: false, priceAvailable: true },
     ] }));
     getLatestDecisionSignals
       .mockResolvedValueOnce({
@@ -792,13 +792,13 @@ describe('PortfolioPage FX refresh', () => {
         page: 1,
         pageSize: 1,
       })
-      .mockRejectedValueOnce(new Error('latest AAPL failed'));
+      .mockRejectedValueOnce(new Error('latest 000858 failed'));
 
     render(<PortfolioPage />);
 
     expect(await screen.findByText('已加载风险')).toBeInTheDocument();
     expect(await screen.findByText('AI 建议降级')).toBeInTheDocument();
-    expect(screen.getByText(/latest AAPL failed/)).toBeInTheDocument();
+    expect(screen.getByText(/latest 000858 failed/)).toBeInTheDocument();
   });
 
   it('loads each unique holding through the latest endpoint once', async () => {
@@ -822,8 +822,8 @@ describe('PortfolioPage FX refresh', () => {
 
   it('limits concurrent latest lookups for large portfolios', async () => {
     const positions = Array.from({ length: 10 }, (_, index) => makePosition({
-      symbol: `AAPL${index}`,
-      market: 'us',
+      symbol: `000858${index}`,
+      market: 'cn',
       currency: 'USD',
       totalCost: 100 + index,
       marketValueBase: 120 + index,
@@ -841,7 +841,7 @@ describe('PortfolioPage FX refresh', () => {
 
     render(<PortfolioPage />);
 
-    expect(await screen.findByText('AAPL0')).toBeInTheDocument();
+    expect(await screen.findByText('0008580')).toBeInTheDocument();
     await waitFor(() => expect(getLatestDecisionSignals).toHaveBeenCalledTimes(10));
     await waitFor(() => expect(inFlight).toBe(0));
     expect(maxInFlight).toBeLessThanOrEqual(6);
@@ -849,25 +849,25 @@ describe('PortfolioPage FX refresh', () => {
 
   it('submits manual analysis for a held position without exposing portfolio details in the UI call', async () => {
     getSnapshot.mockResolvedValueOnce(makeSnapshot({ fxStale: true, positions: [
-      { symbol: 'HK00700', market: 'hk', currency: 'HKD', quantity: 10, avgCost: 400, totalCost: 4000, lastPrice: 420, marketValueBase: 4200, unrealizedPnlBase: 200, unrealizedPnlPct: 5, valuationCurrency: 'HKD', priceSource: 'history_close', priceDate: '2026-03-18', priceStale: true, priceAvailable: true },
+      { symbol: '000001', market: 'cn', currency: 'HKD', quantity: 10, avgCost: 400, totalCost: 4000, lastPrice: 420, marketValueBase: 4200, unrealizedPnlBase: 200, unrealizedPnlPct: 5, valuationCurrency: 'HKD', priceSource: 'history_close', priceDate: '2026-03-18', priceStale: true, priceAvailable: true },
     ] }));
 
     render(<PortfolioPage />);
 
     await waitForInitialLoad();
 
-    const row = screen.getByText('HK00700').closest('tr');
+    const row = screen.getByText('000001').closest('tr');
     expect(row).not.toBeNull();
     fireEvent.click(within(row as HTMLTableRowElement).getByRole('button', { name: '分析' }));
 
     await waitFor(() => {
-      expect(analyzePosition).toHaveBeenCalledWith('HK00700', {
+      expect(analyzePosition).toHaveBeenCalledWith('000001', {
         accountId: 1,
         analysisPhase: 'auto',
         force: false,
       });
     });
-    expect(await screen.findByText('已提交 HK00700 分析任务：task-portfolio-1')).toBeInTheDocument();
+    expect(await screen.findByText('已提交 000001 分析任务：task-portfolio-1')).toBeInTheDocument();
   });
 
   it('prefers disabled feedback over empty-pair feedback when refresh is disabled', async () => {

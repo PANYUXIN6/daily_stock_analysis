@@ -72,7 +72,6 @@ from src.services.daily_market_context import (
     DailyMarketContextService,
     format_daily_market_context_prompt_section,
 )
-from src.services.social_sentiment_service import SocialSentimentService
 from src.services.intelligence_service import IntelligenceService
 from src.services.market_hotspot_service import MarketHotspotService
 from src.services.analysis_context_builder import (
@@ -106,7 +105,6 @@ from src.core.trading_calendar import (
     get_market_now,
     is_market_open,
 )
-from data_provider.us_index_mapping import is_us_stock_code
 from bot.models import BotMessage
 
 
@@ -181,18 +179,6 @@ def _symbol_scope_lookup_values(code: str, market: str) -> List[str]:
 
     add_case_variants(normalized)
     add_case_variants(raw)
-
-    normalized_upper = normalized.upper()
-    if normalized_upper.startswith("HK") and normalized_upper[2:].isdigit():
-        digits = normalized_upper[2:]
-        trimmed_digits = digits.lstrip("0") or digits
-        add_case_variants(normalized_upper)
-        add_case_variants(digits)
-        add_case_variants(trimmed_digits)
-        add_case_variants(f"HK{trimmed_digits}")
-        add_case_variants(f"{trimmed_digits}.HK")
-        add_case_variants(f"{digits}.HK")
-        return values
 
     if (market or "").strip().lower() != "cn":
         return values
@@ -334,22 +320,6 @@ class StockAnalysisPipeline:
             logger.info("搜索服务已启用")
         else:
             logger.warning("搜索服务未启用（未配置搜索能力）")
-
-        # 初始化社交舆情服务（仅美股，可选）
-        try:
-            self.social_sentiment_service = SocialSentimentService(
-                api_key=self.config.social_sentiment_api_key,
-                api_url=self.config.social_sentiment_api_url,
-            )
-            if self.social_sentiment_service.is_available:
-                logger.info("Social sentiment service enabled (Reddit/X/Polymarket, US stocks only)")
-        except Exception as exc:
-            logger.warning(
-                "社交舆情服务初始化失败，将跳过舆情分析: %s",
-                exc,
-                exc_info=True,
-            )
-            self.social_sentiment_service = None
 
     def _emit_progress(self, progress: int, message: str) -> None:
         """Best-effort bridge from pipeline stages to task SSE progress."""
@@ -732,20 +702,6 @@ class StockAnalysisPipeline:
             else:
                 logger.info(f"{stock_name}({code}) 搜索服务不可用，跳过情报搜索")
 
-            # Step 4.5: Social sentiment intelligence (US stocks only)
-            social_evidence_context: Optional[str] = None
-            if self.social_sentiment_service is not None and self.social_sentiment_service.is_available and is_us_stock_code(code):
-                try:
-                    social_context = self.social_sentiment_service.get_social_context(code)
-                    if social_context:
-                        logger.info(f"{stock_name}({code}) Social sentiment data retrieved")
-                        social_evidence_context = social_context
-                        if news_context:
-                            news_context = news_context + "\n\n" + social_context
-                        else:
-                            news_context = social_context
-                except Exception as e:
-                    logger.warning(f"{stock_name}({code}) Social sentiment fetch failed: {e}")
 
             if persisted_intelligence_context:
                 news_context = (
@@ -852,12 +808,11 @@ class StockAnalysisPipeline:
                     # 交给展示层区分「未配置渠道」「检索零命中」和「正常命中」。
                     # 该值此前只进了诊断快照，报告层拿不到。
                     result.news_result_count = news_result_count
-                    # 三路来源逐个登记，不看拼好的 news_context 整段：
+                    # 按来源逐个登记，不看拼好的 news_context 整段：
                     # format_intel_report() 零命中时仍输出占位文本，整段永远非空，
                     # 拿它判定会把「搜了但一条没拿到」误判成有证据。
                     result.news_evidence_present = news_evidence_present(
                         news_result_count,
-                        social_evidence_context,
                         persisted_intelligence_context,
                     )
                 record_llm_run(
@@ -1249,14 +1204,6 @@ class StockAnalysisPipeline:
         coverage = enriched_context.get("coverage")
         boards_coverage = coverage.get("boards") if isinstance(coverage, dict) else None
 
-        # For HK/US: the offshore adapter already populates belong_boards from
-        # yfinance sector/industry. Don't overwrite it (and we have no AkShare
-        # 板块 endpoint for those markets anyway). Default to [] when callers
-        # pass a minimal context without the key.
-        if market != "cn":
-            enriched_context["belong_boards"] = existing_board_list or []
-            return enriched_context
-
         if boards_status == "not_supported" or boards_coverage == "not_supported":
             enriched_context["belong_boards"] = existing_board_list or []
             return enriched_context
@@ -1529,24 +1476,6 @@ class StockAnalysisPipeline:
             if trend_result:
                 initial_context["trend_result"] = self._safe_to_dict(trend_result)
 
-            # Agent path: inject social sentiment as news_context so both
-            # executor (_build_user_message) and orchestrator (ctx.set_data)
-            # can consume it through the existing news_context channel
-            social_evidence_context: Optional[str] = None
-            if self.social_sentiment_service is not None and self.social_sentiment_service.is_available and is_us_stock_code(code):
-                try:
-                    social_context = self.social_sentiment_service.get_social_context(code)
-                    if social_context:
-                        social_evidence_context = social_context
-                        existing = initial_context.get("news_context")
-                        if existing:
-                            initial_context["news_context"] = existing + "\n\n" + social_context
-                        else:
-                            initial_context["news_context"] = social_context
-                        logger.info(f"[{code}] Agent mode: social sentiment data injected into news_context")
-                except Exception as e:
-                    logger.warning(f"[{code}] Agent mode: social sentiment fetch failed: {e}")
-
             persisted_intelligence_context = self._load_persisted_intelligence_context(
                 code=code,
                 stock_name=stock_name,
@@ -1643,11 +1572,10 @@ class StockAnalysisPipeline:
                     ),
                 )
                 # 与普通路径同样按来源逐个登记：Agent 运行期自己搜到的条数、注入的
-                # 社交情绪、注入的本地资讯池。这条路径不经过 format_intel_report()，
+                # 本地资讯池。这条路径不经过 format_intel_report()，
                 # 但仍不传拼好的整段，避免以后有人往里加会造占位文本的来源。
                 result.news_evidence_present = news_evidence_present(
                     result.news_result_count,
-                    social_evidence_context,
                     persisted_intelligence_context,
                 )
             record_llm_run(
@@ -1965,37 +1893,8 @@ class StockAnalysisPipeline:
     def _get_analysis_context_with_market_fallback(
         self, code: str, analysis_target: Optional[AnalysisTarget] = None
     ) -> Optional[Dict[str, Any]]:
-        """Load analysis context, fetching JP/KR/TW daily bars when DB has no context."""
-        context = self.db.get_analysis_context(code)
-        if isinstance(context, dict) and context:
-            return context
-
-        if analysis_target is not None and analysis_target.asset_type == ParseStatus.INDEX:
-            market = "cn"
-        else:
-            market = get_market_for_stock(normalize_stock_code(code))
-        if market not in {"jp", "kr", "tw"}:
-            return context
-
-        try:
-            df, source_name = self.fetcher_manager.get_daily_data(code, days=60)
-        except Exception as exc:
-            logger.warning("[%s] JP/KR daily fallback fetch failed: %s", code, exc)
-            return context
-
-        if df is None or df.empty:
-            logger.warning("[%s] JP/KR daily fallback returned empty data", code)
-            return context
-
-        try:
-            self.db.save_daily_data(df, code, source_name)
-            refreshed = self.db.get_analysis_context(code)
-            if isinstance(refreshed, dict) and refreshed:
-                return refreshed
-        except Exception as exc:
-            logger.warning("[%s] JP/KR daily fallback persistence failed: %s", code, exc)
-
-        return self._build_analysis_context_from_daily_df(code, df)
+        """Load the persisted A-share analysis context."""
+        return self.db.get_analysis_context(code)
 
     def _build_analysis_context_from_daily_df(self, code: str, df: pd.DataFrame) -> Optional[Dict[str, Any]]:
         if df is None or df.empty:

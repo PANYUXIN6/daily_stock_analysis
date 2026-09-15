@@ -9,7 +9,7 @@ A股自选股智能分析系统 - 通知服务单元测试
 2. 验证通知服务的渠道检测逻辑
 3. 验证通知服务的消息发送逻辑
 
-TODO: 
+TODO:
 1. 添加发送渠道以外的测试，如：
     - 生成日报
 2. 添加 send_to_context 的测试
@@ -683,7 +683,7 @@ class TestNotificationServiceSendToMethods(unittest.TestCase):
 
         self.assertTrue(ok)
         mock_post.assert_called_once()
-        
+
     @mock.patch("src.notification.get_config")
     @mock.patch("src.notification_sender.discord_sender.time.sleep", return_value=None)
     @mock.patch("requests.post")
@@ -1841,66 +1841,6 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
         self.assertIn("0.5000 元", out)
         self.assertNotIn("关联板块", out)
 
-    @mock.patch("src.notification.get_config")
-    def test_generate_single_stock_report_uses_currency_for_us(
-        self, mock_get_config: mock.MagicMock
-    ):
-        """USD currency on financial_report yields 亿美元 suffix instead of 亿元."""
-        mock_get_config.return_value = _make_config(report_renderer_enabled=False)
-        service = NotificationService()
-        result = AnalysisResult(
-            code="AAPL",
-            name="Apple Inc.",
-            sentiment_score=64,
-            trend_prediction="震荡",
-            operation_advice="观望",
-            analysis_summary="观望等待 AI 兑现节奏。",
-        )
-        result.fundamental_context = {
-            "earnings": {
-                "status": "ok",
-                "data": {
-                    "financial_report": {
-                        "report_date": "2026-03-31",
-                        "revenue": 1.11e11,
-                        "net_profit_parent": 2.95e10,
-                        "operating_cash_flow": 2.87e10,
-                        "roe": 141.47,
-                        "currency": "USD",
-                    },
-                    "dividend": {
-                        "events": [{
-                            "event_date": "2026-05-11",
-                            "ex_dividend_date": "2026-05-11",
-                            "cash_dividend_per_share": 0.27,
-                            "is_pre_tax": True,
-                        }],
-                        "ttm_event_count": 4,
-                        "ttm_cash_dividend_per_share": 1.05,
-                        "ttm_dividend_yield_pct": 0.36,
-                    },
-                },
-            },
-            "growth": {"status": "ok", "data": {"revenue_yoy": 16.60, "roe": 141.47, "gross_margin": 47.86}},
-            "belong_boards": [
-                {"name": "Technology", "type": "行业"},
-                {"name": "Consumer Electronics", "type": "概念"},
-            ],
-        }
-
-        out = service.generate_single_stock_report(result)
-
-        self.assertIn("财务摘要", out)
-        self.assertIn("亿美元", out)
-        self.assertNotIn("12360.00 亿元", out)
-        # Sample expected formatted values
-        self.assertIn("1110.00 亿美元", out)
-        self.assertIn("141.47%", out)
-        # Dividend per share also picks up currency suffix
-        self.assertIn("1.0500 美元", out)
-        # Sector + industry render as belong_boards
-        self.assertIn("Technology", out)
-        self.assertIn("Consumer Electronics", out)
 
     @mock.patch("src.notification.get_config")
     def test_related_boards_drops_signal_columns_when_no_sector_data(
@@ -2052,68 +1992,6 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
         self.assertNotIn("领涨", out)
         self.assertNotIn("板块涨跌幅", out)
 
-    @mock.patch("src.notification.get_config")
-    def test_generate_single_stock_report_uses_currency_for_hk(
-        self, mock_get_config: mock.MagicMock
-    ):
-        """HK ADRs have financialCurrency=CNY but trade/pay dividends in HKD.
-
-        The financial summary must render in 元 (CNY income statement) while
-        dividends must render in 港元 — they are NOT the same currency on
-        yfinance HK payloads, so the renderer must read each block's own
-        ``currency`` field rather than assuming a single global currency.
-        """
-        mock_get_config.return_value = _make_config(report_renderer_enabled=False)
-        service = NotificationService()
-        result = AnalysisResult(
-            code="HK09988",
-            name="阿里巴巴-W",
-            sentiment_score=68,
-            trend_prediction="看多",
-            operation_advice="逢低买入",
-            analysis_summary="云业务回正，回购持续。",
-        )
-        result.fundamental_context = {
-            "earnings": {
-                "status": "ok",
-                "data": {
-                    "financial_report": {
-                        "report_date": "2026-03-31",
-                        "revenue": 1.02e12,
-                        "net_profit_parent": 1.04e11,
-                        "operating_cash_flow": 3.6e10,
-                        "roe": 9.22,
-                        "currency": "CNY",
-                    },
-                    "dividend": {
-                        "events": [{
-                            "event_date": "2025-06-11",
-                            "ex_dividend_date": "2025-06-11",
-                            "cash_dividend_per_share": 1.95812,
-                            "is_pre_tax": True,
-                        }],
-                        "ttm_event_count": 1,
-                        "ttm_cash_dividend_per_share": 1.95812,
-                        "ttm_dividend_yield_pct": 1.75,
-                        "currency": "HKD",
-                    },
-                },
-            },
-            "growth": {"status": "ok", "data": {"revenue_yoy": 2.9, "roe": 9.22, "gross_margin": 39.81}},
-            "belong_boards": [
-                {"name": "Consumer Cyclical", "type": "行业"},
-                {"name": "Internet Retail", "type": "概念"},
-            ],
-        }
-
-        out = service.generate_single_stock_report(result)
-
-        # Income statement still rendered in CNY (financialCurrency).
-        self.assertIn("10200.00 亿元", out)
-        # Dividend per share follows the dividend currency, NOT the financial currency.
-        self.assertIn("1.9581 港元", out)
-        self.assertNotIn("1.9581 元 ", out)
-        self.assertIn("Consumer Cyclical", out)
 
     @mock.patch("src.notification.get_config")
     def test_dividend_currency_falls_back_to_financial_when_missing(
@@ -2355,7 +2233,7 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
 
         self.assertTrue(ok)
         mock_post.assert_called_once()
-        
+
     @mock.patch("src.notification_sender.feishu_sender.time.sleep")
     @mock.patch("src.notification.get_config")
     @mock.patch("requests.post")

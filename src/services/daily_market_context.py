@@ -30,10 +30,9 @@ MARKET_REVIEW_HISTORY_CODE = "MARKET"
 MARKET_REVIEW_REPORT_TYPE = "market_review"
 
 
-_REGION_LABEL_ZH = {"cn": "A股", "hk": "港股", "us": "美股", "jp": "日股", "kr": "韩股"}
-_REGION_LABEL_EN = {"cn": "A-share", "hk": "HK", "us": "US", "jp": "Japan", "kr": "Korea"}
+_REGION_LABEL_ZH = {"cn": "A股"}
+_REGION_LABEL_EN = {"cn": "A-share"}
 _VALID_REGIONS = frozenset(_REGION_LABEL_ZH)
-_LEGACY_BOTH_REGIONS = frozenset({"cn", "hk", "us"})
 _UNTRUSTED_MARKET_SUMMARY_SENTINELS = (
     "BEGIN_UNTRUSTED_MARKET_SUMMARY",
     "END_UNTRUSTED_MARKET_SUMMARY",
@@ -859,8 +858,6 @@ def _region_matches(value: Any, region: str) -> bool:
     if not value:
         return False
     text = str(value).strip().lower()
-    if text == "both":
-        return region in _LEGACY_BOTH_REGIONS
     parts = {item.strip() for item in text.split(",") if item.strip()}
     return region in parts
 

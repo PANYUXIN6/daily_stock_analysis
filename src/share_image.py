@@ -14,7 +14,6 @@ import base64
 import html
 import mimetypes
 import re
-import sys
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -32,7 +31,7 @@ _MARKET_RE = re.compile(
     r"(?:大盘复盘|市场复盘|market\s+(?:review|recap)|시황\s*리뷰)", re.IGNORECASE
 )
 _MARKET_SCOPE_RE = re.compile(
-    r"(?:A股|港股|美股|日股|韩股|中国\s*A주|미국|홍콩|일본|한국|\b(?:cn|hk|us|jp|kr)\b|a[-\s]?share|hong\s+kong|japan|korea|u\.?s\.?)",
+    r"(?:A股|中国\s*A주|\bcn\b|a[-\s]?share)",
     re.IGNORECASE,
 )
 _DASHBOARD_RE = re.compile(r"(?:决策仪表盘|decision\s+dashboard)", re.IGNORECASE)
@@ -43,14 +42,12 @@ _MARKET_REGION_REF_RE = re.compile(
     r"^\[dsa-market-region\]:\s+#\s+\(\s*([a-z,]+)\s*\)\s*$",
     re.IGNORECASE | re.MULTILINE,
 )
-_SUFFIXED_NUMERIC_CODE_PATTERN = (
-    r"(?:\d{6}\.(?:SH|SZ|SS|BJ|KS|KQ)|\d{1,5}\.HK|\d{4,6}\.(?:TWO|TW)|\d{4,5}\.T)"
-)
+_SUFFIXED_NUMERIC_CODE_PATTERN = r"(?:\d{6}\.(?:SH|SZ|SS|BJ))"
 _CODE_RE = re.compile(
-    rf"(?:\(|（)?({_SUFFIXED_NUMERIC_CODE_PATTERN}|(?:(?i:sh|sz|bj|hk))?\d{{5,6}}(?:\.[A-Z]{{2}})?|(?<![A-Za-z])[A-Z]{{1,5}}(?:\.[A-Z])?(?![A-Za-z]))(?:\)|）)?",
+    rf"(?:\(|（)?({_SUFFIXED_NUMERIC_CODE_PATTERN}|(?:(?i:sh|sz|bj))?\d{{6}}(?:\.(?i:sh|sz|bj))?)(?:\)|）)?",
 )
 _NUMERIC_CODE_RE = re.compile(
-    rf"(?:{_SUFFIXED_NUMERIC_CODE_PATTERN}|(?:(?i:sh|sz|bj|hk))?\d{{5,6}}(?:\.[A-Z]{{2}})?)"
+    rf"(?:{_SUFFIXED_NUMERIC_CODE_PATTERN}|(?:(?i:sh|sz|bj))?\d{{6}}(?:\.(?i:sh|sz|bj))?)"
 )
 _NA_VALUES = {"", "-", "--", "n/a", "na", "none", "null", "暂无", "暂无数据"}
 _POSTER_TEXT = {
@@ -134,22 +131,6 @@ _MARKET_LABEL_PATTERNS = (
             re.IGNORECASE,
         ),
     ),
-    (
-        "港股",
-        re.compile(
-            r"(?:港\s*股|\bhk\s+market\s+(?:review|recap)\b|hong\s+kong|홍콩)",
-            re.IGNORECASE,
-        ),
-    ),
-    (
-        "美股",
-        re.compile(
-            r"(?:美\s*股|\b(?:u\.?s\.?|us)\s+market\s+(?:review|recap)\b|united\s+states|미국)",
-            re.IGNORECASE,
-        ),
-    ),
-    ("日股", re.compile(r"(?:日\s*股|japan|일본)", re.IGNORECASE)),
-    ("韩股", re.compile(r"(?:韩\s*股|korea|한국)", re.IGNORECASE)),
 )
 
 
@@ -264,9 +245,6 @@ def _asset_path(path_value: str) -> Optional[Path]:
         Path.cwd() / configured,
         Path(__file__).resolve().parent.parent / configured,
     ]
-    bundle_root = getattr(sys, "_MEIPASS", None)
-    if bundle_root and not configured.is_absolute():
-        candidates.append(Path(bundle_root) / configured)
 
     for candidate in candidates:
         if candidate.is_file():
@@ -867,13 +845,7 @@ def _market_region_hint(markdown_text: str) -> str:
 
 
 def _market_label_for_region(region: str) -> str:
-    return {
-        "cn": "A股",
-        "hk": "港股",
-        "us": "美股",
-        "jp": "日股",
-        "kr": "韩股",
-    }.get((region or "").strip().lower(), "")
+    return "A股" if (region or "").strip().lower() == "cn" else ""
 
 
 def _stock_heading_entry(raw_title: str) -> Optional[tuple[str, str]]:
@@ -962,8 +934,8 @@ def _stock_data(markdown_text: str, generated_on: date) -> StockPoster:
         else:
             match = _CODE_RE.search(first_title)
             if match and match.start() == 0:
-                # US ticker-only titles (and titles containing escaped HTML) read
-                # better as one title than as an empty name plus a detached code.
+                # Titles containing escaped HTML read better as one title than
+                # as an empty name plus a detached code.
                 code = ""
                 name = _plain(first_title)
             else:
@@ -1772,8 +1744,8 @@ def _stock_positive_tone(code: str) -> str:
     normalized = (code or "").strip().upper()
     red_up_market = bool(
         re.fullmatch(r"\d{6}", normalized)
-        or re.match(r"^(?:SH|SZ|BJ|HK)\d+", normalized)
-        or re.search(r"\.(?:SH|SS|SZ|BJ|HK|T|TW|TWO|KS|KQ)$", normalized)
+        or re.match(r"^(?:SH|SZ|BJ)\d+", normalized)
+        or re.search(r"\.(?:SH|SS|SZ|BJ)$", normalized)
     )
     return "red" if red_up_market else "green"
 
@@ -1950,10 +1922,6 @@ def _market_region_for_segment(segment: MarketSegment) -> str:
     label = _market_label(segment.title) or _market_label(segment.markdown[:500])
     return {
         "A股": "cn",
-        "港股": "hk",
-        "美股": "us",
-        "日股": "jp",
-        "韩股": "kr",
     }.get(label, "")
 
 
@@ -1966,7 +1934,7 @@ def _multi_market_body(
     markets = structured_payload.get("markets") if isinstance(structured_payload, Mapping) else None
     market_payloads = markets if isinstance(markets, Mapping) else {}
     unused_regions = [
-        region for region in ("cn", "hk", "us", "jp", "kr")
+        region for region in ("cn",)
         if isinstance(market_payloads.get(region), Mapping)
     ]
     for segment in segments:

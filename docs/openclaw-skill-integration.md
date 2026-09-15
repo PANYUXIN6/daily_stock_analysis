@@ -5,7 +5,7 @@
 ## 概述
 
 - **集成方式**：openclaw Skill 通过 HTTP 调用 daily_stock_analysis（DSA）REST API
-- **适用场景**：已部署 DSA API 服务，希望在 openclaw 对话中触发分析（如「帮我分析茅台」「analyze AAPL」）
+- **适用场景**：已部署 DSA API 服务，希望在 openclaw 对话中触发 A 股分析（如「帮我分析茅台」「分析 600519」）
 - **同类消费方**：2026-08-11 上线的 [Grok Bot](https://x.ai/bot)（Skills / Routines / MCP / computer use）走同一套 REST 契约，不要另起平行 API。见 [Grok Bot 集成](grok-bot-integration.md)。
 
 ## 前置条件
@@ -69,7 +69,7 @@
 
 ## 重要限制与说明
 
-- **仅支持股票代码**：API 不接受中文名称（如「茅台」），需在 Skill 侧解析或提示用户提供代码（如 600519、AAPL）
+- **仅支持 A 股代码**：API 不接受中文名称（如「茅台」），需在 Skill 侧解析或提示用户提供六位代码（如 600519）
 - **同步模式耗时**：`async_mode: false` 时，单次分析约 2–5 分钟，需确保 openclaw 或 HTTP 客户端超时足够
 - **异步模式**：`async_mode: true` 返回 202 + `task_id`，需轮询 `GET /api/v1/analysis/status/{task_id}` 直至 `status: completed`
 
@@ -79,9 +79,6 @@
 |------|------|------|
 | A股 | 6位数字 | `600519`、`000001`、`300750` |
 | 北交所 | 8/4/92 开头 6 位，支持 `BJ` 前缀或 `.BJ` 后缀 | `920748`、`BJ920493`、`920493.BJ` |
-| 港股 | hk + 5位数字 | `hk00700`、`hk09988` |
-| 美股 | 1-5 字母（可选 .X 后缀） | `AAPL`、`TSLA`、`BRK.B` |
-| 美股指数 | SPX/DJI/IXIC 等 | `SPX`、`DJI`、`NASDAQ`、`VIX` |
 
 ## 配置方式
 
@@ -121,18 +118,18 @@
 ```markdown
 ---
 name: daily-stock-analysis
-description: 调用 daily_stock_analysis API 进行股票智能分析。当用户询问「分析茅台」「analyze AAPL」「帮我看看 600519」等时使用。仅支持股票代码，不支持中文名称。
+description: 调用 daily_stock_analysis API 进行 A 股智能分析。当用户询问「分析茅台」「分析 600519」「帮我看看 300750」等时使用。仅支持 A 股代码，不支持中文名称。
 metadata:
   {"openclaw": {"requires": {"env": ["DSA_BASE_URL"]}, "primaryEnv": "DSA_BASE_URL"}}
 ---
 
 ## 触发条件
 
-当用户请求分析某只股票时（如「分析茅台」「analyze AAPL」「帮我看看 600519」），使用本 Skill。
+当用户请求分析某只 A 股时（如「分析茅台」「分析 600519」「帮我看看 300750」），使用本 Skill。
 
 ## 工作流程
 
-1. **提取股票代码**：从用户消息中识别股票代码（如 600519、AAPL、hk00700）。若用户仅提供中文名称（如「茅台」），需提示用户提供股票代码，或使用常见映射（茅台→600519）。
+1. **提取股票代码**：从用户消息中识别六位 A 股代码（如 600519、300750、920748）。若用户仅提供中文名称（如「茅台」），需提示用户提供股票代码，或使用常见映射（茅台→600519）。
 2. **调用 API**：向 `{DSA_BASE_URL}/api/v1/analysis/analyze` 发送 POST 请求，请求体：
    ```json
    {"stock_code": "<提取的代码>", "report_type": "detailed", "force_refresh": true, "async_mode": false, "skills": ["bull_trend"]}
@@ -150,9 +147,6 @@ metadata:
 
 - A股：6位数字（600519、000001）
 - 北交所：8/4/92 开头 6 位，支持 BJ 前缀或 .BJ 后缀（920748、BJ920493、920493.BJ）
-- 港股：hk + 5位数字（hk00700）
-- 美股：1–5 字母（AAPL、TSLA、BRK.B）
-- 美股指数：SPX、DJI、IXIC 等
 ```
 
 ## Agent 策略问股（可选）

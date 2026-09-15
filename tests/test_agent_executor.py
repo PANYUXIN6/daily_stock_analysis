@@ -358,19 +358,19 @@ class TestAgentExecutor(unittest.TestCase):
             ):
                 with patch("src.agent.conversation.conversation_manager.get_or_create"):
                     with patch("src.agent.conversation.conversation_manager.add_message"):
-                        executor.chat("换成 AAPL 看看，不考虑 600519", "session-1", context=stale_context)
+                        executor.chat("换成 000858 看看，不考虑 600519", "session-1", context=stale_context)
 
         history_context = "\n".join(
             msg["content"] for msg in captured["messages"] if msg["role"] == "user"
         )
-        self.assertIn("股票代码: AAPL", history_context)
+        self.assertIn("股票代码: 000858", history_context)
         self.assertNotIn("股票名称: 贵州茅台", history_context)
         self.assertNotIn("上次分析摘要", history_context)
         self.assertNotIn("上次策略分析", history_context)
         self.assertNotIn("市场结构上下文", history_context)
         self.assertEqual(captured["stock_scope"].mode, "switch")
-        self.assertEqual(captured["stock_scope"].expected_stock_code, "AAPL")
-        self.assertEqual(captured["stock_scope"].allowed_stock_codes, {"AAPL"})
+        self.assertEqual(captured["stock_scope"].expected_stock_code, "000858")
+        self.assertEqual(captured["stock_scope"].allowed_stock_codes, {"000858"})
 
     def test_chat_does_not_trust_exchange_token_from_public_context(self):
         registry = _make_registry_with_echo()
@@ -423,28 +423,28 @@ class TestAgentExecutor(unittest.TestCase):
 
     def test_resolve_stock_scope_compare_collects_multiple_normalized_codes(self):
         result = resolve_stock_scope(
-            "比较 600519 和 AAPL",
+            "比较 600519 和 000858",
             {"stock_code": "600519", "stock_name": "贵州茅台"},
         )
 
         self.assertEqual(result.stock_scope.mode, "compare")
         self.assertEqual(result.effective_context["stock_code"], "600519")
         self.assertEqual(result.effective_context["stock_name"], "贵州茅台")
-        self.assertEqual(result.stock_scope.allowed_stock_codes, {"600519", "AAPL"})
+        self.assertEqual(result.stock_scope.allowed_stock_codes, {"600519", "000858"})
 
     def test_strict_initial_scope_uses_explicit_message_codes(self):
         result = resolve_stock_scope(
-            "比较 600519 和 AAPL",
+            "比较 600519 和 000858",
             None,
             strict_initial_scope=True,
         )
 
         self.assertEqual(result.stock_scope.mode, "compare")
         self.assertEqual(result.stock_scope.expected_stock_code, "")
-        self.assertEqual(result.stock_scope.allowed_stock_codes, {"600519", "AAPL"})
+        self.assertEqual(result.stock_scope.allowed_stock_codes, {"600519", "000858"})
 
     def test_default_initial_scope_keeps_litellm_behavior(self):
-        result = resolve_stock_scope("分析 AAPL", None)
+        result = resolve_stock_scope("分析 000858", None)
 
         self.assertIsNone(result.stock_scope)
 
@@ -454,7 +454,7 @@ class TestAgentExecutor(unittest.TestCase):
         self.assertIsNone(result.stock_scope)
 
     def test_resolve_stock_scope_keeps_ambiguous_bare_code_on_current_stock(self):
-        result = resolve_stock_scope("AAPL", {"stock_code": "600519", "stock_name": "贵州茅台"})
+        result = resolve_stock_scope("000858", {"stock_code": "600519", "stock_name": "贵州茅台"})
 
         self.assertEqual(result.stock_scope.mode, "maintain")
         self.assertEqual(result.effective_context["stock_code"], "600519")
@@ -580,7 +580,7 @@ class TestAgentExecutor(unittest.TestCase):
     def test_resolve_stock_scope_empty_registry_falls_back_to_stock_semantics(self):
         from src.services.stock_list_parser import IndexRegistry
 
-        for message in ("换成 sh000016 看看", "换成 10SH000016 看看"):
+        for message in ("换成 sz000858 看看", "换成 000858 看看"):
             with self.subTest(message=message):
                 result = resolve_stock_scope(
                     message,
@@ -588,7 +588,7 @@ class TestAgentExecutor(unittest.TestCase):
                     registry=IndexRegistry([]),
                 )
                 self.assertEqual(result.stock_scope.mode, "switch")
-                self.assertEqual(result.stock_scope.expected_stock_code, "000016")
+                self.assertEqual(result.stock_scope.expected_stock_code, "000858")
 
     def test_resolve_stock_scope_default_index_registry_production_branch(self):
         cases = [
@@ -612,12 +612,12 @@ class TestAgentExecutor(unittest.TestCase):
             side_effect=RuntimeError("registry unavailable"),
         ):
             result = resolve_stock_scope(
-                "换成 sh000016 看看",
+                "换成 sz000858 看看",
                 {"stock_code": "600519", "stock_name": "贵州茅台"},
             )
 
         self.assertEqual(result.stock_scope.mode, "switch")
-        self.assertEqual(result.stock_scope.expected_stock_code, "000016")
+        self.assertEqual(result.stock_scope.expected_stock_code, "000858")
 
     def test_resolve_stock_scope_production_stock_guard_unchanged(self):
         # sh600519 / SZ000001 / bare 000016 must keep stock semantics even with
@@ -626,8 +626,8 @@ class TestAgentExecutor(unittest.TestCase):
             ("换成 sh600519 看看", "600519"),
             ("换成 SZ000001 看看", "000001"),
             ("换成 000016 看看", "000016"),
-            ("换成 00700.HK 看看", "HK00700"),
-            ("换成 AAPL 看看", "AAPL"),
+            ("换成 000001.SZ 看看", "000001"),
+            ("换成 000858 看看", "000858"),
         ]
         for message, expected in cases:
             with self.subTest(message=message, expected=expected):
@@ -821,7 +821,7 @@ class TestAgentExecutor(unittest.TestCase):
         self.assertEqual(len(tool_messages), 1)
         self.assertIn("stock_scope_violation", tool_messages[0]["content"])
 
-    def test_run_agent_loop_allows_explicit_allowed_stock_code_and_hk_equivalent(self):
+    def test_run_agent_loop_allows_explicit_allowed_stock_code_and_a_share_equivalent(self):
         executed_calls = []
         registry = _make_stock_registry(executed_calls)
         adapter = _make_mock_adapter()
@@ -829,13 +829,13 @@ class TestAgentExecutor(unittest.TestCase):
             LLMResponse(
                 content="Need quote.",
                 tool_calls=[
-                    ToolCall(id="quote_1", name="get_realtime_quote", arguments={"stock_code": "1810.HK"}),
+                    ToolCall(id="quote_1", name="get_realtime_quote", arguments={"stock_code": "000002.SZ"}),
                 ],
                 usage={"total_tokens": 10},
                 provider="openai",
             ),
             LLMResponse(
-                content="AAPL and HK allowed.",
+                content="000858 and HK allowed.",
                 tool_calls=[],
                 usage={"total_tokens": 10},
                 provider="openai",
@@ -845,20 +845,20 @@ class TestAgentExecutor(unittest.TestCase):
         result = run_agent_loop(
             messages=[
                 {"role": "system", "content": "system"},
-                {"role": "user", "content": "比较 HK01810 和 600519"},
+                {"role": "user", "content": "比较 000002 和 600519"},
             ],
             tool_registry=registry,
             llm_adapter=adapter,
             max_steps=3,
             stock_scope=StockScope(
                 expected_stock_code="600519",
-                allowed_stock_codes={"600519", "HK01810"},
+                allowed_stock_codes={"600519", "000002"},
                 mode="compare",
             ),
         )
 
         self.assertTrue(result.success)
-        self.assertEqual(executed_calls, [("quote", "1810.HK")])
+        self.assertEqual(executed_calls, [("quote", "000002.SZ")])
         self.assertFalse(result.tool_calls_log[0].get("guarded", False))
 
     def test_run_agent_loop_allows_compare_hint_stock_code(self):
@@ -869,7 +869,7 @@ class TestAgentExecutor(unittest.TestCase):
             LLMResponse(
                 content="Need quote.",
                 tool_calls=[
-                    ToolCall(id="quote_1", name="get_realtime_quote", arguments={"stock_code": "AAPL"}),
+                    ToolCall(id="quote_1", name="get_realtime_quote", arguments={"stock_code": "000858"}),
                 ],
                 usage={"total_tokens": 10},
                 provider="openai",
@@ -881,7 +881,7 @@ class TestAgentExecutor(unittest.TestCase):
                 provider="openai",
             ),
         ]
-        message = "分析 600519 和 AAPL 的差异"
+        message = "分析 600519 和 000858 的差异"
         scope = resolve_stock_scope(message, {"stock_code": "600519", "stock_name": "贵州茅台"}).stock_scope
 
         result = run_agent_loop(
@@ -897,11 +897,11 @@ class TestAgentExecutor(unittest.TestCase):
 
         self.assertTrue(result.success)
         self.assertEqual(scope.mode, "compare")
-        self.assertEqual(scope.allowed_stock_codes, {"600519", "AAPL"})
-        self.assertEqual(executed_calls, [("quote", "AAPL")])
+        self.assertEqual(scope.allowed_stock_codes, {"600519", "000858"})
+        self.assertEqual(executed_calls, [("quote", "000858")])
         self.assertFalse(result.tool_calls_log[0].get("guarded", False))
 
-    def test_run_agent_loop_allows_plain_hk_code_from_compare_scope(self):
+    def test_run_agent_loop_allows_plain_a_share_code_from_compare_scope(self):
         executed_calls = []
         registry = _make_stock_registry(executed_calls)
         adapter = _make_mock_adapter()
@@ -909,7 +909,7 @@ class TestAgentExecutor(unittest.TestCase):
             LLMResponse(
                 content="Need quote.",
                 tool_calls=[
-                    ToolCall(id="quote_1", name="get_realtime_quote", arguments={"stock_code": "01810"}),
+                    ToolCall(id="quote_1", name="get_realtime_quote", arguments={"stock_code": "000002"}),
                 ],
                 usage={"total_tokens": 10},
                 provider="openai",
@@ -921,7 +921,7 @@ class TestAgentExecutor(unittest.TestCase):
                 provider="openai",
             ),
         ]
-        message = "比较 01810 和 AAPL"
+        message = "比较 000002 和 000858"
         scope = resolve_stock_scope(message, {"stock_code": "600519", "stock_name": "贵州茅台"}).stock_scope
 
         result = run_agent_loop(
@@ -937,8 +937,8 @@ class TestAgentExecutor(unittest.TestCase):
 
         self.assertTrue(result.success)
         self.assertEqual(scope.mode, "compare")
-        self.assertEqual(scope.allowed_stock_codes, {"600519", "HK01810", "AAPL"})
-        self.assertEqual(executed_calls, [("quote", "01810")])
+        self.assertEqual(scope.allowed_stock_codes, {"600519", "000002", "000858"})
+        self.assertEqual(executed_calls, [("quote", "000002")])
         self.assertFalse(result.tool_calls_log[0].get("guarded", False))
 
     def test_run_agent_loop_allows_choice_compare_stock_codes(self):
@@ -949,8 +949,8 @@ class TestAgentExecutor(unittest.TestCase):
             LLMResponse(
                 content="Need quotes.",
                 tool_calls=[
-                    ToolCall(id="quote_1", name="get_realtime_quote", arguments={"stock_code": "AAPL"}),
-                    ToolCall(id="quote_2", name="get_realtime_quote", arguments={"stock_code": "TSLA"}),
+                    ToolCall(id="quote_1", name="get_realtime_quote", arguments={"stock_code": "000858"}),
+                    ToolCall(id="quote_2", name="get_realtime_quote", arguments={"stock_code": "300750"}),
                 ],
                 usage={"total_tokens": 10},
                 provider="openai",
@@ -962,7 +962,7 @@ class TestAgentExecutor(unittest.TestCase):
                 provider="openai",
             ),
         ]
-        message = "AAPL 和 TSLA 哪个更值得买"
+        message = "000858 和 300750 哪个更值得买"
         scope = resolve_stock_scope(message, {"stock_code": "600519", "stock_name": "贵州茅台"}).stock_scope
 
         result = run_agent_loop(
@@ -978,26 +978,26 @@ class TestAgentExecutor(unittest.TestCase):
 
         self.assertTrue(result.success)
         self.assertEqual(scope.mode, "compare")
-        self.assertEqual(scope.allowed_stock_codes, {"600519", "AAPL", "TSLA"})
-        self.assertEqual(executed_calls, [("quote", "AAPL"), ("quote", "TSLA")])
+        self.assertEqual(scope.allowed_stock_codes, {"600519", "000858", "300750"})
+        self.assertEqual(executed_calls, [("quote", "000858"), ("quote", "300750")])
         self.assertFalse(result.tool_calls_log[0].get("guarded", False))
         self.assertFalse(result.tool_calls_log[1].get("guarded", False))
 
     def test_run_agent_loop_blocks_exchange_affix_tokens_from_compare_scope(self):
         cases = [
-            ("比较 1810.HK 和 AAPL", "HK"),
-            ("比较 600519.SH 和 AAPL", "SH"),
-            ("比较 000001.SZ 和 AAPL", "SZ"),
-            ("比较 600519.SS 和 AAPL", "SS"),
-            ("比较 SH600519 和 AAPL", "SH"),
-            ("比较 SZ000001 和 AAPL", "SZ"),
-            ("比较 BJ920748 和 AAPL", "BJ"),
-            ("比较 HK01810 和 AAPL", "HK"),
-            ("比较 600519 SH 和 AAPL", "SH"),
-            ("比较 000001 SZ 和 AAPL", "SZ"),
-            ("比较 920748 BJ 和 AAPL", "BJ"),
-            ("比较 01810 HK 和 AAPL", "HK"),
-            ("比较 600519 SS 和 AAPL", "SS"),
+            ("比较 000002.SZ 和 000858", "HK"),
+            ("比较 600519.SH 和 000858", "SH"),
+            ("比较 000001.SZ 和 000858", "SZ"),
+            ("比较 600519.SS 和 000858", "SS"),
+            ("比较 SH600519 和 000858", "SH"),
+            ("比较 SZ000001 和 000858", "SZ"),
+            ("比较 BJ920748 和 000858", "BJ"),
+            ("比较 000002 和 000858", "HK"),
+            ("比较 600519 SH 和 000858", "SH"),
+            ("比较 000001 SZ 和 000858", "SZ"),
+            ("比较 920748 BJ 和 000858", "BJ"),
+            ("比较 000002 HK 和 000858", "HK"),
+            ("比较 600519 SS 和 000858", "SS"),
         ]
 
         for message, requested_code in cases:
@@ -1171,7 +1171,7 @@ class TestAgentExecutor(unittest.TestCase):
                     ToolCall(
                         id="news_1",
                         name="default_api:search_stock_news",
-                        arguments={"stock_code": "AAPL", "stock_name": "贵州茅台"},
+                        arguments={"stock_code": "000858", "stock_name": "贵州茅台"},
                     ),
                 ],
                 usage={"total_tokens": 10},
@@ -1188,7 +1188,7 @@ class TestAgentExecutor(unittest.TestCase):
         result = run_agent_loop(
             messages=[
                 {"role": "system", "content": "system"},
-                {"role": "user", "content": "如果不考虑 AAPL 呢"},
+                {"role": "user", "content": "如果不考虑 000858 呢"},
             ],
             tool_registry=registry,
             llm_adapter=adapter,
@@ -1214,7 +1214,7 @@ class TestAgentExecutor(unittest.TestCase):
                 content="Need mixed tools.",
                 tool_calls=[
                     ToolCall(id="quote_ok", name="get_realtime_quote", arguments={"stock_code": "600519"}),
-                    ToolCall(id="quote_bad", name="get_realtime_quote", arguments={"stock_code": "AAPL"}),
+                    ToolCall(id="quote_bad", name="get_realtime_quote", arguments={"stock_code": "000858"}),
                     ToolCall(id="echo_1", name="echo", arguments={"message": "not stock scoped"}),
                 ],
                 usage={"total_tokens": 10},
@@ -1242,10 +1242,10 @@ class TestAgentExecutor(unittest.TestCase):
         self.assertTrue(result.success)
         self.assertIn(("quote", "600519"), executed_calls)
         self.assertIn(("echo", "not stock scoped"), executed_calls)
-        self.assertNotIn(("quote", "AAPL"), executed_calls)
+        self.assertNotIn(("quote", "000858"), executed_calls)
         guarded = [entry for entry in result.tool_calls_log if entry.get("guarded")]
         self.assertEqual(len(guarded), 1)
-        self.assertEqual(guarded[0]["requested_stock_code"], "AAPL")
+        self.assertEqual(guarded[0]["requested_stock_code"], "000858")
 
     def test_chat_injects_daily_market_context_when_provided(self):
         registry = _make_registry_with_echo()
@@ -1664,7 +1664,7 @@ class TestAgentExecutor(unittest.TestCase):
         self.assertFalse(result.tool_calls_log[0]["success"])
         self.assertFalse(result.tool_calls_log[0]["cached"])
 
-    def test_non_retriable_tool_failure_is_cached_across_hk_variants(self):
+    def test_non_retriable_tool_failure_is_cached_across_a_share_variants(self):
         """Equivalent HK code variants should not re-execute a non-retriable failing tool."""
         calls = []
 
@@ -1693,7 +1693,7 @@ class TestAgentExecutor(unittest.TestCase):
             LLMResponse(
                 content="",
                 tool_calls=[
-                    ToolCall(id="q1", name="get_realtime_quote", arguments={"stock_code": "hk01810"}),
+                    ToolCall(id="q1", name="get_realtime_quote", arguments={"stock_code": "sz000002"}),
                 ],
                 usage={"total_tokens": 10},
                 provider="openai",
@@ -1701,7 +1701,7 @@ class TestAgentExecutor(unittest.TestCase):
             LLMResponse(
                 content="",
                 tool_calls=[
-                    ToolCall(id="q2", name="get_realtime_quote", arguments={"stock_code": "1810.HK"}),
+                    ToolCall(id="q2", name="get_realtime_quote", arguments={"stock_code": "000002.SZ"}),
                 ],
                 usage={"total_tokens": 10},
                 provider="openai",
@@ -1715,10 +1715,10 @@ class TestAgentExecutor(unittest.TestCase):
         ]
 
         executor = AgentExecutor(registry, adapter, max_steps=5)
-        result = executor.run("Analyze HK01810")
+        result = executor.run("Analyze 000002")
 
         self.assertTrue(result.success)
-        self.assertEqual(calls, ["hk01810"])
+        self.assertEqual(calls, ["sz000002"])
         self.assertEqual(len(result.tool_calls_log), 2)
         self.assertFalse(result.tool_calls_log[0]["cached"])
         self.assertTrue(result.tool_calls_log[1]["cached"])

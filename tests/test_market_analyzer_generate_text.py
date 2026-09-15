@@ -134,14 +134,6 @@ class TestAnalyzerGenerateText:
             analyzer._config_override = cfg
             return analyzer
 
-    def test_legacy_market_group_normalizes_supported_markets(self):
-        from src.analyzer import _legacy_market_group
-
-        assert _legacy_market_group("") == "unknown"
-        assert _legacy_market_group("unknown") == "unknown"
-        assert _legacy_market_group("600519") == "cn"
-        assert _legacy_market_group("hk00700") == "hk"
-        assert _legacy_market_group("AAPL") == "us"
 
     def test_legacy_audit_marker_specs_use_language_and_optional_context(self):
         from src.analyzer import _legacy_audit_marker_specs
@@ -3952,107 +3944,6 @@ class TestMarketAnalyzerBypassFix:
         assert "### 6. Strategy Framework" in result
         assert "### 一、市场总结" not in result
 
-    def test_generate_template_review_uses_jp_title_for_english_fallback(self):
-        from src.core.market_profile import JP_PROFILE
-        from src.core.market_strategy import get_market_strategy_blueprint
-        from src.market_analyzer import MarketOverview, MarketIndex
-
-        ma = self._make_market_analyzer_with_mock_generate_text(return_value=None)
-        ma.region = "jp"
-        ma.profile = JP_PROFILE
-        ma.strategy = get_market_strategy_blueprint("jp")
-        ma.config.report_language = "en"
-        overview = MarketOverview(
-            date="2026-03-05",
-            indices=[
-                MarketIndex(
-                    code="N225",
-                    name="Nikkei 225",
-                    current=39000.0,
-                    change=120.0,
-                    change_pct=0.31,
-                )
-            ],
-        )
-
-        result = ma.generate_market_review(overview, [])
-
-        assert "Japan Market Recap" in result
-        assert "Today's Japan market showed" in result
-        assert "A-share Market Recap" not in result
-
-    def test_generate_template_review_keeps_chinese_shell_for_us_when_report_language_is_default(self):
-        from src.core.market_profile import US_PROFILE
-        from src.core.market_strategy import get_market_strategy_blueprint
-        from src.market_analyzer import MarketOverview, MarketIndex
-
-        ma = self._make_market_analyzer_with_mock_generate_text(return_value=None)
-        ma.region = "us"
-        ma.profile = US_PROFILE
-        ma.strategy = get_market_strategy_blueprint("us")
-        overview = MarketOverview(
-            date="2026-03-05",
-            indices=[
-                MarketIndex(
-                    code="SPX",
-                    name="标普500",
-                    current=5200.0,
-                    change=-18.0,
-                    change_pct=-0.35,
-                )
-            ],
-        )
-
-        result = ma.generate_market_review(overview, [])
-
-        assert "## 2026-03-05 大盘复盘" in result
-        assert "### 一、盘面总览" in result
-        assert "今日美股市场整体呈现**小幅下跌**态势" in result
-        assert "### 6. Strategy Framework" not in result
-        assert "### 六、策略框架" in result
-        assert "### 1. Market Summary" not in result
-        assert "US Market Recap" not in result
-
-    @pytest.mark.parametrize(
-        ("region", "profile_name", "index_code", "index_name", "english_title", "zh_label"),
-        [
-            ("jp", "JP_PROFILE", "N225", "Nikkei 225", "Japan Market Recap", "今日日股市场整体呈现"),
-            ("kr", "KR_PROFILE", "KS11", "KOSPI", "Korea Market Recap", "今日韩股市场整体呈现"),
-        ],
-    )
-    def test_generate_template_review_uses_jp_kr_labels_for_no_llm_fallback(
-        self, region, profile_name, index_code, index_name, english_title, zh_label
-    ):
-        import src.core.market_profile as market_profile
-        from src.core.market_strategy import get_market_strategy_blueprint
-        from src.market_analyzer import MarketOverview, MarketIndex
-
-        ma = self._make_market_analyzer_with_mock_generate_text(return_value=None)
-        ma.region = region
-        ma.profile = getattr(market_profile, profile_name)
-        ma.strategy = get_market_strategy_blueprint(region)
-        overview = MarketOverview(
-            date="2026-03-05",
-            indices=[
-                MarketIndex(
-                    code=index_code,
-                    name=index_name,
-                    current=30000.0,
-                    change=120.0,
-                    change_pct=0.4,
-                )
-            ],
-        )
-
-        ma.config.report_language = "en"
-        english_result = ma.generate_market_review(overview, [])
-        assert f"## 2026-03-05 {english_title}" in english_result
-        assert "A-share Market Recap" not in english_result
-
-        ma.config.report_language = "zh"
-        zh_result = ma.generate_market_review(overview, [])
-        assert zh_label in zh_result
-        assert "今日A股市场整体呈现" not in zh_result
 
     def test_inject_data_into_review_matches_english_headings(self):
         from src.market_analyzer import MarketOverview, MarketIndex
@@ -4198,95 +4089,6 @@ Sector text.
         assert "#### 行业板块领跌 Top 5" in result
         assert "| 1 | 煤炭 | -1.12% |" in result
 
-    @pytest.mark.parametrize(
-        ("region", "profile_name", "index_code", "index_name", "report_title"),
-        [
-            ("us", "US_PROFILE", "SPX", "S&P 500", "US Market Recap"),
-            ("hk", "HK_PROFILE", "HSI", "Hang Seng Index", "HK Market Recap"),
-        ],
-    )
-    def test_inject_data_into_review_keeps_market_signal_for_markets_without_breadth(
-        self, region, profile_name, index_code, index_name, report_title
-    ):
-        import src.core.market_profile as market_profile
-        from src.market_analyzer import MarketIndex, MarketOverview
-
-        ma = self._make_market_analyzer_with_mock_generate_text(return_value="review")
-        ma.region = region
-        ma.profile = getattr(market_profile, profile_name)
-        ma.config.report_language = "en"
-        overview = MarketOverview(
-            date="2026-03-06",
-            indices=[MarketIndex(code=index_code, name=index_name, current=5000.0, change_pct=0.5)],
-        )
-        snapshot = ma.build_market_light_snapshot(overview)
-        review = f"""## 2026-03-06 {report_title}
-
-### 1. Market Summary
-Summary text.
-
-### 2. Major Indices
-Index text.
-"""
-
-        result = ma._inject_data_into_review(review, overview)
-
-        assert (
-            f"- **Market Signal**: {snapshot['score']}/100 "
-            f"({snapshot['temperature_label']}, {snapshot['label']})"
-        ) in result
-        assert f"- **Drivers**: {'; '.join(snapshot['reasons'])}" in result
-        assert f"- **Guidance**: {snapshot['guidance']}" in result
-        assert "- **Breadth**:" not in result
-
-    @pytest.mark.parametrize(
-        ("region", "profile_name", "index_code", "index_name"),
-        [
-            ("us", "US_PROFILE", "SPX", "S&P 500"),
-            ("hk", "HK_PROFILE", "HSI", "Hang Seng Index"),
-        ],
-    )
-    def test_template_review_keeps_market_signal_for_markets_without_breadth(
-        self, region, profile_name, index_code, index_name
-    ):
-        import src.core.market_profile as market_profile
-        from src.market_analyzer import MarketIndex, MarketOverview
-
-        ma = self._make_market_analyzer_with_mock_generate_text(return_value="review")
-        ma.region = region
-        ma.profile = getattr(market_profile, profile_name)
-        ma.config.report_language = "en"
-        overview = MarketOverview(
-            date="2026-03-06",
-            indices=[MarketIndex(code=index_code, name=index_name, current=5000.0, change_pct=0.5)],
-        )
-        snapshot = ma.build_market_light_snapshot(overview)
-
-        result = ma._generate_template_review(overview, [])
-
-        assert f"- **Market Signal**: {snapshot['score']}/100" in result
-        assert f"- **Guidance**: {snapshot['guidance']}" in result
-        assert "- **Breadth**:" not in result
-
-    def test_template_review_keeps_market_signal_for_hk_without_breadth_in_chinese(self):
-        from src.core.market_profile import HK_PROFILE
-        from src.market_analyzer import MarketIndex, MarketOverview
-
-        ma = self._make_market_analyzer_with_mock_generate_text(return_value="review")
-        ma.region = "hk"
-        ma.profile = HK_PROFILE
-        ma.config.report_language = "zh"
-        overview = MarketOverview(
-            date="2026-03-06",
-            indices=[MarketIndex(code="HSI", name="恒生指数", current=18200.0, change_pct=1.2)],
-        )
-        snapshot = ma.build_market_light_snapshot(overview)
-
-        result = ma._generate_template_review(overview, [])
-
-        assert f"- **盘面信号**：{snapshot['score']}/100" in result
-        assert f"- **操作建议**：{snapshot['guidance']}" in result
-        assert "| 上涨/下跌/平盘 |" not in result
 
     def test_generate_template_review_uses_configured_red_up_markers_in_english_fallback(self):
         from src.market_analyzer import MarketIndex, MarketOverview
@@ -4480,85 +4282,6 @@ Index text.
             for reason in snapshot["reasons"]
         )
 
-    def test_market_light_snapshot_marks_us_without_breadth_as_partial(self):
-        from src.core.market_profile import US_PROFILE
-        from src.market_analyzer import MarketIndex, MarketOverview
-
-        ma = self._make_market_analyzer_with_mock_generate_text(return_value="review")
-        ma.region = "us"
-        ma.profile = US_PROFILE
-        ma.config.report_language = "en"
-        overview = MarketOverview(
-            date="2026-03-06",
-            indices=[MarketIndex(code="SPX", name="S&P 500", current=5000, change_pct=0.5)],
-        )
-
-        snapshot = ma.build_market_light_snapshot(overview)
-
-        assert snapshot["region"] == "us"
-        assert snapshot["data_quality"] == "partial"
-        assert snapshot["dimensions"]["breadth"] == {"score": 50, "available": False}
-        assert snapshot["dimensions"]["index"]["available"] is True
-        assert snapshot["dimensions"]["limit"] == {"score": 50, "available": False}
-
-    @pytest.mark.parametrize(
-        ("region", "profile_name", "index_code", "index_name"),
-        [
-            ("jp", "JP_PROFILE", "N225", "Nikkei 225"),
-            ("kr", "KR_PROFILE", "KS11", "KOSPI"),
-        ],
-    )
-    def test_market_light_snapshot_accepts_jp_kr_regions(
-        self, region, profile_name, index_code, index_name
-    ):
-        import src.core.market_profile as market_profile
-        from src.market_analyzer import MarketIndex, MarketOverview
-
-        ma = self._make_market_analyzer_with_mock_generate_text(return_value="review")
-        ma.region = region
-        ma.profile = getattr(market_profile, profile_name)
-        overview = MarketOverview(
-            date="2026-03-06",
-            indices=[MarketIndex(code=index_code, name=index_name, current=30000, change_pct=0.5)],
-        )
-
-        snapshot = ma.build_market_light_snapshot(overview)
-
-        assert snapshot["region"] == region
-        assert snapshot["trade_date"] == "2026-03-06"
-        assert snapshot["data_quality"] == "partial"
-        assert snapshot["dimensions"]["breadth"] == {"score": 50, "available": False}
-        assert snapshot["dimensions"]["index"]["available"] is True
-        assert snapshot["dimensions"]["limit"] == {"score": 50, "available": False}
-
-    def test_market_review_payload_omits_breadth_for_markets_without_stats(self):
-        from src.core.market_profile import US_PROFILE
-        from src.market_analyzer import MarketIndex, MarketOverview
-
-        ma = self._make_market_analyzer_with_mock_generate_text(return_value="复盘结果")
-        ma.region = "us"
-        ma.profile = US_PROFILE
-
-        payload = ma.build_market_review_payload(
-            MarketOverview(
-                date="2026-03-18",
-                indices=[
-                    MarketIndex(code="SPX", name="S&P 500", current=5200.0, change_pct=0.6),
-                ],
-                up_count=1000,
-                down_count=400,
-                limit_up_count=10,
-                limit_down_count=0,
-                total_amount=9800.0,
-            ),
-            [],
-            "美股复盘报告",
-            market_light_snapshot={"dimensions": {"breadth": {"score": 60, "available": True}}},
-        )
-
-        assert "breadth" not in payload
-        assert payload["indices"][0]["code"] == "SPX"
-        assert payload["color_scheme"] == "green_up"
 
     def test_market_review_payload_persists_red_up_color_scheme(self):
         from src.market_analyzer import MarketIndex, MarketOverview
@@ -4663,35 +4386,6 @@ Index text.
         assert payload["sectors"]["top"][0]["name"] == "半导体"
         assert payload["concepts"]["top"][0]["name"] == "机器人概念"
 
-    def test_us_english_indices_do_not_label_turnover_as_cny(self):
-        from src.core.market_profile import US_PROFILE
-        from src.core.market_strategy import get_market_strategy_blueprint
-        from src.market_analyzer import MarketOverview, MarketIndex
-
-        ma = self._make_market_analyzer_with_mock_generate_text(return_value=None)
-        ma.config.report_language = "en"
-        ma.region = "us"
-        ma.profile = US_PROFILE
-        ma.strategy = get_market_strategy_blueprint("us")
-        overview = MarketOverview(
-            date="2026-03-05",
-            indices=[
-                MarketIndex(
-                    code="SPX",
-                    name="S&P 500",
-                    current=5200.0,
-                    change=35.0,
-                    change_pct=0.68,
-                    amount=9876543210.0,
-                )
-            ],
-        )
-
-        result = ma._build_indices_block(overview)
-
-        assert "CNY 100m" not in result
-        assert "Turnover (USD bn)" in result
-        assert "| S&P 500 | 5200.00 |" in result
 
     def test_indices_block_uses_configured_red_up_color_scheme(self):
         from src.market_analyzer import MarketOverview, MarketIndex

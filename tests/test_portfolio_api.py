@@ -224,49 +224,6 @@ class PortfolioApiTestCase(unittest.TestCase):
         self.assertEqual(position["price_source"], "history_close")
         self.assertAlmostEqual(position["last_price"], 118.0, places=6)
 
-    def test_snapshot_exposes_partial_quality_fields_for_mixed_position_markets(self) -> None:
-        create_resp = self.client.post(
-            "/api/v1/portfolio/accounts",
-            json={"name": "Mixed", "broker": "Demo", "market": "cn", "base_currency": "CNY"},
-        )
-        self.assertEqual(create_resp.status_code, 200)
-        account_id = create_resp.json()["id"]
-
-        trade_resp = self.client.post(
-            "/api/v1/portfolio/trades",
-            json={
-                "account_id": account_id,
-                "symbol": "7203.T",
-                "trade_date": "2026-01-02",
-                "side": "buy",
-                "quantity": 10,
-                "price": 1000,
-                "fee": 0,
-                "tax": 0,
-                "market": "jp",
-                "currency": "JPY",
-            },
-        )
-        self.assertEqual(trade_resp.status_code, 200, trade_resp.text)
-        self._save_close("7203.T", date(2026, 1, 3), 1200.0)
-
-        snapshot_resp = self.client.get(
-            "/api/v1/portfolio/snapshot",
-            params={"as_of": "2026-01-03"},
-        )
-        self.assertEqual(snapshot_resp.status_code, 200)
-        payload = snapshot_resp.json()
-        self.assertEqual(payload["data_quality"], "partial")
-        self.assertIn("fx_and_cost_basis_partial", payload["limitations"])
-        account_snapshot = payload["accounts"][0]
-        position = account_snapshot["positions"][0]
-
-        self.assertEqual(account_snapshot["market"], "cn")
-        self.assertEqual(account_snapshot["data_quality"], "partial")
-        self.assertIn("fx_and_cost_basis_partial", account_snapshot["limitations"])
-        self.assertEqual(position["market"], "jp")
-        self.assertEqual(position["data_quality"], "partial")
-        self.assertIn("realtime_quote_best_effort", position["limitations"])
 
     def test_delete_account_deactivates_without_hard_deleting(self) -> None:
         create_resp = self.client.post(
@@ -488,17 +445,17 @@ class PortfolioApiTestCase(unittest.TestCase):
         self.assertEqual(args[0], ["SH600519"])
         self.assertEqual(kwargs["portfolio_context"]["symbol"], "SH600519")
 
-    def test_position_analysis_matches_hk_suffix_position_symbol(self) -> None:
+    def test_position_analysis_matches_cn_suffix_position_symbol(self) -> None:
         account_id = self._create_position(
-            symbol="1810.HK",
+            symbol="000002.SZ",
             quantity=10,
-            market="hk",
-            currency="HKD",
+            market="cn",
+            currency="CNY",
         )
         accepted_task = SimpleNamespace(
-            task_id="task-portfolio-hk",
-            trace_id="trace-portfolio-hk",
-            stock_code="HK01810",
+            task_id="task-portfolio-cn",
+            trace_id="trace-portfolio-cn",
+            stock_code="000002",
             analysis_phase="auto",
         )
         queue = MagicMock()
@@ -509,16 +466,16 @@ class PortfolioApiTestCase(unittest.TestCase):
             return_value=(None, None),
         ), patch("api.v1.endpoints.portfolio.get_task_queue", return_value=queue):
             resp = self.client.post(
-                "/api/v1/portfolio/positions/1810.HK/analysis",
+                "/api/v1/portfolio/positions/000002.SZ/analysis",
                 json={"account_id": account_id},
             )
 
         self.assertEqual(resp.status_code, 202, resp.text)
         args, kwargs = queue.submit_tasks_batch.call_args
-        self.assertEqual(args[0], ["HK01810"])
-        self.assertEqual(kwargs["portfolio_context"]["symbol"], "HK01810")
-        self.assertEqual(kwargs["portfolio_context"]["market"], "hk")
-        self.assertEqual(kwargs["portfolio_context"]["currency"], "HKD")
+        self.assertEqual(args[0], ["SZ000002"])
+        self.assertEqual(kwargs["portfolio_context"]["symbol"], "SZ000002")
+        self.assertEqual(kwargs["portfolio_context"]["market"], "cn")
+        self.assertEqual(kwargs["portfolio_context"]["currency"], "CNY")
 
     def test_position_analysis_returns_404_for_missing_holding(self) -> None:
         resp = self.client.post("/api/v1/portfolio/positions/600519/analysis", json={})

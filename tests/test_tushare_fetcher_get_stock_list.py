@@ -158,29 +158,6 @@ class TestTushareFetcherFetchRawData(unittest.TestCase):
         fetcher._api.daily.assert_not_called()
         fetcher._api.hk_daily.assert_not_called()
 
-    def test_fetch_raw_data_hk_uses_hk_daily(self) -> None:
-        fetcher = self._make_fetcher()
-        fetcher._api.hk_daily.return_value = pd.DataFrame({"trade_date": ["20260102"]})
-
-        with patch.object(fetcher, "_check_rate_limit"):
-            out = fetcher._fetch_raw_data("HK00700", "2026-01-01", "2026-01-05")
-
-        self.assertIsNotNone(out)
-        fetcher._api.hk_daily.assert_called_once_with(
-            ts_code="00700.HK",
-            start_date="20260101",
-            end_date="20260105",
-        )
-        fetcher._api.daily.assert_not_called()
-        fetcher._api.fund_daily.assert_not_called()
-
-    def test_fetch_raw_data_us_raises(self) -> None:
-        fetcher = self._make_fetcher()
-        with patch.object(fetcher, "_check_rate_limit"):
-            with self.assertRaises(DataFetchError) as ctx:
-                fetcher._fetch_raw_data("AAPL", "2026-01-01", "2026-01-05")
-        self.assertIn("不支持美股", str(ctx.exception))
-        fetcher._api.daily.assert_not_called()
 
     def test_fetch_raw_data_api_unconfigured_raises(self) -> None:
         with patch.object(TushareFetcher, "_init_api", return_value=None):
@@ -201,14 +178,6 @@ class TestTushareFetcherFetchRawData(unittest.TestCase):
 
     def test_convert_stock_code_normalizes(self) -> None:
         fetcher = self._make_fetcher()
-        self.assertEqual(fetcher._convert_stock_code("HK00700"), "HK00700")
-    
-
-    def test_convert_stock_code_for_tushare_normalizes_hk(self) -> None:
-        fetcher = self._make_fetcher()
-        self.assertEqual(fetcher._convert_hk_stock_code_for_tushare("HK00700"), "00700.HK")
-        self.assertEqual(fetcher._convert_hk_stock_code_for_tushare("00700.HK"), "00700.HK")
-        self.assertEqual(fetcher._convert_hk_stock_code_for_tushare("600519"), "600519.SH")
 
 
 class TestTushareFetcherNormalizeData(unittest.TestCase):
@@ -244,18 +213,6 @@ class TestTushareFetcherNormalizeData(unittest.TestCase):
         self.assertEqual(out.iloc[0]["amount"], 50000.0)
         self.assertEqual(out.iloc[0]["code"], "600519")
 
-    def test_normalize_data_hk_skips_volume_amount_scaling(self) -> None:
-        fetcher = self._make_fetcher()
-        out = fetcher._normalize_data(self._sample_daily_frame(), "HK00700")
-        self.assertEqual(out.iloc[0]["volume"], 100.0)
-        self.assertEqual(out.iloc[0]["amount"], 50.0)
-        self.assertEqual(out.iloc[0]["code"], "HK00700")
-
-    def test_normalize_data_hk_suffix_skips_scaling(self) -> None:
-        fetcher = self._make_fetcher()
-        out = fetcher._normalize_data(self._sample_daily_frame(), "00700.HK")
-        self.assertEqual(out.iloc[0]["volume"], 100.0)
-        self.assertEqual(out.iloc[0]["amount"], 50.0)
 
     def test_normalize_data_etf_scales_like_a_share(self) -> None:
         fetcher = self._make_fetcher()
@@ -274,18 +231,6 @@ class TestTushareFetcherChipDistribution(unittest.TestCase):
         fetcher._api = MagicMock()
         fetcher.priority = 2
         return fetcher
-
-    def test_get_chip_distribution_returns_none_for_hk_canonical(self) -> None:
-        fetcher = self._make_fetcher()
-        with patch.object(fetcher, "_call_api_with_rate_limit") as api_mock:
-            self.assertIsNone(fetcher.get_chip_distribution("HK00700"))
-        api_mock.assert_not_called()
-
-    def test_get_chip_distribution_returns_none_for_hk_ts_suffix(self) -> None:
-        fetcher = self._make_fetcher()
-        with patch.object(fetcher, "_call_api_with_rate_limit") as api_mock:
-            self.assertIsNone(fetcher.get_chip_distribution("00700.HK"))
-        api_mock.assert_not_called()
 
 
 if __name__ == "__main__":

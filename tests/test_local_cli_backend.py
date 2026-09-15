@@ -547,7 +547,7 @@ raise SystemExit(1)
     ("event", "stream_name"),
     [
         ({"type": "tool_use", "name": "read"}, "stdout"),
-        ({"type": "websearch", "query": "AAPL"}, "stdout"),
+        ({"type": "websearch", "query": "600519"}, "stdout"),
         ({"type": "tool_result", "part": {"tool_name": "todowrite"}}, "stdout"),
         ({"type": "lsp", "name": "diagnostics"}, "stdout"),
         ({"type": "question", "text": "Continue?"}, "stdout"),
@@ -640,7 +640,7 @@ def test_opencode_extractor_rejects_tool_event() -> None:
 @pytest.mark.parametrize(
     "event",
     [
-        {"type": "websearch", "query": "AAPL"},
+        {"type": "websearch", "query": "600519"},
         {"type": "question", "text": "Continue?"},
         {"type": "skill", "name": "default"},
         {"type": "todowrite", "items": []},
@@ -1392,7 +1392,7 @@ def test_env_allowlist_and_denylist(monkeypatch) -> None:
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-secret")
     monkeypatch.setenv("ANTHROPIC_MODEL", "claude")
     monkeypatch.setenv("CLAUDE_CONFIG_DIR", "/tmp/claude")
-    monkeypatch.setenv("LONGBRIDGE_APP_KEY", "longbridge-secret")
+    monkeypatch.setenv("TUSHARE_TOKEN", "longbridge-secret")
     monkeypatch.setenv("OPENCODE_CONFIG_CONTENT", "{}")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-secret")
     monkeypatch.setenv("PUSHOVER_USER_KEY", "pushover-secret")
@@ -1412,7 +1412,7 @@ def test_env_allowlist_and_denylist(monkeypatch) -> None:
     assert "ANTHROPIC_API_KEY" not in child_env
     assert "ANTHROPIC_MODEL" not in child_env
     assert "CLAUDE_CONFIG_DIR" not in child_env
-    assert "LONGBRIDGE_APP_KEY" not in child_env
+    assert "TUSHARE_TOKEN" not in child_env
     assert "OPENCODE_CONFIG_CONTENT" not in child_env
     assert "OPENAI_API_KEY" not in child_env
     assert "PUSHOVER_USER_KEY" not in child_env
@@ -1647,7 +1647,7 @@ def test_diagnostics_redacts_webhook_urls_and_preserves_adjacent_normal_urls() -
         ("FEISHU_APP_SECRET=xxy12345abcdef", "xxy12345abcdef"),
         ("AIHUBMIX_KEY=short", "short"),
         ("CUSTOM_API_KEY=abc123xyz789short", "abc123xyz789short"),
-        ("LONGBRIDGE_APP_KEY=short", "short"),
+        ("TUSHARE_TOKEN=short", "short"),
         ("NTFY_URL=https://ntfy.sh/private-topic", "https://ntfy.sh/private-topic"),
         ("API_KEYS=short", "short"),
         ("OPENAI_API_KEYS=short", "short"),
@@ -2850,7 +2850,7 @@ def test_nonzero_exit_diagnostic_previews_redact_repo_env_json_and_parameterized
         """
 import sys
 print("AIHUBMIX_KEY=stdout-short session_id=stdout123")
-print("LONGBRIDGE_APP_KEY=stderr-short session_id=bridge123", file=sys.stderr)
+print("TUSHARE_TOKEN=stderr-short session_id=bridge123", file=sys.stderr)
 print("NTFY_URL=https://ntfy.sh/private-topic session_id=ntfy123", file=sys.stderr)
 print("PUSHOVER_USER_KEY=notify-short session_id=push123", file=sys.stderr)
 print("proxyAuthorization: Basic proxy-short session_id=proxy123", file=sys.stderr)
@@ -2880,7 +2880,7 @@ raise SystemExit(2)
     assert "tiny-secret" not in stderr_preview
     assert "sig-short" not in stderr_preview
     assert "AIHUBMIX_KEY=<redacted> session_id=stdout123" in stdout_preview
-    assert "LONGBRIDGE_APP_KEY=<redacted> session_id=bridge123" in stderr_preview
+    assert "TUSHARE_TOKEN=<redacted> session_id=bridge123" in stderr_preview
     assert "NTFY_URL=<redacted> session_id=ntfy123" in stderr_preview
     assert "PUSHOVER_USER_KEY=<redacted> session_id=push123" in stderr_preview
     assert "proxyAuthorization: <redacted> session_id=proxy123" in stderr_preview

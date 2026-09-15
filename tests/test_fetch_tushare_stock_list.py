@@ -88,65 +88,34 @@ def test_fetch_rt_k_names_batches_and_collects_results():
 def test_main_default_flow_keeps_original_filename():
     api = MagicMock()
     a_df = pd.DataFrame({"ts_code": ["000001.SZ"], "name": ["平安银行"]})
-    hk_df = pd.DataFrame({"ts_code": ["00001.HK"], "name": ["长和"]})
-    us_df = pd.DataFrame({"ts_code": ["AAPL"], "name": ["苹果"]})
-
     with (
         patch.object(fetch_tushare_stock_list, "get_tushare_api", return_value=api),
         patch.object(fetch_tushare_stock_list, "fetch_a_stock_list", return_value=a_df) as fetch_a,
         patch.object(fetch_tushare_stock_list, "save_to_csv") as save_to_csv,
-        patch.object(fetch_tushare_stock_list, "fetch_hk_stock_list", return_value=hk_df) as fetch_hk,
-        patch.object(fetch_tushare_stock_list, "fetch_us_stock_list", return_value=us_df) as fetch_us,
-        patch.object(fetch_tushare_stock_list, "generate_data_documentation") as generate_doc,
-        patch.object(fetch_tushare_stock_list, "random_sleep") as random_sleep,
         patch.object(fetch_tushare_stock_list, "fix_a_stock_names_with_rt_k") as fix_a_stock_names,
     ):
         exit_code = fetch_tushare_stock_list.main([])
 
     assert exit_code == 0
     fetch_a.assert_called_once_with(api)
-    save_to_csv.assert_any_call(a_df, "stock_list_a.csv", "A股")
-    fetch_hk.assert_called_once_with(api)
-    fetch_us.assert_called_once_with(api)
+    save_to_csv.assert_called_once_with(a_df)
     fix_a_stock_names.assert_not_called()
-    generate_doc.assert_called_once_with(a_df, hk_df, us_df, a_filename="stock_list_a.csv", a_title="A股列表")
-    assert random_sleep.call_count == 2
 
 
 def test_main_a_rk_flow_overwrites_a_filename_and_rt_k():
     api = MagicMock()
     a_df = pd.DataFrame({"ts_code": ["000001.SZ"], "name": ["XD西藏药"]})
     fixed_df = pd.DataFrame({"ts_code": ["000001.SZ"], "name": ["西藏药"]})
-    hk_df = pd.DataFrame({"ts_code": ["00001.HK"], "name": ["长和"]})
-    us_df = pd.DataFrame({"ts_code": ["AAPL"], "name": ["苹果"]})
-
     with (
         patch.object(fetch_tushare_stock_list, "get_tushare_api", return_value=api),
         patch.object(fetch_tushare_stock_list, "fetch_a_stock_list", return_value=a_df) as fetch_a,
         patch.object(fetch_tushare_stock_list, "fix_a_stock_names_with_rt_k", return_value=fixed_df) as fix_a_stock_names,
         patch.object(fetch_tushare_stock_list, "save_to_csv") as save_to_csv,
-        patch.object(fetch_tushare_stock_list, "fetch_hk_stock_list", return_value=hk_df) as fetch_hk,
-        patch.object(fetch_tushare_stock_list, "fetch_us_stock_list", return_value=us_df) as fetch_us,
-        patch.object(fetch_tushare_stock_list, "generate_data_documentation") as generate_doc,
-        patch.object(fetch_tushare_stock_list, "random_sleep") as random_sleep,
     ):
         exit_code = fetch_tushare_stock_list.main(["--a-rk"])
 
     assert exit_code == 0
     fetch_a.assert_called_once_with(api)
     fix_a_stock_names.assert_called_once_with(api, a_df)
-    fixed_save_call = next(
-        call for call in save_to_csv.call_args_list if call.args[1] == "stock_list_a.csv"
-    )
+    fixed_save_call = save_to_csv.call_args
     pd.testing.assert_frame_equal(fixed_save_call.args[0], fixed_df)
-    assert fixed_save_call.args[2] == "A股"
-    fetch_hk.assert_called_once_with(api)
-    fetch_us.assert_called_once_with(api)
-    generate_doc.assert_called_once_with(
-        fixed_df,
-        hk_df,
-        us_df,
-        a_filename="stock_list_a.csv",
-        a_title="A股列表（修正后）",
-    )
-    assert random_sleep.call_count == 2

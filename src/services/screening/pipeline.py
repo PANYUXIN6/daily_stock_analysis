@@ -108,8 +108,8 @@ def screen(
     if config is None:
         config = Config.from_env()
 
-    if market not in ("cn", "us"):
-        raise ValueError(f"Unsupported market: {market!r} (supported: cn, us)")
+    if market != "cn":
+        raise ValueError(f"Unsupported market: {market!r} (supported: cn)")
 
     run_id = uuid.uuid4().hex[:12]
     degradation: list[str] = []
