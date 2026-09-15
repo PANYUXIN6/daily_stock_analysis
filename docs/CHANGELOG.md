@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [改进] Portfolio 收敛为人民币记账，移除汇率刷新接口、配置与 Web 状态卡片；历史外币记录保留，估值与风险计算明确拒绝外币。
+- [文档] 清理当前配置、运行提示与指南中的 Electron 桌面端残留，统一为 Web 与后端服务说明。
+
 - [测试] 补清 Portfolio 告警中的境外正常输入样例、tokenizer 旧市场命名与空测试类；保留境外代码拒绝测试和独立的汇率账本验证。
 
 - [测试] 将后端与 Web 测试迁移为 A 股契约，删除海外市场专属断言和过期桌面测试时长记录；安装指南统一推荐与 CI/Docker 一致的 Python 3.11+。

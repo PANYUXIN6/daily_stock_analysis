@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Static frontend sanity check for the desktop / server packaging pipeline.
+Static frontend sanity check for the Web server packaging pipeline.
 
 Validates that ``index.html`` only references ``/assets/*.js`` and
 ``/assets/*.css`` files that actually exist on disk. A mismatch here is the

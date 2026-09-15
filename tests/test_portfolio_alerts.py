@@ -78,7 +78,6 @@ def _risk_report():
             "current_drawdown_pct": 5.0,
             "max_drawdown_pct": 20.0,
             "alert": True,
-            "fx_stale": True,
         },
     }
 
@@ -138,13 +137,11 @@ class PortfolioAlertsTestCase(unittest.TestCase):
         diagnostics = json.loads(result["diagnostics"])
         self.assertEqual(diagnostics["current_drawdown_pct"], 5.0)
         self.assertEqual(diagnostics["max_drawdown_pct"], 20.0)
-        self.assertTrue(diagnostics["fx_stale"])
 
     def test_price_stale_triggers_on_stale_or_missing_position_price(self) -> None:
         snapshot = {
             "as_of": "2026-05-20",
             "currency": "CNY",
-            "fx_stale": False,
             "accounts": [
                 {
                     "account_id": 3,

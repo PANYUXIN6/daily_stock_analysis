@@ -16,15 +16,15 @@ describe('SettingsPanelErrorBoundary', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders a configurable desktop-log diagnostic fallback when a settings panel throws', () => {
+  it('renders a configurable backend-log diagnostic fallback when a settings panel throws', () => {
     render(
       <SettingsPanelErrorBoundary
         title="通知设置"
         resetKey="notification"
         diagnosticHint={(
           <>
-            请查看并提供桌面端日志
-            <code>desktop.log</code>
+            请查看并提供后端日志
+            <code>analysis.log</code>
             ，同时补充 release 版本、Windows 版本和触发入口。
           </>
         )}
@@ -35,7 +35,7 @@ describe('SettingsPanelErrorBoundary', () => {
 
     expect(screen.getByRole('alert')).toBeInTheDocument();
     expect(screen.getByText('通知设置加载失败')).toBeInTheDocument();
-    expect(screen.getByText('desktop.log')).toBeInTheDocument();
+    expect(screen.getByText('analysis.log')).toBeInTheDocument();
     expect(screen.getByText(/release 版本、Windows 版本和触发入口/)).toBeInTheDocument();
     expect(screen.getByText(/错误摘要：mock settings panel crash/)).toBeInTheDocument();
   });

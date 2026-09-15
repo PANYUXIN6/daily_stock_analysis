@@ -2750,7 +2750,7 @@
           "SystemConfig"
         ],
         "summary": "Get runtime scheduler status",
-        "description": "Return status for the in-process Web/API/Desktop scheduler.",
+        "description": "Return status for the in-process Web/API scheduler.",
         "operationId": "get_scheduler_status_api_v1_system_scheduler_status_get",
         "responses": {
           "200": {
@@ -5195,96 +5195,6 @@
                 }
               }
             }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/portfolio/fx/refresh": {
-      "post": {
-        "tags": [
-          "Portfolio"
-        ],
-        "summary": "Refresh FX cache online with stale fallback",
-        "operationId": "refresh_fx_rates_api_v1_portfolio_fx_refresh_post",
-        "parameters": [
-          {
-            "name": "account_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Optional account id",
-              "title": "Account Id"
-            },
-            "description": "Optional account id"
-          },
-          {
-            "name": "as_of",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string",
-                  "format": "date"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Rate date, default today",
-              "title": "As Of"
-            },
-            "description": "Rate date, default today"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/PortfolioFxRefreshResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Bad Request"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Internal Server Error"
           },
           "422": {
             "description": "Validation Error",
@@ -16657,8 +16567,7 @@
           },
           "base_currency": {
             "type": "string",
-            "maxLength": 8,
-            "minLength": 3,
+            "const": "CNY",
             "title": "Base Currency",
             "default": "CNY"
           },
@@ -16847,10 +16756,6 @@
             "type": "number",
             "title": "Tax Total"
           },
-          "fx_stale": {
-            "type": "boolean",
-            "title": "Fx Stale"
-          },
           "data_quality": {
             "type": "string",
             "title": "Data Quality",
@@ -16885,8 +16790,7 @@
           "realized_pnl",
           "unrealized_pnl",
           "fee_total",
-          "tax_total",
-          "fx_stale"
+          "tax_total"
         ],
         "title": "PortfolioAccountSnapshot"
       },
@@ -16933,8 +16837,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "maxLength": 8,
-                "minLength": 3
+                "const": "CNY"
               },
               {
                 "type": "null"
@@ -16997,8 +16900,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "maxLength": 8,
-                "minLength": 3
+                "const": "CNY"
               },
               {
                 "type": "null"
@@ -17159,8 +17061,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "maxLength": 8,
-                "minLength": 3
+                "const": "CNY"
               },
               {
                 "type": "null"
@@ -17420,60 +17321,6 @@
           "id"
         ],
         "title": "PortfolioEventCreatedResponse"
-      },
-      "PortfolioFxRefreshResponse": {
-        "properties": {
-          "as_of": {
-            "type": "string",
-            "title": "As Of"
-          },
-          "account_count": {
-            "type": "integer",
-            "title": "Account Count"
-          },
-          "refresh_enabled": {
-            "type": "boolean",
-            "title": "Refresh Enabled"
-          },
-          "disabled_reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Disabled Reason"
-          },
-          "pair_count": {
-            "type": "integer",
-            "title": "Pair Count"
-          },
-          "updated_count": {
-            "type": "integer",
-            "title": "Updated Count"
-          },
-          "stale_count": {
-            "type": "integer",
-            "title": "Stale Count"
-          },
-          "error_count": {
-            "type": "integer",
-            "title": "Error Count"
-          }
-        },
-        "type": "object",
-        "required": [
-          "as_of",
-          "account_count",
-          "refresh_enabled",
-          "pair_count",
-          "updated_count",
-          "stale_count",
-          "error_count"
-        ],
-        "title": "PortfolioFxRefreshResponse"
       },
       "PortfolioImportBrokerItem": {
         "properties": {
@@ -17941,10 +17788,6 @@
             "type": "number",
             "title": "Tax Total"
           },
-          "fx_stale": {
-            "type": "boolean",
-            "title": "Fx Stale"
-          },
           "data_quality": {
             "type": "string",
             "title": "Data Quality",
@@ -17977,8 +17820,7 @@
           "realized_pnl",
           "unrealized_pnl",
           "fee_total",
-          "tax_total",
-          "fx_stale"
+          "tax_total"
         ],
         "title": "PortfolioSnapshotResponse"
       },
@@ -18045,8 +17887,7 @@
             "anyOf": [
               {
                 "type": "string",
-                "maxLength": 8,
-                "minLength": 3
+                "const": "CNY"
               },
               {
                 "type": "null"

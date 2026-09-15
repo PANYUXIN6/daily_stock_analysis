@@ -25,7 +25,7 @@ export interface PortfolioAccountCreateRequest {
   name: string;
   broker?: string;
   market: 'cn';
-  baseCurrency: string;
+  baseCurrency: 'CNY';
   ownerId?: string;
 }
 
@@ -72,7 +72,6 @@ export interface PortfolioAccountSnapshot {
   unrealizedPnl: number;
   feeTotal: number;
   taxTotal: number;
-  fxStale: boolean;
   dataQuality?: 'ok' | 'partial' | string;
   limitations?: string[];
   positions: PortfolioPositionItem[];
@@ -90,7 +89,6 @@ export interface PortfolioSnapshotResponse {
   unrealizedPnl: number;
   feeTotal: number;
   taxTotal: number;
-  fxStale: boolean;
   dataQuality?: 'ok' | 'partial' | string;
   limitations?: string[];
   accounts: PortfolioAccountSnapshot[];
@@ -116,7 +114,6 @@ export interface PortfolioDrawdownBlock {
   maxDrawdownPct: number;
   currentDrawdownPct: number;
   alert: boolean;
-  fxStale: boolean;
 }
 
 export interface PortfolioStopLossItem {
@@ -188,7 +185,7 @@ export interface PortfolioTradeCreateRequest {
   fee?: number;
   tax?: number;
   market?: 'cn';
-  currency?: string;
+  currency?: 'CNY';
   tradeUid?: string;
   note?: string;
 }
@@ -198,7 +195,7 @@ export interface PortfolioCashLedgerCreateRequest {
   eventDate: string;
   direction: PortfolioCashDirection;
   amount: number;
-  currency?: string;
+  currency?: 'CNY';
   note?: string;
 }
 
@@ -208,7 +205,7 @@ export interface PortfolioCorporateActionCreateRequest {
   effectiveDate: string;
   actionType: PortfolioCorporateActionType;
   market?: 'cn';
-  currency?: string;
+  currency?: 'CNY';
   cashDividendPerShare?: number;
   splitRatio?: number;
   note?: string;
@@ -325,15 +322,4 @@ export interface PortfolioImportBrokerItem {
 
 export interface PortfolioImportBrokerListResponse {
   brokers: PortfolioImportBrokerItem[];
-}
-
-export interface PortfolioFxRefreshResponse {
-  asOf: string;
-  accountCount: number;
-  refreshEnabled?: boolean;
-  disabledReason?: string | null;
-  pairCount: number;
-  updatedCount: number;
-  staleCount: number;
-  errorCount: number;
 }

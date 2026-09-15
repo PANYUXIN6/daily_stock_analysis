@@ -682,6 +682,7 @@ class PortfolioDailySnapshot(Base):
     realized_pnl = Column(Float, nullable=False, default=0.0)
     fee_total = Column(Float, nullable=False, default=0.0)
     tax_total = Column(Float, nullable=False, default=0.0)
+    # Legacy non-null column: retain the default for existing databases, omit from public payloads.
     fx_stale = Column(Boolean, nullable=False, default=False)
     payload = Column(Text)
     created_at = Column(DateTime, default=datetime.now, index=True)
@@ -697,28 +698,6 @@ class PortfolioDailySnapshot(Base):
     )
 
 
-class PortfolioFxRate(Base):
-    """Cached FX rates used for cross-currency portfolio conversion."""
-
-    __tablename__ = 'portfolio_fx_rates'
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    from_currency = Column(String(8), nullable=False, index=True)
-    to_currency = Column(String(8), nullable=False, index=True)
-    rate_date = Column(Date, nullable=False, index=True)
-    rate = Column(Float, nullable=False)
-    source = Column(String(32), nullable=False, default='manual')
-    is_stale = Column(Boolean, nullable=False, default=False)
-    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
-
-    __table_args__ = (
-        UniqueConstraint(
-            'from_currency',
-            'to_currency',
-            'rate_date',
-            name='uix_portfolio_fx_pair_date',
-        ),
-    )
 
 
 class ConversationMessage(Base):

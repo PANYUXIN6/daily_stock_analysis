@@ -1650,12 +1650,10 @@ A: Check if Actions is enabled, and if cron expression is correct (note it's UTC
 - Account deletion uses soft-delete/archive semantics. Archived accounts are hidden from default account lists, portfolio snapshots, risk summaries, entry forms, and event lists.
 - Historical trade, cash-ledger, corporate-action, and daily snapshot rows are not physically removed. To correct a specific ledger row from the Web UI, delete that row before archiving its account.
 
-### Manual FX refresh on `/portfolio`
+### Portfolio currency and valuation
 
-- The FX status card on the Web `/portfolio` page includes a manual refresh action.
-- The button calls the existing `POST /api/v1/portfolio/fx/refresh` endpoint and reloads snapshot/risk data only.
-- If upstream FX fetch fails, the page may still remain stale after refresh and will explain the fallback result inline.
-- When `PORTFOLIO_FX_UPDATE_ENABLED=false`, the refresh API returns an explicit disabled status and the page shows that online FX refresh is disabled instead of implying that no refreshable pairs exist.
+Portfolio accepts only CNY for new accounts and ledger entries. Historical foreign-currency records remain readable, but valuation and risk calculations reject them until the original ledger is reconciled; they are never treated as CNY at a 1:1 rate. The FX refresh endpoint, setting and status fields have been removed.
+
 - Portfolio snapshot `positions[]` includes price metadata such as `price_source`, `price_date`, `price_stale`, and `price_available`. Today's snapshot tries realtime quotes by default, then falls back to the latest historical close on or before `as_of` when the realtime quote is unavailable or non-positive. Passing `include_realtime=false` skips realtime quotes and uses the local historical-close fallback path directly; the Web portfolio page uses this mode to render holdings before slow external realtime quote sources can block the first screen. Historical `as_of` snapshots stay on historical-close semantics and no longer silently treat cost basis as the current price. Missing-price positions are marked with `price_available=false` and excluded from market value / unrealized PnL totals.
 
 ## Agent Tool Data Cache And Persistence

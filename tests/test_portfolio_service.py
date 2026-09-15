@@ -110,6 +110,46 @@ class PortfolioServiceTestCase(unittest.TestCase):
             self._save_close(self.service._normalize_symbol(symbol), close_date or date(2026, 1, 3), close)
         return aid
 
+    def test_foreign_currency_writes_are_rejected(self) -> None:
+        aid = self.service.create_account(name="CNY", broker=None, market="cn", base_currency="CNY")["id"]
+        for currency in ("USD", "HKD"):
+            writes = [
+                lambda: self.service.create_account(name="Foreign", broker=None, market="cn", base_currency=currency),
+                lambda: self.service.update_account(account_id=aid, base_currency=currency),
+                lambda: self.service.record_cash_ledger(account_id=aid, event_date=date.today(), direction="in", amount=100, currency=currency),
+                lambda: self.service.record_trade(account_id=aid, symbol="600519", trade_date=date.today(), side="buy", quantity=1, price=100, currency=currency),
+                lambda: self.service.record_corporate_action(account_id=aid, symbol="600519", effective_date=date.today(), action_type="cash_dividend", cash_dividend_per_share=1, currency=currency),
+            ]
+            for write in writes:
+                with self.subTest(currency=currency, write=write), self.assertRaisesRegex(ValueError, "CNY"):
+                    write()
+
+    def test_historical_foreign_account_is_preserved_but_not_valued(self) -> None:
+        account = self.service.repo.create_account(name="Legacy", broker=None, market="cn", base_currency="USD")
+        with self.assertRaisesRegex(ValueError, "CNY"):
+            self.service.get_portfolio_snapshot(account_id=account.id)
+        self.assertEqual(self.service.repo.get_account(account.id).base_currency, "USD")
+
+    def test_historical_foreign_trade_is_preserved_but_not_valued(self) -> None:
+        aid = self._create_account_with_position(market="cn", currency="CNY", symbol="600519")
+        with self.db.get_session() as session:
+            trade = session.execute(select(PortfolioTrade).where(PortfolioTrade.account_id == aid)).scalar_one()
+            trade.currency = "HKD"
+            session.commit()
+        with self.assertRaisesRegex(ValueError, "CNY"):
+            self.service.get_portfolio_snapshot(account_id=aid)
+        with self.db.get_session() as session:
+            trade = session.execute(select(PortfolioTrade).where(PortfolioTrade.account_id == aid)).scalar_one()
+            self.assertEqual(trade.currency, "HKD")
+
+    def test_foreign_historical_snapshot_is_not_used_as_cny_in_drawdown(self) -> None:
+        from src.services.portfolio_risk_service import PortfolioRiskService
+        risk = PortfolioRiskService()
+        row = SimpleNamespace(snapshot_date=date.today(), base_currency="USD", total_equity=100)
+        with patch.object(risk.repo, "list_daily_snapshots_for_risk", return_value=[row]):
+            with self.assertRaisesRegex(ValueError, "CNY"):
+                risk._build_drawdown(account_id=None, as_of_date=date.today(), cost_method="fifo", threshold_pct=15, lookback_days=30)
+
     def test_current_snapshot_uses_realtime_price_when_close_missing(self) -> None:
         today = date.today()
         account = self.service.create_account(name="Main", broker="Demo", market="cn", base_currency="CNY")
@@ -489,7 +529,7 @@ class PortfolioServiceTestCase(unittest.TestCase):
         for market, currency, symbol, close, expected_symbol in [
             ("cn", "CNY", "600519", 12.5, "600519"),
             ("cn", "CNY", "sz000001", 420.0, "SZ000001"),
-            ("cn", "USD", "600519", 210.0, "600519"),
+            ("cn", "CNY", "600519", 210.0, "600519"),
         ]:
             with self.subTest(market=market):
                 aid = self._create_account_with_position(market=market, currency=currency, symbol=symbol, close=close)
@@ -506,7 +546,6 @@ class PortfolioServiceTestCase(unittest.TestCase):
                 self.assertAlmostEqual(position["unrealized_pnl_pct"], (close * 10 - 1000) / 1000 * 100, places=6)
                 self.assertEqual(position["data_quality"], "ok")
                 self.assertEqual(position["limitations"], [])
-
 
     def test_snapshot_marks_stale_close_and_missing_price(self) -> None:
         aid = self._create_account_with_position(
@@ -552,12 +591,12 @@ class PortfolioServiceTestCase(unittest.TestCase):
     def test_build_positions_handles_zero_cost_without_division(self) -> None:
         account = SimpleNamespace(base_currency="CNY")
 
-        positions, _, _, _, _ = self.service._build_positions(
+        positions, _, _, _ = self.service._build_positions(
             account=account,
             as_of_date=date(2026, 1, 3),
             cost_method="avg",
             fifo_lots={},
-            avg_state={("600519", "cn", "USD"): _AvgState(quantity=10.0, total_cost=0.0)},
+            avg_state={("600519", "cn", "CNY"): _AvgState(quantity=10.0, total_cost=0.0)},
         )
 
         self.assertEqual(len(positions), 1)

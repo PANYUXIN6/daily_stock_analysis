@@ -30,7 +30,6 @@ VALID_COST_METHODS = {"fifo", "avg"}
 VALID_SIDES = {"buy", "sell"}
 VALID_CASH_DIRECTIONS = {"in", "out"}
 VALID_CORPORATE_ACTIONS = {"cash_dividend", "split_adjustment"}
-PORTFOLIO_FX_REFRESH_DISABLED_REASON = "portfolio_fx_update_disabled"
 PORTFOLIO_REALTIME_QUOTE_MAX_WORKERS = 4
 
 
@@ -482,11 +481,11 @@ class PortfolioService:
             "unrealized_pnl": 0.0,
             "fee_total": 0.0,
             "tax_total": 0.0,
-            "fx_stale": False,
             "limitations": [],
         }
 
         for account in account_rows:
+            self._normalize_currency(account.base_currency)
             account_snapshot = self._replay_account(
                 account=account,
                 as_of_date=as_of_date,
@@ -506,7 +505,6 @@ class PortfolioService:
                 realized_pnl=account_snapshot["realized_pnl"],
                 fee_total=account_snapshot["fee_total"],
                 tax_total=account_snapshot["tax_total"],
-                fx_stale=account_snapshot["fx_stale"],
                 payload=json.dumps(account_snapshot["payload"], ensure_ascii=False),
                 positions=account_snapshot["positions_cache"],
                 lots=account_snapshot["lots_cache"],
@@ -519,48 +517,13 @@ class PortfolioService:
                 account_snapshot["public"].get("limitations", []),
             )
 
-            cash_cny, stale_cash, _ = self._convert_amount(
-                amount=account_snapshot["total_cash"],
-                from_currency=account.base_currency,
-                to_currency=aggregate_currency,
-                as_of_date=as_of_date,
-            )
-            mv_cny, stale_mv, _ = self._convert_amount(
-                amount=account_snapshot["total_market_value"],
-                from_currency=account.base_currency,
-                to_currency=aggregate_currency,
-                as_of_date=as_of_date,
-            )
-            eq_cny, stale_eq, _ = self._convert_amount(
-                amount=account_snapshot["total_equity"],
-                from_currency=account.base_currency,
-                to_currency=aggregate_currency,
-                as_of_date=as_of_date,
-            )
-            realized_cny, stale_realized, _ = self._convert_amount(
-                amount=account_snapshot["realized_pnl"],
-                from_currency=account.base_currency,
-                to_currency=aggregate_currency,
-                as_of_date=as_of_date,
-            )
-            unrealized_cny, stale_unrealized, _ = self._convert_amount(
-                amount=account_snapshot["unrealized_pnl"],
-                from_currency=account.base_currency,
-                to_currency=aggregate_currency,
-                as_of_date=as_of_date,
-            )
-            fee_cny, stale_fee, _ = self._convert_amount(
-                amount=account_snapshot["fee_total"],
-                from_currency=account.base_currency,
-                to_currency=aggregate_currency,
-                as_of_date=as_of_date,
-            )
-            tax_cny, stale_tax, _ = self._convert_amount(
-                amount=account_snapshot["tax_total"],
-                from_currency=account.base_currency,
-                to_currency=aggregate_currency,
-                as_of_date=as_of_date,
-            )
+            cash_cny = account_snapshot["total_cash"]
+            mv_cny = account_snapshot["total_market_value"]
+            eq_cny = account_snapshot["total_equity"]
+            realized_cny = account_snapshot["realized_pnl"]
+            unrealized_cny = account_snapshot["unrealized_pnl"]
+            fee_cny = account_snapshot["fee_total"]
+            tax_cny = account_snapshot["tax_total"]
 
             aggregate["total_cash"] += cash_cny
             aggregate["total_market_value"] += mv_cny
@@ -569,17 +532,7 @@ class PortfolioService:
             aggregate["unrealized_pnl"] += unrealized_cny
             aggregate["fee_total"] += fee_cny
             aggregate["tax_total"] += tax_cny
-            aggregate["fx_stale"] = aggregate["fx_stale"] or any(
-                [
-                    stale_cash,
-                    stale_mv,
-                    stale_eq,
-                    stale_realized,
-                    stale_unrealized,
-                    stale_fee,
-                    stale_tax,
-                ]
-            )
+
 
         return {
             "as_of": as_of_date.isoformat(),
@@ -593,48 +546,10 @@ class PortfolioService:
             "unrealized_pnl": round(aggregate["unrealized_pnl"], 6),
             "fee_total": round(aggregate["fee_total"], 6),
             "tax_total": round(aggregate["tax_total"], 6),
-            "fx_stale": aggregate["fx_stale"],
             "data_quality": "partial" if aggregate["limitations"] else "ok",
             "limitations": aggregate["limitations"],
             "accounts": accounts_payload,
         }
-
-    def refresh_fx_rates(
-        self,
-        *,
-        account_id: Optional[int] = None,
-        as_of: Optional[date] = None,
-    ) -> Dict[str, Any]:
-        """Refresh account FX pairs online with stale fallback when fetch fails."""
-        as_of_date = as_of or date.today()
-        config = get_config()
-        refresh_enabled = bool(getattr(config, "portfolio_fx_update_enabled", True))
-        if account_id is not None:
-            account_rows = [self._require_active_account(account_id)]
-        else:
-            account_rows = self.repo.list_accounts(include_inactive=False)
-
-        summary = {
-            "as_of": as_of_date.isoformat(),
-            "account_count": len(account_rows),
-            "refresh_enabled": refresh_enabled,
-            "disabled_reason": None if refresh_enabled else PORTFOLIO_FX_REFRESH_DISABLED_REASON,
-            "pair_count": 0,
-            "updated_count": 0,
-            "stale_count": 0,
-            "error_count": 0,
-        }
-        for account in account_rows:
-            item = self._refresh_account_fx_rates(
-                account=account,
-                as_of_date=as_of_date,
-                refresh_enabled=refresh_enabled,
-            )
-            summary["pair_count"] += item["pair_count"]
-            summary["updated_count"] += item["updated_count"]
-            summary["stale_count"] += item["stale_count"]
-            summary["error_count"] += item["error_count"]
-        return summary
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -769,6 +684,7 @@ class PortfolioService:
         cost_method: str,
         include_realtime: bool,
     ) -> Dict[str, Any]:
+        self._normalize_currency(account.base_currency)
         trades = self.repo.list_trades(account.id, as_of=as_of_date)
         cash_ledger = self.repo.list_cash_ledger(account.id, as_of=as_of_date)
         corporate_actions = self.repo.list_corporate_actions(account.id, as_of=as_of_date)
@@ -789,7 +705,6 @@ class PortfolioService:
         fees_total_base = 0.0
         taxes_total_base = 0.0
         realized_pnl_base = 0.0
-        fx_stale = False
 
         fifo_lots: Dict[Tuple[str, str, str], List[Dict[str, Any]]] = defaultdict(list)
         avg_state: Dict[Tuple[str, str, str], _AvgState] = defaultdict(_AvgState)
@@ -858,32 +773,15 @@ class PortfolioService:
                             event_date,
                         )
                     realized_local = proceeds_net - cost_basis
-                    realized_base, stale_realized, _ = self._convert_amount(
-                        amount=realized_local,
-                        from_currency=key[2],
-                        to_currency=account.base_currency,
-                        as_of_date=event_date,
-                    )
+                    realized_base = realized_local
                     realized_pnl_base += realized_base
-                    fx_stale = fx_stale or stale_realized
                 else:
                     raise ValueError(f"Unsupported trade side: {event.side}")
 
-                fee_base, stale_fee, _ = self._convert_amount(
-                    amount=fee,
-                    from_currency=key[2],
-                    to_currency=account.base_currency,
-                    as_of_date=event_date,
-                )
-                tax_base, stale_tax, _ = self._convert_amount(
-                    amount=tax,
-                    from_currency=key[2],
-                    to_currency=account.base_currency,
-                    as_of_date=event_date,
-                )
+                fee_base = fee
+                tax_base = tax
                 fees_total_base += fee_base
                 taxes_total_base += tax_base
-                fx_stale = fx_stale or stale_fee or stale_tax
                 continue
 
             if event_type == "corp":
@@ -921,7 +819,7 @@ class PortfolioService:
                 else:
                     raise ValueError(f"Unsupported corporate action type: {event.action_type}")
 
-        position_rows, lot_rows, market_value_base, total_cost_base, stale_pos = self._build_positions(
+        position_rows, lot_rows, market_value_base, total_cost_base = self._build_positions(
             account=account,
             as_of_date=as_of_date,
             cost_method=cost_method,
@@ -929,18 +827,11 @@ class PortfolioService:
             avg_state=avg_state,
             include_realtime=include_realtime,
         )
-        fx_stale = fx_stale or stale_pos
 
         total_cash_base = 0.0
         for currency, amount in cash_balances.items():
-            converted, stale, _ = self._convert_amount(
-                amount=amount,
-                from_currency=currency,
-                to_currency=account.base_currency,
-                as_of_date=as_of_date,
-            )
+            converted = amount
             total_cash_base += converted
-            fx_stale = fx_stale or stale
 
         unrealized_pnl_base = market_value_base - total_cost_base
         total_equity_base = total_cash_base + market_value_base
@@ -970,7 +861,6 @@ class PortfolioService:
             "unrealized_pnl": round(unrealized_pnl_base, 6),
             "fee_total": round(fees_total_base, 6),
             "tax_total": round(taxes_total_base, 6),
-            "fx_stale": fx_stale,
             "data_quality": "partial" if limitations else "ok",
             "limitations": limitations,
             "positions": position_rows,
@@ -988,7 +878,6 @@ class PortfolioService:
             "unrealized_pnl": float(unrealized_pnl_base),
             "fee_total": float(fees_total_base),
             "tax_total": float(taxes_total_base),
-            "fx_stale": fx_stale,
         }
 
     def _build_positions(
@@ -1000,12 +889,11 @@ class PortfolioService:
         fifo_lots: Dict[Tuple[str, str, str], List[Dict[str, Any]]],
         avg_state: Dict[Tuple[str, str, str], _AvgState],
         include_realtime: bool = True,
-    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], float, float, bool]:
+    ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], float, float]:
         position_rows: List[Dict[str, Any]] = []
         lot_rows: List[Dict[str, Any]] = []
         market_value_base = 0.0
         total_cost_base = 0.0
-        fx_stale = False
 
         keys: Iterable[Tuple[str, str, str]]
         if cost_method == "fifo":
@@ -1035,6 +923,7 @@ class PortfolioService:
 
         for key in sorted(keys):
             symbol, market, currency = key
+            self._normalize_currency(currency)
 
             if cost_method == "fifo":
                 active_lots = [lot for lot in fifo_lots[key] if lot["remaining_quantity"] > EPS]
@@ -1074,20 +963,9 @@ class PortfolioService:
 
             if price_info.is_available:
                 local_market_value = qty * float(last_price)
-                market_base, stale_market, _ = self._convert_amount(
-                    amount=local_market_value,
-                    from_currency=currency,
-                    to_currency=account.base_currency,
-                    as_of_date=as_of_date,
-                )
-                cost_base, stale_cost, _ = self._convert_amount(
-                    amount=total_cost,
-                    from_currency=currency,
-                    to_currency=account.base_currency,
-                    as_of_date=as_of_date,
-                )
+                market_base = local_market_value
+                cost_base = total_cost
                 unrealized_base = market_base - cost_base
-                fx_stale = fx_stale or stale_market or stale_cost
             else:
                 market_base = 0.0
                 cost_base = 0.0
@@ -1123,7 +1001,7 @@ class PortfolioService:
             market_value_base += market_base
             total_cost_base += cost_base
 
-        return position_rows, lot_rows, market_value_base, total_cost_base, fx_stale
+        return position_rows, lot_rows, market_value_base, total_cost_base
 
     def _resolve_position_price(
         self,
@@ -1405,133 +1283,6 @@ class PortfolioService:
             return sum(float(lot["remaining_quantity"]) for lot in fifo_lots.get(key, []))
         return float(avg_state.get(key, _AvgState()).quantity)
 
-    def _convert_amount(
-        self,
-        *,
-        amount: float,
-        from_currency: str,
-        to_currency: str,
-        as_of_date: date,
-    ) -> Tuple[float, bool, str]:
-        from_norm = self._normalize_currency(from_currency)
-        to_norm = self._normalize_currency(to_currency)
-        if abs(amount) <= EPS:
-            return 0.0, False, "zero"
-        if from_norm == to_norm:
-            return float(amount), False, "identity"
-
-        direct = self.repo.get_latest_fx_rate(
-            from_currency=from_norm,
-            to_currency=to_norm,
-            as_of=as_of_date,
-        )
-        if direct is not None and direct.rate > 0:
-            return float(amount) * float(direct.rate), bool(direct.is_stale), "direct_rate"
-
-        inverse = self.repo.get_latest_fx_rate(
-            from_currency=to_norm,
-            to_currency=from_norm,
-            as_of=as_of_date,
-        )
-        if inverse is not None and inverse.rate > 0:
-            return float(amount) / float(inverse.rate), bool(inverse.is_stale), "inverse_rate"
-
-        # P0 fallback: keep pipeline available even when FX cache is missing.
-        return float(amount), True, "fallback_1_to_1"
-
-    def convert_amount(
-        self,
-        *,
-        amount: float,
-        from_currency: str,
-        to_currency: str,
-        as_of_date: date,
-    ) -> Tuple[float, bool, str]:
-        """Public conversion entry for cross-service consumers."""
-        return self._convert_amount(
-            amount=amount,
-            from_currency=from_currency,
-            to_currency=to_currency,
-            as_of_date=as_of_date,
-        )
-
-    def _list_account_refresh_fx_currencies(
-        self,
-        *,
-        account: Any,
-        as_of_date: date,
-        strict: bool = True,
-    ) -> List[str]:
-        """Return distinct non-base currencies participating in refresh for one account."""
-        base_currency = self._normalize_currency(account.base_currency)
-        currencies: Set[str] = set()
-        rows = list(self.repo.list_trades(account.id, as_of=as_of_date))
-        rows.extend(self.repo.list_cash_ledger(account.id, as_of=as_of_date))
-        for row in rows:
-            try:
-                currency = self._normalize_currency(row.currency)
-            except ValueError:
-                if strict:
-                    raise
-                logger.warning(
-                    "Skip invalid FX refresh currency for account %s on %s: %r",
-                    account.id,
-                    as_of_date.isoformat(),
-                    getattr(row, "currency", None),
-                )
-                continue
-            if currency != base_currency:
-                currencies.add(currency)
-        return sorted(currencies)
-
-    def _refresh_account_fx_rates(
-        self,
-        *,
-        account: Any,
-        as_of_date: date,
-        refresh_enabled: bool,
-    ) -> Dict[str, int]:
-        """Refresh FX pairs for one account and keep stale fallback on failures."""
-        refresh_currencies = self._list_account_refresh_fx_currencies(
-            account=account,
-            as_of_date=as_of_date,
-            strict=refresh_enabled,
-        )
-        if not refresh_enabled:
-            return {
-                "pair_count": len(refresh_currencies),
-                "updated_count": 0,
-                "stale_count": 0,
-                "error_count": 0,
-            }
-
-        base_currency = self._normalize_currency(account.base_currency)
-        summary = {
-            "pair_count": len(refresh_currencies),
-            "updated_count": 0,
-            "stale_count": 0,
-            "error_count": 0,
-        }
-        for from_currency in refresh_currencies:
-            fallback = self.repo.get_latest_fx_rate(
-                from_currency=from_currency,
-                to_currency=base_currency,
-                as_of=as_of_date,
-            )
-            if fallback is not None and float(fallback.rate or 0.0) > 0:
-                self.repo.save_fx_rate(
-                    from_currency=from_currency,
-                    to_currency=base_currency,
-                    rate_date=as_of_date,
-                    rate=float(fallback.rate),
-                    source=(fallback.source or "cache_fallback"),
-                    is_stale=True,
-                )
-                summary["stale_count"] += 1
-            else:
-                summary["error_count"] += 1
-        return summary
-
     def _require_active_account(self, account_id: int) -> Any:
         account = self.repo.get_account(account_id, include_inactive=False)
         if account is None:
@@ -1650,8 +1401,8 @@ class PortfolioService:
     @staticmethod
     def _normalize_currency(value: str) -> str:
         currency = (value or "").strip().upper()
-        if not currency:
-            raise ValueError("currency is required")
+        if currency != "CNY":
+            raise ValueError("Portfolio 仅支持人民币 CNY；外币历史记录不参与估值，请先核对原始账本。")
         return currency
 
     @staticmethod

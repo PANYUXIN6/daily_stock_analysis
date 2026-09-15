@@ -331,7 +331,7 @@ class AlertApiTestCase(unittest.TestCase):
             name="Main",
             broker="Demo",
             market="cn",
-            base_currency="USD",
+            base_currency="CNY",
         )
         valid_cases = [
             {

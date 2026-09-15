@@ -464,7 +464,6 @@ def _evaluate_drawdown(rule: PortfolioRiskAlert, report: Dict[str, Any]) -> Dict
         "series_points": drawdown.get("series_points"),
         "current_drawdown_pct": drawdown.get("current_drawdown_pct"),
         "max_drawdown_pct": observed,
-        "fx_stale": bool(drawdown.get("fx_stale")),
     })
     message = f"{_display_account(report)} max drawdown {observed:.2f}%"
     return _portfolio_result(
@@ -546,7 +545,6 @@ def _base_diagnostics(report: Dict[str, Any], *, top_items: Optional[List[Dict[s
         "currency": report.get("currency"),
         "as_of": report.get("as_of"),
         "price_stale": False,
-        "fx_stale": bool((report.get("drawdown") or {}).get("fx_stale")),
         "data_available": True,
         "top_affected_symbols": _top_symbols(top_items or []),
     }
@@ -565,7 +563,6 @@ def _base_diagnostics_from_snapshot(
         "currency": snapshot.get("currency"),
         "as_of": snapshot.get("as_of"),
         "price_stale": any(bool(item.get("price_stale")) for item in affected),
-        "fx_stale": bool(snapshot.get("fx_stale")),
         "data_available": all(bool(item.get("price_available")) for item in affected) if affected else True,
         "top_affected_symbols": _top_symbols(affected),
     }

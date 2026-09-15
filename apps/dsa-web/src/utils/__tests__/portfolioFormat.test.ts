@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  buildFxRefreshFeedback,
   formatBrokerLabel,
   formatMoney,
   formatPositionMoney,
@@ -55,27 +54,4 @@ describe('portfolioFormat', () => {
     expect(getCsvCommitVariant({ accountId: 1, recordCount: 1, insertedCount: 1, duplicateCount: 0, failedCount: 0, dryRun: false, errors: [] }, false)).toBe('success');
   });
 
-  it('builds FX refresh feedback from refresh outcomes', () => {
-    expect(buildFxRefreshFeedback({
-      asOf: '2026-03-19',
-      accountCount: 1,
-      refreshEnabled: false,
-      disabledReason: 'disabled',
-      pairCount: 1,
-      updatedCount: 0,
-      staleCount: 0,
-      errorCount: 0,
-    })).toMatchObject({ tone: 'neutral' });
-
-    expect(buildFxRefreshFeedback({
-      asOf: '2026-03-19',
-      accountCount: 1,
-      refreshEnabled: true,
-      disabledReason: null,
-      pairCount: 1,
-      updatedCount: 1,
-      staleCount: 0,
-      errorCount: 0,
-    })).toMatchObject({ tone: 'success' });
-  });
 });

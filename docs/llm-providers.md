@@ -6,7 +6,7 @@
 
 > - 运行时基础：`requirements.txt` 当前锁定 `litellm>=1.80.10,!=1.82.7,!=1.82.8,<1.99.0`，兼容语义以该版本约束下实现为准。
 > - 验证闭环：系统配置链路回归见 `tests/test_system_config_service.py` 与 `tests/test_system_config_api.py`，`Web` 侧配置页交互回归见现有组件测试用例。
-> - 回退路径：保留旧变量不做自动迁移；可通过 Web/桌面导出备份后 `POST /api/v1/system/config/import` 回滚，或手动恢复历史 `LLM_*` / `LITELLM_*` / `AGENT_*` / `VISION_MODEL` 配置。
+> - 回退路径：保留旧变量不做自动迁移；可通过 Web/Web 导出备份后 `POST /api/v1/system/config/import` 回滚，或手动恢复历史 `LLM_*` / `LITELLM_*` / `AGENT_*` / `VISION_MODEL` 配置。
 
 实际可用模型、额度、区域限制和价格以各服务商控制台为准；如果模型列表拉取失败，可在 Web 中手动填写模型名。Web 设置页展示的 provider 能力标签、官方来源链接和配置注意事项来自静态 provider template，仅用于配置参考，不代表运行时能力已验证通过。
 
@@ -31,7 +31,7 @@ Phase 6a Tool Surface 是 AgentBackend 的唯一内部工具面：统一 DSA 工
 `AGENT_BACKEND=codex_app_server` 是现有问股 Chat 的实验运行方式，不是新的 provider 模型渠道，也不改变 `GENERATION_BACKEND`。Web 中在「设置 → Agent 设置 → 问股生成方式」选择后，必须使用 `AGENT_ARCH=single` 和大于 0 的整体时限。设置页只检查配置、Codex 命令和所需 App Server 协议是否允许尝试；保存后用户可直接提问，第一次问题就是第一次真实执行。`auto`（推荐）和 `litellm` 始终保持原有 LiteLLM 问股路径。
 
 - DSA 使用 [Codex App Server v2](https://developers.openai.com/codex/app-server/) 的 JSONL stdio、ephemeral thread 和 experimental dynamic tools，并通过 `turn/interrupt` 处理 Chat 取消。2026-07-15 的验收版本为 `codex-cli 0.144.3`，不据此硬编码最低版本。
-- Codex 必须安装并登录在运行 DSA 后端的设备；DSA 不读取或保存 Codex 凭据。Docker、远程服务器与 Desktop 的 PATH 和登录态相互独立。
+- Codex 必须安装并登录在运行 DSA 后端的设备；DSA 不读取或保存 Codex 凭据。Docker 与远程服务器的 PATH 和登录态相互独立。
 - Phase 6 Codex App Server Agent 当前支持 macOS、Linux 和完整运行于 WSL 的 DSA 后端，暂不支持原生 Windows；这不影响 Phase 2 `codex_cli` GenerationBackend 的 Windows 支持。
 - Codex 当前只开放已保存分析上下文、全局回测汇总和策略回测汇总的只读查询；本期只验证这三个工具的独立进程、停止、超时和回收闭环。实时行情、新闻、市场热点、技术指标重算、个股回测明细和持仓工具未纳入本期验证，因此不会暴露给 Codex；需要这些能力时应选择「默认模型」。明确股票代码或 Web 唯一匹配的股票只为已开放的历史分析上下文工具建立股票范围，跨市场同名等歧义不会猜测。
 - 问股历史的 LLM 压缩仅用于「默认模型」。Codex 始终使用最近 20 条用户可见对话，不会调用 `AGENT_LITELLM_MODEL` 生成摘要；用户已保存的压缩配置会保留，切回默认模型后继续生效。
@@ -43,7 +43,7 @@ Phase 6a Tool Surface 是 AgentBackend 的唯一内部工具面：统一 DSA 工
 
 本 PR smoke 验证版本为 `claude 2.1.177 (Claude Code)` 与 `opencode 1.17.11`，不声明更宽最低版本。如果用户安装的 CLI 不支持这些固定 preset 参数或非交互输出契约，DSA 会返回结构化 `capability_unsupported`、`cli_contract_unsupported`、`invalid_json`、`schema_validation_failed` 或对应 backend error，并在配置 backend fallback 时回退到 `litellm`。
 
-本地 CLI Backend 不等于离线模型。Docker、云服务器和 CI 不天然拥有本机 CLI 登录态；macOS 从 Finder/Dock 启动桌面端时不继承 shell PATH，打包桌面端会在启动后端时补入常见 Homebrew 路径，如果设置检查仍提示找不到 CLI 可执行文件，需要完全退出并重开 DSA。DSA 不读取 Codex/Claude/OpenCode credential 文件，也不为 OpenCode 生成或搬运 provider API key；子进程可能按 CLI 自身机制使用本机登录态或配置，股票代码、新闻、持仓上下文、分析 prompt 和报告草稿可能被对应 CLI 背后的服务处理。DSA 默认只继承最小运行环境，并拒绝通配继承 `CLAUDE_*`、`ANTHROPIC_*`、`OPENCODE_*`、provider API key/token/base-url/model env 和 webhook tokens，降低父进程配置泄漏风险；`CODEX_HOME` 仅作为既有 Codex CLI 登录目录兼容的 exact-name 例外保留。
+本地 CLI Backend 不等于离线模型。Docker、云服务器和 CI 不天然拥有本机 CLI 登录态；后端只继承启动进程的 PATH；安装 CLI 或修改环境后需要重启后端服务。DSA 不读取 Codex/Claude/OpenCode credential 文件，也不为 OpenCode 生成或搬运 provider API key；子进程可能按 CLI 自身机制使用本机登录态或配置，股票代码、新闻、持仓上下文、分析 prompt 和报告草稿可能被对应 CLI 背后的服务处理。DSA 默认只继承最小运行环境，并拒绝通配继承 `CLAUDE_*`、`ANTHROPIC_*`、`OPENCODE_*`、provider API key/token/base-url/model env 和 webhook tokens，降低父进程配置泄漏风险；`CODEX_HOME` 仅作为既有 Codex CLI 登录目录兼容的 exact-name 例外保留。
 
 `opencode_cli` 是 experimental/limited generation backend，不支持 OpenCode serve / web / ACP / MCP / attach / `--dangerously-skip-permissions`。DSA 默认使用本机 OpenCode 的默认模型；`OPENCODE_CLI_MODEL` 只是可选模型覆盖值，配置时才传给 OpenCode `--model`。DSA 会在临时 cwd 写入最小项目 `opencode.json`，但 OpenCode resolved config 仍可能包含用户本机全局配置；运行时安全边界同时依赖 `--pure`、env denylist、prompt file 权限和 event extractor fail-closed。
 
@@ -191,7 +191,7 @@ LLM_HERMES_MODELS=hermes-agent
 LITELLM_MODEL=openai/hermes-agent
 ```
 
-Phase 3 只支持普通分析 / JSON generation，不支持 stream/SSE、tools、Vision、Agent tools、remote Hermes 或进程生命周期管理。`LLM_HERMES_API_KEY` 应来自本地 `.env`、运行时配置或 GitHub Secrets；不要写入仓库。Hermes 只允许 loopback `/v1` endpoint，`localhost` 会按 `127.0.0.1` 规范化，`LLM_HERMES_API_KEYS` 与 `LLM_HERMES_EXTRA_HEADERS` 不受支持。Web 设置页保存 reserved Hermes 渠道时会清空这两个旧字段并显示 warning；恢复旧值请使用 `.env` 备份、Git 历史或桌面端导出备份，但非空多 Key / Extra Headers 仍会被后端拒绝。
+Phase 3 只支持普通分析 / JSON generation，不支持 stream/SSE、tools、Vision、Agent tools、remote Hermes 或进程生命周期管理。`LLM_HERMES_API_KEY` 应来自本地 `.env`、运行时配置或 GitHub Secrets；不要写入仓库。Hermes 只允许 loopback `/v1` endpoint，`localhost` 会按 `127.0.0.1` 规范化，`LLM_HERMES_API_KEYS` 与 `LLM_HERMES_EXTRA_HEADERS` 不受支持。Web 设置页保存 reserved Hermes 渠道时会清空这两个旧字段并显示 warning；恢复旧值请使用 `.env` 备份、Git 历史或Web 导出备份，但非空多 Key / Extra Headers 仍会被后端拒绝。
 
 在 GitHub Actions 中，GitHub-hosted runner 的 `127.0.0.1` 是 runner 自身，不是用户电脑。只有 self-hosted runner 或同机服务能访问本地 Hermes；否则会连接失败。
 
@@ -245,5 +245,5 @@ Phase 3 只支持普通分析 / JSON generation，不支持 stream/SSE、tools�
 - `.env`：恢复备份中的 `LLM_*`、`LITELLM_MODEL`、`AGENT_LITELLM_MODEL`、`VISION_MODEL`、`LITELLM_FALLBACK_MODELS`。
 - 从 Channels 回到 legacy：删除或清空 `LLM_CHANNELS`，保留 legacy provider key 和 `LITELLM_MODEL`。
 - 从 YAML 回到 Channels / legacy：移除 `LITELLM_CONFIG` / `LITELLM_CONFIG_YAML`，重启后下层配置重新生效。
-- WebUI / 桌面端：使用系统设置中导出的配置备份恢复。
+- WebUI：使用系统设置中导出的配置备份恢复。
 - PR 回滚：revert 对应 docs PR；P4 不涉及配置、数据或代码迁移。

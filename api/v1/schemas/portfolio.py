@@ -13,7 +13,7 @@ class PortfolioAccountCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=64)
     broker: Optional[str] = Field(None, max_length=64)
     market: Literal["cn"] = "cn"
-    base_currency: str = Field("CNY", min_length=3, max_length=8)
+    base_currency: Literal["CNY"] = "CNY"
     owner_id: Optional[str] = Field(None, max_length=64)
 
 
@@ -21,7 +21,7 @@ class PortfolioAccountUpdateRequest(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=64)
     broker: Optional[str] = Field(None, max_length=64)
     market: Optional[Literal["cn"]] = None
-    base_currency: Optional[str] = Field(None, min_length=3, max_length=8)
+    base_currency: Optional[Literal["CNY"]] = None
     owner_id: Optional[str] = Field(None, max_length=64)
     is_active: Optional[bool] = None
 
@@ -52,7 +52,7 @@ class PortfolioTradeCreateRequest(BaseModel):
     fee: float = Field(0.0, ge=0)
     tax: float = Field(0.0, ge=0)
     market: Optional[Literal["cn"]] = None
-    currency: Optional[str] = Field(None, min_length=3, max_length=8)
+    currency: Optional[Literal["CNY"]] = None
     trade_uid: Optional[str] = Field(None, max_length=128)
     note: Optional[str] = Field(None, max_length=255)
 
@@ -62,7 +62,7 @@ class PortfolioCashLedgerCreateRequest(BaseModel):
     event_date: date
     direction: Literal["in", "out"]
     amount: float = Field(..., gt=0)
-    currency: Optional[str] = Field(None, min_length=3, max_length=8)
+    currency: Optional[Literal["CNY"]] = None
     note: Optional[str] = Field(None, max_length=255)
 
 
@@ -72,7 +72,7 @@ class PortfolioCorporateActionCreateRequest(BaseModel):
     effective_date: date
     action_type: Literal["cash_dividend", "split_adjustment"]
     market: Optional[Literal["cn"]] = None
-    currency: Optional[str] = Field(None, min_length=3, max_length=8)
+    currency: Optional[Literal["CNY"]] = None
     cash_dividend_per_share: Optional[float] = Field(None, ge=0)
     split_ratio: Optional[float] = Field(None, gt=0)
     note: Optional[str] = Field(None, max_length=255)
@@ -192,7 +192,6 @@ class PortfolioAccountSnapshot(BaseModel):
     unrealized_pnl: float
     fee_total: float
     tax_total: float
-    fx_stale: bool
     data_quality: str = "ok"
     limitations: List[str] = Field(default_factory=list)
     positions: List[PortfolioPositionItem] = Field(default_factory=list)
@@ -210,7 +209,6 @@ class PortfolioSnapshotResponse(BaseModel):
     unrealized_pnl: float
     fee_total: float
     tax_total: float
-    fx_stale: bool
     data_quality: str = "ok"
     limitations: List[str] = Field(default_factory=list)
     accounts: List[PortfolioAccountSnapshot] = Field(default_factory=list)
@@ -258,15 +256,6 @@ class PortfolioImportBrokerListResponse(BaseModel):
     brokers: List[PortfolioImportBrokerItem] = Field(default_factory=list)
 
 
-class PortfolioFxRefreshResponse(BaseModel):
-    as_of: str
-    account_count: int
-    refresh_enabled: bool
-    disabled_reason: Optional[str] = None
-    pair_count: int
-    updated_count: int
-    stale_count: int
-    error_count: int
 
 
 class PortfolioDecisionSignalRiskItem(BaseModel):

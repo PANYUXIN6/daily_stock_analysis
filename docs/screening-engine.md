@@ -121,7 +121,7 @@ DSA 中存在两类用途不同的策略文件：
 - 行情：日 K 优先调用 DSA `DataFetcherManager`，无结果才进入筛选模块自己的多源 fallback；最终候选继续补 DSA 实时行情。
 - 基本面与资讯：最终候选复用 DSA 基本面上下文和 `SearchService`；资本流向来自 DSA 基本面上下文，重要公告/业绩/减持事件调用 DSA `search_stock_events`，热点消息搜索沿用其数据源优先级、时效过滤、缓存和同请求合并，仅将真实供应商调用隔离到可终止子进程，不重复维护独立资讯入口。
 - 模型：沿用 DSA LiteLLM 模型、渠道、fallback、base URL、额外 headers、超时和 token 配置。
-- 任务与页面：复用 DSA 后台任务队列、Web 轮询和桌面端同源 Web 资源。
+- 任务与页面：复用 DSA 后台任务队列、Web 轮询和页面资源。
 - 存储与后续分析：运行结果写入 DSA 数据库；候选可进入 DSA 原生单股分析并携带策略 skill。
 
 对照固定参考提交，快照、日 K、行业/概念、热点、候选新闻/公告/资金流、字段标准化、过滤、评分、风险、排序和数据源熔断等 A 股原始数据与选股能力均已纳入；其中公告/事件和资金流在 DSA 编排层分别接入原生事件搜索与基本面上下文。参考项目另外提供独立 CLI/server、JSON 文件 store、报告渲染、doctor、运行/数据源历史和 T+N 评估：本实现只吸收 DSA 确实缺少的运行历史与数据源历史，并接到 DSA 数据库；CLI/server 不重复建设，T+N 评估与表现统计继续复用 DSA 已有 BacktestService，避免形成第二套回测真源。实时 source health 已在 `/status` 返回，历史稳定性由 `/source-history` 补齐。

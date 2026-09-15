@@ -767,7 +767,7 @@ describe('LLMChannelEditor', () => {
       reloadTriggered: true,
       updatedKeys: ['LLM_HERMES_API_KEYS', 'LLM_HERMES_EXTRA_HEADERS'],
       warnings: [
-        '检测到已清理 Hermes Phase 3 不支持的配置项：LLM_HERMES_API_KEYS, LLM_HERMES_EXTRA_HEADERS。Hermes reserved channel 只支持单个 LLM_HERMES_API_KEY，不支持多 Key 或额外 Header；如需恢复旧值，请从 .env 备份、Git 历史或桌面端导出备份手动还原，但非空 LLM_HERMES_API_KEYS / LLM_HERMES_EXTRA_HEADERS 仍会被后端校验拒绝。',
+        '检测到已清理 Hermes Phase 3 不支持的配置项：LLM_HERMES_API_KEYS, LLM_HERMES_EXTRA_HEADERS。Hermes reserved channel 只支持单个 LLM_HERMES_API_KEY，不支持多 Key 或额外 Header；如需恢复旧值，请从 .env 备份、Git 历史或Web 导出备份手动还原，但非空 LLM_HERMES_API_KEYS / LLM_HERMES_EXTRA_HEADERS 仍会被后端校验拒绝。',
       ],
     });
 
@@ -1328,7 +1328,7 @@ describe('LLMChannelEditor', () => {
       reloadTriggered: true,
       updatedKeys: ['LLM_DEEPSEEK_MODELS', 'LITELLM_MODEL'],
       warnings: [
-        '检测到已同步清理失效的运行时模型引用：主模型 / Agent 主模型 / Vision 模型 / 备选模型中的失效项。如需恢复，请先补回对应渠道模型列表后重新选择；也可用桌面端导出备份或手动 .env 还原之前的 LLM_* / LITELLM_MODEL / AGENT_LITELLM_MODEL / VISION_MODEL / LLM_TEMPERATURE。',
+        '检测到已同步清理失效的运行时模型引用：主模型 / Agent 主模型 / Vision 模型 / 备选模型中的失效项。如需恢复，请先补回对应渠道模型列表后重新选择；也可用Web 导出备份或手动 .env 还原之前的 LLM_* / LITELLM_MODEL / AGENT_LITELLM_MODEL / VISION_MODEL / LLM_TEMPERATURE。',
       ],
     });
 
@@ -1360,7 +1360,7 @@ describe('LLMChannelEditor', () => {
 
     expect(await screen.findByText('保存后提示')).toBeInTheDocument();
     expect(screen.getByText(/已同步清理失效的运行时模型引用/i)).toBeInTheDocument();
-    expect(screen.getByText(/桌面端导出备份或手动 \.env 还原/i)).toBeInTheDocument();
+    expect(screen.getByText(/Web 导出备份或手动 \.env 还原/i)).toBeInTheDocument();
   });
 
   it('keeps save warnings visible after onSaved-driven refresh', async () => {

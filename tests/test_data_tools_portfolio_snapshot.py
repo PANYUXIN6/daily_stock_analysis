@@ -23,7 +23,6 @@ class _FakePortfolioService:
             "total_equity": 60000.0,
             "realized_pnl": 1200.0,
             "unrealized_pnl": 800.0,
-            "fx_stale": False,
             "accounts": [
                 {
                     "account_id": 1,
@@ -35,7 +34,6 @@ class _FakePortfolioService:
                     "total_cash": 10000.0,
                     "realized_pnl": 1200.0,
                     "unrealized_pnl": 800.0,
-                    "fx_stale": False,
                     "positions": [
                         {
                             "symbol": "600519",
@@ -83,7 +81,6 @@ class _FakeRiskService:
                 "alert": False,
                 "max_drawdown_pct": 8.7,
                 "current_drawdown_pct": 3.2,
-                "fx_stale": False,
             },
             "stop_loss": {
                 "near_alert": True,

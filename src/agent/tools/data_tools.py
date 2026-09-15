@@ -193,7 +193,6 @@ def _compact_portfolio_snapshot(snapshot: dict, include_positions: bool = False,
             "total_cash": account.get("total_cash"),
             "realized_pnl": account.get("realized_pnl"),
             "unrealized_pnl": account.get("unrealized_pnl"),
-            "fx_stale": account.get("fx_stale"),
         }
         if include_positions:
             account_payload["positions"] = positions
@@ -212,7 +211,6 @@ def _compact_portfolio_snapshot(snapshot: dict, include_positions: bool = False,
         "total_equity": snapshot.get("total_equity"),
         "realized_pnl": snapshot.get("realized_pnl"),
         "unrealized_pnl": snapshot.get("unrealized_pnl"),
-        "fx_stale": snapshot.get("fx_stale"),
         "accounts": compact_accounts,
     }
 
@@ -250,7 +248,6 @@ def _compact_portfolio_risk(risk: dict, top_n: int = 10) -> dict:
             "alert": drawdown.get("alert", False),
             "max_drawdown_pct": drawdown.get("max_drawdown_pct"),
             "current_drawdown_pct": drawdown.get("current_drawdown_pct"),
-            "fx_stale": drawdown.get("fx_stale", False),
         },
         "stop_loss": {
             "near_alert": stop_loss.get("near_alert", False),

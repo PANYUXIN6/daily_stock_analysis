@@ -1630,7 +1630,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
 
     def test_export_env_returns_raw_text(self) -> None:
         self.env_path.write_text(
-            "# Desktop config\nSTOCK_LIST=600519,000001\n\nGEMINI_API_KEY=secret-key-value\n",
+            "# Web config\nSTOCK_LIST=600519,000001\n\nGEMINI_API_KEY=secret-key-value\n",
             encoding="utf-8",
         )
 
@@ -1638,7 +1638,7 @@ class SystemConfigServiceTestCase(unittest.TestCase):
 
         self.assertEqual(
             payload["content"],
-            "# Desktop config\nSTOCK_LIST=600519,000001\n\nGEMINI_API_KEY=secret-key-value\n",
+            "# Web config\nSTOCK_LIST=600519,000001\n\nGEMINI_API_KEY=secret-key-value\n",
         )
         self.assertEqual(payload["config_version"], self.manager.get_config_version())
 
@@ -1658,14 +1658,14 @@ class SystemConfigServiceTestCase(unittest.TestCase):
 
         payload = self.service.import_env(
             config_version=current_version,
-            content="STOCK_LIST=300750\nCUSTOM_NOTE=desktop backup\n",
+            content="STOCK_LIST=300750\nCUSTOM_NOTE=Web backup\n",
             reload_now=False,
         )
 
         self.assertTrue(payload["success"])
         current_map = self.manager.read_config_map()
         self.assertEqual(current_map["STOCK_LIST"], "300750")
-        self.assertEqual(current_map["CUSTOM_NOTE"], "desktop backup")
+        self.assertEqual(current_map["CUSTOM_NOTE"], "Web backup")
         self.assertEqual(current_map["GEMINI_API_KEY"], "secret-key-value")
 
     def test_import_env_preserves_hidden_web_settings_keys(self) -> None:

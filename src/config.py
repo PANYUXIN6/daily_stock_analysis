@@ -1234,13 +1234,12 @@ class Config:
     # 基本面缓存最大条目数（避免长时间运行内存增长）
     fundamental_cache_max_entries: int = 256
 
-    # === Portfolio PR2: import/risk/fx settings ===
+    # === Portfolio PR2: import/risk settings ===
     portfolio_risk_concentration_alert_pct: float = 35.0
     portfolio_risk_drawdown_alert_pct: float = 15.0
     portfolio_risk_stop_loss_alert_pct: float = 10.0
     portfolio_risk_stop_loss_near_ratio: float = 0.8
     portfolio_risk_lookback_days: int = 180
-    portfolio_fx_update_enabled: bool = True
 
     # Discord 机器人状态
     discord_bot_status: str = "A股智能分析 | /help"
@@ -2269,7 +2268,6 @@ class Config:
                 field_name='PORTFOLIO_RISK_LOOKBACK_DAYS',
                 minimum=1,
             ),
-            portfolio_fx_update_enabled=os.getenv('PORTFOLIO_FX_UPDATE_ENABLED', 'true').lower() == 'true',
             screening_enabled=parse_env_bool(os.getenv('SCREENING_ENABLED'), default=False),
         )
     

@@ -317,7 +317,6 @@ def test_alerts_doc_defines_p8_user_and_deployment_boundaries() -> None:
         "不运行 `--schedule` 后台 alert worker",
         "没有映射 `AGENT_EVENT_*`",
         "`/alerts`",
-        "Desktop 不新增原生告警管理界面",
         "`triggered`、`skipped`、`degraded`、`failed`",
         "`rule_id + target + data_source + data_timestamp`",
         "回滚 P8 只需 revert 文档、配置说明和 Web 文案改动",

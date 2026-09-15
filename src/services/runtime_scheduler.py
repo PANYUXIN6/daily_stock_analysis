@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Runtime scheduler service for long-lived API/Web/Desktop processes."""
+"""Runtime scheduler service for long-lived API/Web processes."""
 
 from __future__ import annotations
 
@@ -236,7 +236,7 @@ def build_agent_event_monitor_background_tasks(
 
 
 class RuntimeSchedulerService:
-    """Manage scheduled analysis inside the current API/Web/Desktop process."""
+    """Manage scheduled analysis inside the current API/Web process."""
 
     def __init__(
         self,

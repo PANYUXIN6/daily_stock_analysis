@@ -722,7 +722,6 @@ class SystemConfigService:
             "updated_at": self._manager.get_updated_at(),
         }
 
-
     def import_env(
         self,
         *,
@@ -742,7 +741,6 @@ class SystemConfigService:
             mask_token="__DSA_IMPORT_LITERAL_MASK__",
             reload_now=reload_now,
         )
-
 
     def _resolve_hermes_saved_secret(
         self,
@@ -2198,7 +2196,7 @@ class SystemConfigService:
             warnings.append(
                 (
                     f"SCHEDULE_ENABLED={schedule_enabled} 已写入 .env。"
-                    "如果当前进程是 WebUI/API/Desktop 长运行进程，runtime scheduler 会按新配置启停；"
+                    "如果当前进程是 WebUI/API 长运行进程，runtime scheduler 会按新配置启停；"
                     "CLI schedule 模式仍按启动参数和配置运行。"
                 )
             )
@@ -3583,7 +3581,7 @@ class SystemConfigService:
                     else f"已选择 {generation_backend}，但未找到 {preset.executable} 可执行文件。"
                 ),
                 (
-                    "请确认 Codex CLI 已安装到后端 PATH 可见目录；桌面端请完全退出并重开。"
+                    "请确认 Codex CLI 已安装到后端 PATH 可见目录；请重启 DSA 后端服务。"
                     "打开 Codex CLI 交互窗口不会改变已运行后端的 PATH；若找到后仍失败，再检查 Codex CLI 登录态，"
                     "或将 GENERATION_BACKEND 设回 litellm。"
                     if generation_backend == CODEX_CLI_BACKEND_ID

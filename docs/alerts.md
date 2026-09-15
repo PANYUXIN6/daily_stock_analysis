@@ -315,7 +315,7 @@ P6 将可展示目标与可持久化目标分离：
 | `portfolio_drawdown` | - | `drawdown.max_drawdown_pct` | 复用 `PortfolioRiskService` 的 `drawdown.alert`；`current_drawdown_pct` 写 diagnostics |
 | `portfolio_price_stale` | - | stale/missing 价格持仓数量 | 任一 position `price_stale=true` 或 `price_available=false` |
 
-portfolio diagnostics 必含 `account_id`（或 `all`）、`currency`、`as_of`、`price_stale`、`fx_stale`、`data_available`、`top_affected_symbols`。`portfolio_stop_loss`、`portfolio_concentration`、`portfolio_drawdown` 复用 `PortfolioRiskService.get_risk_report()`；`portfolio_price_stale` 复用 `PortfolioService.get_portfolio_snapshot()` 的 position price metadata。
+portfolio diagnostics 必含 `account_id`（或 `all`）、`currency`、`as_of`、`price_stale`、`data_available`、`top_affected_symbols`。`portfolio_stop_loss`、`portfolio_concentration`、`portfolio_drawdown` 复用 `PortfolioRiskService.get_risk_report()`；`portfolio_price_stale` 复用 `PortfolioService.get_portfolio_snapshot()` 的 position price metadata。
 
 ### Web 与 cooldown 摘要
 
@@ -415,11 +415,10 @@ P8 不新增规则类型、API、表结构或 worker 行为；它把 P0-P7 已�
 
 如需 GitHub Actions 里的告警轮询，需要后续单独 PR 明确 schedule 启动方式、env 映射、规则来源和持久化数据库策略；P8 不改变现有 workflow。
 
-### Web 与 Desktop
+### Web
 
 Web 告警中心 `/alerts` 是持久化规则的主要入口：可以创建、启停、删除规则，执行一次性 dry-run 测试，查看触发历史、通知尝试和只读冷却状态。批量规则的列表冷却状态是父规则摘要，子目标是否冷却以触发历史中的 `target` / `effective_target` 为准。
 
-Desktop 不新增原生告警管理界面；桌面用户复用内置或外部 WebUI 的 `/alerts` 页面。Desktop 回滚不需要清理额外状态。
 
 ### 状态、通知与回滚
 

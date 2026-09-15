@@ -1595,7 +1595,7 @@ FastAPI 提供 RESTful API 服务，支持配置管理和触发分析。
 ### 功能特性
 
 - 📝 **配置管理** - 查看/修改自选股列表
-- 🗂️ **首页三视图** - 首页提供「历史 / 自选 / 今日」工作区，默认进入历史视图；移动端抽屉内三个列表均由各自的内层视口承接纵向触摸滚动，外层卡片不会截断手势，桌面端仍保留卡片边界裁剪；自选股行可用鼠标或键盘打开已确认的最新分析详情，提示始终跟随当前的查找中、查找失败或确认无详情状态；任何 stock-bar 请求及完成任务后的数据刷新都会在开始时进入待确认状态，重新确认或状态未知期间不会开放旧 stock-bar 或 fallback 报告；自选页刷新会同时重试列表和详情状态，逐股票详情补查使用固定并发上限，并在刷新或页面状态切换时取消已失效批次；支持批量提交全部或仅提交“今日未分析”股票
+- 🗂️ **首页三视图** - 首页提供「历史 / 自选 / 今日」工作区，默认进入历史视图；移动端抽屉内三个列表均由各自的内层视口承接纵向触摸滚动，外层卡片不会截断手势，宽屏布局仍保留卡片边界裁剪；自选股行可用鼠标或键盘打开已确认的最新分析详情，提示始终跟随当前的查找中、查找失败或确认无详情状态；任何 stock-bar 请求及完成任务后的数据刷新都会在开始时进入待确认状态，重新确认或状态未知期间不会开放旧 stock-bar 或 fallback 报告；自选页刷新会同时重试列表和详情状态，逐股票详情补查使用固定并发上限，并在刷新或页面状态切换时取消已失效批次；支持批量提交全部或仅提交“今日未分析”股票
 - 📌 **任务面板折叠** - 首页任务面板可折叠/展开，折叠后保留 pending/processing 摘要并把更多侧栏空间让给自选股列表；折叠状态在当前页面会话内保持
 - 🧭 **界面语言切换** - 登录态与退出态均支持界面语言快速切换（`zh` / `en`），独立于 `REPORT_LANGUAGE`，用于静态 UI 文案与导航骨架
 - 🚀 **快速分析** - 通过 API 接口触发个股分析；首页也提供“大盘复盘”按钮和单次市场选择器，可在 Docker/server 模式下按服务器默认或临时选择的单个/多个市场后台触发复盘
@@ -1862,7 +1862,6 @@ worker 会把 `triggered`、`skipped`、`degraded`、`failed` 写入 `alert_trig
 | `/api/v1/portfolio/cash-ledger` | GET | 分页查询现金流水 |
 | `/api/v1/portfolio/corporate-actions` | GET | 分页查询公司行动 |
 | `/api/v1/portfolio/imports/csv/brokers` | GET | 查询内建 CSV 券商解析器 |
-| `/api/v1/portfolio/fx/refresh` | POST | 手动刷新汇率缓存 |
 | `/api/v1/portfolio/accounts/{account_id}` | DELETE | 删除/归档持仓账户 |
 | `/api/v1/portfolio/trades/{trade_id}` | DELETE | 删除交易记录 |
 | `/api/v1/portfolio/cash-ledger/{entry_id}` | DELETE | 删除现金流水 |
@@ -1878,8 +1877,6 @@ worker 会把 `triggered`、`skipped`、`degraded`、`failed` 写入 `alert_trig
 - 交易去重优先使用账户内唯一的 `trade_uid`，缺失时回退到基于日期、代码、方向、数量、价格、费用、税费、币种的确定性哈希。
 - 卖出会先校验可用数量，超卖返回 `409 portfolio_oversell`；并发写入冲突时可能返回 `409 portfolio_busy`。
 - 持仓快照的 `positions[]` 会返回 `price_source`、`price_date`、`price_stale`、`price_available` 等价格元信息；当天快照默认会先尝试实时行情，实时价不可用或非正值时再回退到 `as_of` 当天或之前最近的历史收盘价；传入 `include_realtime=false` 时会跳过实时行情并直接使用本地历史收盘价回退路径，Web 持仓页用该模式优先渲染持仓列表，避免外部实时行情源变慢时阻塞首屏。历史 `as_of` 快照不会拉取实时价，也不会再把成本价静默当作现价；缺价持仓会标记 `price_available=false` 并从市值与未实现盈亏汇总中排除。
-- 汇率刷新会先尝试在线源；若在线获取失败，则回退到最近一次缓存并标记 `is_stale=true`，避免快照和风险页整体不可用。
-- 当 `PORTFOLIO_FX_UPDATE_ENABLED=false` 时，手动刷新接口会明确返回“在线刷新已禁用”，页面不会误导为“当前没有可刷新的汇率对”。
 - 风险摘要包含集中度、回撤、止损接近度等信息；`sector_concentration` 会优先尝试按板块归类，失败时降级到 `UNCLASSIFIED`，不会阻断风险结果返回。
 
 ### Agent 读取持仓
@@ -1887,3 +1884,7 @@ worker 会把 `triggered`、`skipped`、`degraded`、`failed` 写入 `alert_trig
 - Agent 可通过 `get_portfolio_snapshot` 获取面向账户的紧凑持仓摘要，默认包含精简风险块，适合控制 Token 开销。
 - 可选参数包括 `account_id`、`cost_method`、`as_of`、`include_positions`、`include_risk`。
 - 若风险块生成失败，快照仍会返回；若当前环境未启用持仓模块，工具会返回结构化 `not_supported`。
+
+### Portfolio 币种边界
+
+Portfolio 仅支持人民币（CNY）记账，新账户和新流水不接受外币。历史外币记录仍可查看，但估值与风险计算会明确拒绝这些记录，需先核对原始账本；系统不会将其按 1:1 换算成人民币。汇率刷新接口、配置开关及汇率状态字段已移除。

@@ -1,18 +1,12 @@
 import type {
   PortfolioCashDirection,
   PortfolioCorporateActionType,
-  PortfolioFxRefreshResponse,
   PortfolioImportCommitResponse,
   PortfolioImportParseResponse,
   PortfolioPositionItem,
   PortfolioSide,
 } from '../types/portfolio';
 import { toDateInputValue } from './format';
-
-export type FxRefreshFeedback = {
-  tone: 'neutral' | 'success' | 'warning';
-  text: string;
-};
 
 export type PortfolioAlertVariant = 'info' | 'success' | 'warning' | 'danger';
 
@@ -82,48 +76,6 @@ export function formatBrokerLabel(value: string, displayName?: string): string {
   if (value === 'citic') return 'citic（中信）';
   if (value === 'cmb') return 'cmb（招商）';
   return value;
-}
-
-export function buildFxRefreshFeedback(data: PortfolioFxRefreshResponse): FxRefreshFeedback {
-  if (data.refreshEnabled === false) {
-    return {
-      tone: 'neutral',
-      text: '汇率在线刷新已被禁用。',
-    };
-  }
-
-  if (data.pairCount === 0) {
-    return {
-      tone: 'neutral',
-      text: '当前范围无可刷新的汇率对。',
-    };
-  }
-
-  if (data.updatedCount > 0 && data.staleCount === 0 && data.errorCount === 0) {
-    return {
-      tone: 'success',
-      text: `汇率已刷新，共更新 ${data.updatedCount} 对。`,
-    };
-  }
-
-  const summary = `更新 ${data.updatedCount} 对，仍过期 ${data.staleCount} 对，失败 ${data.errorCount} 对。`;
-  if (data.staleCount > 0) {
-    return {
-      tone: 'warning',
-      text: `已尝试刷新，但仍有部分货币对使用 stale/fallback 汇率。${summary}`,
-    };
-  }
-
-  return {
-    tone: 'warning',
-    text: `在线刷新未完全成功。${summary}`,
-  };
-}
-
-export function getFxRefreshFeedbackVariant(tone: FxRefreshFeedback['tone']): PortfolioAlertVariant {
-  if (tone === 'success') return 'success';
-  if (tone === 'warning') return 'warning';
-  return 'info';
 }
 
 export function getCsvParseVariant(result: PortfolioImportParseResponse): PortfolioAlertVariant {

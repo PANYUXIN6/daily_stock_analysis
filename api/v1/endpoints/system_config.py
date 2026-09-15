@@ -50,7 +50,7 @@ router = APIRouter()
 @router.get(
     "/scheduler/status",
     summary="Get runtime scheduler status",
-    description="Return status for the in-process Web/API/Desktop scheduler.",
+    description="Return status for the in-process Web/API scheduler.",
 )
 def get_scheduler_status(
     scheduler: RuntimeSchedulerService = Depends(get_runtime_scheduler_service),

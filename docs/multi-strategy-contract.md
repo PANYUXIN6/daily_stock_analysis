@@ -374,7 +374,6 @@ Phase 2 只在 Phase 1/1.5/1.6/1.7/1.8/1.9 契约下新增 2–4 策略并发调
 Phase 3 只在 Phase 2 之上补前端（`apps/dsa-web/`）对 `strategy_synthesis` 的完整多语言展示：
 
 - Web 报告详情页展示 `final_signal` / `consensus_level` / `supporting_skills` / `opposing_skills` / `conflicts` / `invalid_opinion_count`。
-- 桌面端复用 Web 展示逻辑。
 - 多语言 label 表复用 `src/report_language.py` 已有的 zh/en/ko 三语；前端只做投影，不重新定义。
 - Phase 3 不改变 Baseline 契约、不新增 payload 字段、不新增 API 端点。
 

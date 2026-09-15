@@ -366,6 +366,8 @@ class PortfolioImportService:
             "流水号",
         )
         currency = self._pick(row, "币种", "货币")
+        if currency:
+            currency = self.portfolio_service._normalize_currency(str(currency))
 
         return {
             "trade_date": trade_date_obj,

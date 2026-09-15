@@ -24,7 +24,6 @@ from api.v1.schemas.portfolio import (
     PortfolioCorporateActionCreateRequest,
     PortfolioDeleteResponse,
     PortfolioEventCreatedResponse,
-    PortfolioFxRefreshResponse,
     PortfolioImportBrokerListResponse,
     PortfolioImportCommitResponse,
     PortfolioImportParseResponse,
@@ -626,24 +625,6 @@ def commit_csv_import(
         raise _internal_error("Commit CSV import failed", exc)
 
 
-@router.post(
-    "/fx/refresh",
-    response_model=PortfolioFxRefreshResponse,
-    responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
-    summary="Refresh FX cache online with stale fallback",
-)
-def refresh_fx_rates(
-    account_id: Optional[int] = Query(None, description="Optional account id"),
-    as_of: Optional[date] = Query(None, description="Rate date, default today"),
-) -> PortfolioFxRefreshResponse:
-    service = PortfolioService()
-    try:
-        data = service.refresh_fx_rates(account_id=account_id, as_of=as_of)
-        return PortfolioFxRefreshResponse(**data)
-    except ValueError as exc:
-        raise _bad_request(exc)
-    except Exception as exc:
-        raise _internal_error("Refresh FX rates failed", exc)
 
 
 @router.get(

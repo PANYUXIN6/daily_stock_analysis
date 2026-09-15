@@ -20,7 +20,6 @@ from src.storage import (
     PortfolioCashLedger,
     PortfolioCorporateAction,
     PortfolioDailySnapshot,
-    PortfolioFxRate,
     PortfolioPosition,
     PortfolioPositionLot,
     PortfolioTrade,
@@ -705,7 +704,7 @@ class PortfolioRepository:
             return list(rows), total
 
     # ------------------------------------------------------------------
-    # Price / FX
+    # Prices
     # ------------------------------------------------------------------
     def get_latest_close(self, symbol: str, as_of: date) -> Optional[float]:
         close = self.get_latest_close_with_date(symbol=symbol, as_of=as_of)
@@ -727,66 +726,6 @@ class PortfolioRepository:
             if row is None or row.close is None:
                 return None
             return float(row.close), row.date
-
-    def save_fx_rate(
-        self,
-        *,
-        from_currency: str,
-        to_currency: str,
-        rate_date: date,
-        rate: float,
-        source: str = "manual",
-        is_stale: bool = False,
-    ) -> None:
-        with self.db.get_session() as session:
-            existing = session.execute(
-                select(PortfolioFxRate).where(
-                    and_(
-                        PortfolioFxRate.from_currency == from_currency,
-                        PortfolioFxRate.to_currency == to_currency,
-                        PortfolioFxRate.rate_date == rate_date,
-                    )
-                ).limit(1)
-            ).scalar_one_or_none()
-            if existing is None:
-                session.add(
-                    PortfolioFxRate(
-                        from_currency=from_currency,
-                        to_currency=to_currency,
-                        rate_date=rate_date,
-                        rate=rate,
-                        source=source,
-                        is_stale=is_stale,
-                    )
-                )
-            else:
-                existing.rate = rate
-                existing.source = source
-                existing.is_stale = is_stale
-                existing.updated_at = datetime.now()
-            session.commit()
-
-    def get_latest_fx_rate(
-        self,
-        *,
-        from_currency: str,
-        to_currency: str,
-        as_of: date,
-    ) -> Optional[PortfolioFxRate]:
-        with self.db.get_session() as session:
-            row = session.execute(
-                select(PortfolioFxRate)
-                .where(
-                    and_(
-                        PortfolioFxRate.from_currency == from_currency,
-                        PortfolioFxRate.to_currency == to_currency,
-                        PortfolioFxRate.rate_date <= as_of,
-                    )
-                )
-                .order_by(desc(PortfolioFxRate.rate_date))
-                .limit(1)
-            ).scalar_one_or_none()
-            return row
 
     def list_daily_snapshots_for_risk(
         self,
@@ -990,7 +929,6 @@ class PortfolioRepository:
         realized_pnl: float,
         fee_total: float,
         tax_total: float,
-        fx_stale: bool,
         payload: str,
     ) -> None:
         with self.db.get_session() as session:
@@ -1018,7 +956,6 @@ class PortfolioRepository:
                         realized_pnl=realized_pnl,
                         fee_total=fee_total,
                         tax_total=tax_total,
-                        fx_stale=fx_stale,
                         payload=payload,
                     )
                 )
@@ -1031,7 +968,6 @@ class PortfolioRepository:
                 existing.realized_pnl = realized_pnl
                 existing.fee_total = fee_total
                 existing.tax_total = tax_total
-                existing.fx_stale = fx_stale
                 existing.payload = payload
                 existing.updated_at = datetime.now()
             session.commit()
@@ -1050,7 +986,6 @@ class PortfolioRepository:
         realized_pnl: float,
         fee_total: float,
         tax_total: float,
-        fx_stale: bool,
         payload: str,
         positions: Iterable[Dict[str, Any]],
         lots: Iterable[Dict[str, Any]],
@@ -1132,7 +1067,6 @@ class PortfolioRepository:
                         realized_pnl=realized_pnl,
                         fee_total=fee_total,
                         tax_total=tax_total,
-                        fx_stale=fx_stale,
                         payload=payload,
                     )
                 )
@@ -1145,7 +1079,6 @@ class PortfolioRepository:
                 existing.realized_pnl = realized_pnl
                 existing.fee_total = fee_total
                 existing.tax_total = tax_total
-                existing.fx_stale = fx_stale
                 existing.payload = payload
                 existing.updated_at = datetime.now()
 

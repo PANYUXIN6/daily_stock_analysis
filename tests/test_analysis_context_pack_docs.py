@@ -204,7 +204,7 @@ def test_analysis_context_pack_doc_keeps_later_phases_out_of_p1() -> None:
         "不新增 fetcher",
         "不改变 Prompt",
         "不写入 history/task/report metadata",
-        "不把完整 pack 暴露到 API、Web、Bot、Desktop 或通知",
+        "不把完整 pack 暴露到 API、Web、Bot 或通知",
         "P2 builder",
         "P3 runtime",
     ):

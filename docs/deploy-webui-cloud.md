@@ -166,7 +166,7 @@ WebUI 现在会在“系统设置”页展示只读的“版本信息”卡片�
 - `代码版本`
 - `构建时间`
 
-正式 Docker / Desktop 发布会把 release tag 注入为 `WebUI 版本`，并把对应 commit
+正式 Docker 发布会把 release tag 注入为 `WebUI 版本`，并把对应 commit
 显示为 `代码版本`。直接从 Git clone 构建时，WebUI 会使用 `git describe` 和当前
 commit；如果构建环境既没有发布信息也没有 Git 元数据，版本会明确显示为
 `development`，不会再用构建时间冒充发布版本。

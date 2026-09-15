@@ -5,14 +5,12 @@ import { decisionSignalsApi } from '../api/decisionSignals';
 import { portfolioApi } from '../api/portfolio';
 import type { ParsedApiError } from '../api/error';
 import { getParsedApiError } from '../api/error';
-import { ApiErrorAlert, Card, Badge, ConfirmDialog, EmptyState, InlineAlert } from '../components/common';
+import { ApiErrorAlert, Card, ConfirmDialog, EmptyState, InlineAlert } from '../components/common';
 import { PortfolioSignalSummary } from '../components/decision-signals/DecisionSignalDisplay';
 import { useUiLanguage } from '../contexts/UiLanguageContext';
 import { formatUiText } from '../i18n/uiText';
 import { PORTFOLIO_TEXT } from '../locales/featureText';
-import type { FxRefreshFeedback } from '../utils/portfolioFormat';
 import {
-  buildFxRefreshFeedback,
   formatBrokerLabel,
   formatCashDirectionLabel,
   formatCorporateActionLabel,
@@ -24,7 +22,6 @@ import {
   formatSignedPct,
   getCsvCommitVariant,
   getCsvParseVariant,
-  getFxRefreshFeedbackVariant,
   getPositionPriceLabel,
   getTodayIso,
   hasPositionPrice,
@@ -87,10 +84,6 @@ const PORTFOLIO_LIMITATION_LABELS: Record<string, Record<PortfolioPageLanguage, 
     zh: '实时行情为尽力获取',
     en: 'Realtime quotes are best-effort',
   },
-  fx_and_cost_basis_partial: {
-    zh: '汇率与成本基础为部分口径',
-    en: 'FX and cost basis are partial',
-  },
   sector_and_risk_metrics_limited: {
     zh: '行业与风险指标覆盖有限',
     en: 'Sector and risk metrics are limited',
@@ -105,11 +98,6 @@ type PendingDelete =
 type PendingAccountDelete = {
   accountId: number;
   accountName: string;
-};
-
-type FxRefreshContext = {
-  viewKey: string;
-  requestId: number;
 };
 
 const PORTFOLIO_INPUT_CLASS =
@@ -205,8 +193,6 @@ const PortfolioPage: React.FC = () => {
   const [snapshot, setSnapshot] = useState<PortfolioSnapshotResponse | null>(null);
   const [risk, setRisk] = useState<PortfolioRiskResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [fxRefreshing, setFxRefreshing] = useState(false);
-  const [fxRefreshFeedback, setFxRefreshFeedback] = useState<FxRefreshFeedback | null>(null);
   const [error, setError] = useState<ParsedApiError | null>(null);
   const [riskWarning, setRiskWarning] = useState<string | null>(null);
   const [writeWarning, setWriteWarning] = useState<string | null>(null);
@@ -261,7 +247,6 @@ const PortfolioPage: React.FC = () => {
     eventDate: getTodayIso(),
     direction: 'in' as PortfolioCashDirection,
     amount: '',
-    currency: '',
     note: '',
   });
   const [corpForm, setCorpForm] = useState({
@@ -274,26 +259,18 @@ const PortfolioPage: React.FC = () => {
   });
 
   const queryAccountId = selectedAccount === 'all' ? undefined : selectedAccount;
-  const refreshViewKey = `${selectedAccount === 'all' ? 'all' : `account:${selectedAccount}`}:cost:${costMethod}`;
-  const refreshContextRef = useRef<FxRefreshContext>({ viewKey: refreshViewKey, requestId: 0 });
+
   const hasAccounts = accounts.length > 0;
   const writableAccount = selectedAccount === 'all' ? undefined : accounts.find((item) => item.id === selectedAccount);
   const writableAccountId = writableAccount?.id;
   const writeBlocked = !writableAccountId;
-  const canDeleteSelectedAccount = Boolean(writableAccountId) && !isLoading && !fxRefreshing && !accountDeleteLoading;
+  const canDeleteSelectedAccount = Boolean(writableAccountId) && !isLoading && !accountDeleteLoading;
   const totalEventPages = Math.max(1, Math.ceil(eventTotal / DEFAULT_PAGE_SIZE));
   const currentEventCount = eventType === 'trade'
     ? tradeEvents.length
     : eventType === 'cash'
       ? cashEvents.length
       : corporateEvents.length;
-
-  const isActiveRefreshContext = (requestedViewKey: string, requestedRequestId: number) => {
-    return (
-      refreshContextRef.current.viewKey === requestedViewKey
-      && refreshContextRef.current.requestId === requestedRequestId
-    );
-  };
 
   const loadAccounts = useCallback(async () => {
     try {
@@ -445,15 +422,6 @@ const PortfolioPage: React.FC = () => {
   useEffect(() => {
     void loadEvents();
   }, [loadEvents]);
-
-  useEffect(() => {
-    refreshContextRef.current = {
-      viewKey: refreshViewKey,
-      requestId: refreshContextRef.current.requestId + 1,
-    };
-    setFxRefreshing(false);
-    setFxRefreshFeedback(null);
-  }, [refreshViewKey]);
 
   useEffect(() => {
     setEventPage(1);
@@ -658,7 +626,7 @@ const PortfolioPage: React.FC = () => {
         eventDate: cashForm.eventDate,
         direction: cashForm.direction,
         amount: Number(cashForm.amount),
-        currency: cashForm.currency || undefined,
+        currency: 'CNY',
         note: cashForm.note || undefined,
       });
       await refreshPortfolioData();
@@ -813,7 +781,7 @@ const PortfolioPage: React.FC = () => {
         name,
         broker: accountForm.broker.trim() || undefined,
         market: accountForm.market,
-        baseCurrency: accountForm.baseCurrency.trim() || 'CNY',
+        baseCurrency: 'CNY',
       });
       await loadAccounts();
       setSelectedAccount(created.id);
@@ -823,7 +791,7 @@ const PortfolioPage: React.FC = () => {
         name: '',
         broker: 'Demo',
         market: accountForm.market,
-        baseCurrency: accountForm.baseCurrency,
+        baseCurrency: 'CNY',
       });
       setAccountCreateSuccess('账户创建成功，已自动切换到该账户。');
     } catch (err) {
@@ -838,106 +806,6 @@ const PortfolioPage: React.FC = () => {
   const handleRefresh = async () => {
     await Promise.all([loadAccounts(), loadSnapshotAndRisk(), loadEvents(), loadBrokers()]);
     setPortfolioSignalsRefreshKey((current) => current + 1);
-  };
-
-  const reloadSnapshotAndRiskForScope = useCallback(async (
-    requestedViewKey: string,
-    requestedRequestId: number,
-    requestedAccountId: number | undefined,
-    requestedCostMethod: PortfolioCostMethod,
-  ): Promise<boolean> => {
-    if (!isActiveRefreshContext(requestedViewKey, requestedRequestId)) {
-      return false;
-    }
-
-    setRiskWarning(null);
-
-    try {
-      const snapshotData = await portfolioApi.getSnapshot({
-        accountId: requestedAccountId,
-        costMethod: requestedCostMethod,
-        includeRealtime: false,
-      });
-      if (!isActiveRefreshContext(requestedViewKey, requestedRequestId)) {
-        return false;
-      }
-      setSnapshot(snapshotData);
-      setError(null);
-
-      try {
-        const riskData = await portfolioApi.getRisk({
-          accountId: requestedAccountId,
-          costMethod: requestedCostMethod,
-          includeRealtime: false,
-        });
-        if (!isActiveRefreshContext(requestedViewKey, requestedRequestId)) {
-          return false;
-        }
-        setRisk(riskData);
-        setRiskWarning(null);
-      } catch (riskErr) {
-        if (!isActiveRefreshContext(requestedViewKey, requestedRequestId)) {
-          return false;
-        }
-        setRisk(null);
-        const parsed = getParsedApiError(riskErr);
-        setRiskWarning(parsed.message || '风险数据获取失败，已降级为仅展示快照数据。');
-      }
-      return true;
-    } catch (err) {
-      if (!isActiveRefreshContext(requestedViewKey, requestedRequestId)) {
-        return false;
-      }
-      setSnapshot(null);
-      setRisk(null);
-      setError(getParsedApiError(err));
-      return false;
-    }
-  }, []);
-
-  const handleRefreshFx = async () => {
-    if (!hasAccounts || isLoading || fxRefreshing) {
-      return;
-    }
-
-    const requestedViewKey = refreshViewKey;
-    const requestedAccountId = queryAccountId;
-    const requestedCostMethod = costMethod;
-    const requestedRequestId = refreshContextRef.current.requestId + 1;
-    refreshContextRef.current = {
-      viewKey: requestedViewKey,
-      requestId: requestedRequestId,
-    };
-
-    try {
-      setFxRefreshing(true);
-      setFxRefreshFeedback(null);
-      const result = await portfolioApi.refreshFx({
-        accountId: requestedAccountId,
-      });
-      if (!isActiveRefreshContext(requestedViewKey, requestedRequestId)) {
-        return;
-      }
-      const reloaded = await reloadSnapshotAndRiskForScope(
-        requestedViewKey,
-        requestedRequestId,
-        requestedAccountId,
-        requestedCostMethod,
-      );
-      if (!reloaded || !isActiveRefreshContext(requestedViewKey, requestedRequestId)) {
-        return;
-      }
-      setFxRefreshFeedback(buildFxRefreshFeedback(result));
-    } catch (err) {
-      if (!isActiveRefreshContext(requestedViewKey, requestedRequestId)) {
-        return;
-      }
-      setError(getParsedApiError(err));
-    } finally {
-      if (isActiveRefreshContext(requestedViewKey, requestedRequestId)) {
-        setFxRefreshing(false);
-      }
-    }
   };
 
   const decisionSignalRiskPreviewItems = (risk?.decisionSignalRisk?.items ?? []).slice(0, 3);
@@ -1009,7 +877,7 @@ const PortfolioPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => void handleRefresh()}
-                  disabled={isLoading || fxRefreshing}
+                  disabled={isLoading}
                   className="btn-secondary text-sm flex-1"
                 >
                   {isLoading ? text.refreshing : text.refreshData}
@@ -1106,12 +974,7 @@ const PortfolioPage: React.FC = () => {
               value={accountForm.broker}
               onChange={(e) => setAccountForm((prev) => ({ ...prev, broker: e.target.value }))}
             />
-            <input
-              className={PORTFOLIO_INPUT_CLASS}
-              placeholder="基准币（CNY）"
-              value={accountForm.baseCurrency}
-              onChange={(e) => setAccountForm((prev) => ({ ...prev, baseCurrency: e.target.value.toUpperCase() }))}
-            />
+            <p className="self-center text-sm text-secondary">记账币种：人民币（CNY）</p>
             <select
               className={PORTFOLIO_SELECT_CLASS}
               value={accountForm.market}
@@ -1135,7 +998,7 @@ const PortfolioPage: React.FC = () => {
         />
       ) : null}
 
-      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
         <Card variant="gradient" padding="md">
           <p className="text-xs text-secondary">{text.totalEquity}</p>
           <p className="mt-1 text-xl font-semibold text-foreground">{formatMoney(snapshot?.totalEquity, snapshot?.currency || 'CNY')}</p>
@@ -1148,28 +1011,7 @@ const PortfolioPage: React.FC = () => {
           <p className="text-xs text-secondary">{text.totalCash}</p>
           <p className="mt-1 text-xl font-semibold text-foreground">{formatMoney(snapshot?.totalCash, snapshot?.currency || 'CNY')}</p>
         </Card>
-        <Card variant="gradient" padding="md">
-          <div className="flex items-start justify-between gap-3">
-            <p className="text-xs text-secondary">{text.fxStatus}</p>
-            <button
-              type="button"
-              className="btn-secondary !px-3 !py-1 !text-xs shrink-0"
-              onClick={() => void handleRefreshFx()}
-              disabled={!hasAccounts || isLoading || fxRefreshing}
-            >
-              {fxRefreshing ? text.refreshing : text.refreshFx}
-            </button>
-          </div>
-          <div className="mt-2">{snapshot?.fxStale ? <Badge variant="warning">{text.stale}</Badge> : <Badge variant="success">{text.latest}</Badge>}</div>
-          {fxRefreshFeedback ? (
-            <InlineAlert
-              variant={getFxRefreshFeedbackVariant(fxRefreshFeedback.tone)}
-              title={text.fxRefreshResult}
-              message={fxRefreshFeedback.text}
-              className="mt-3 rounded-xl px-3 py-2 text-xs shadow-none"
-            />
-          ) : null}
-        </Card>
+
       </section>
 
       <section className="grid grid-cols-1 xl:grid-cols-3 gap-3">
@@ -1312,7 +1154,7 @@ const PortfolioPage: React.FC = () => {
         />
       ) : null}
 
-      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+      <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
         <Card padding="md">
           <h3 className="text-sm font-semibold text-foreground mb-2">{text.drawdownMonitor}</h3>
           <div className="text-xs text-secondary space-y-1">
@@ -1411,8 +1253,7 @@ const PortfolioPage: React.FC = () => {
             </div>
             <input className={PORTFOLIO_INPUT_CLASS} type="number" min="0" step="0.0001" placeholder="金额"
               value={cashForm.amount} onChange={(e) => setCashForm((prev) => ({ ...prev, amount: e.target.value }))} required />
-            <input className={PORTFOLIO_INPUT_CLASS} placeholder={`币种（可选，默认 ${writableAccount?.baseCurrency || '账户基准币'}）`} value={cashForm.currency}
-              onChange={(e) => setCashForm((prev) => ({ ...prev, currency: e.target.value }))} />
+            <p className="text-xs text-secondary">金额以人民币（CNY）记账</p>
             <button type="submit" className="btn-secondary w-full" disabled={!writableAccountId}>提交资金流水</button>
           </form>
         </Card>

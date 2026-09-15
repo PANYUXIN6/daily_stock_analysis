@@ -289,13 +289,8 @@ class PortfolioRiskService:
                     continue
                 market_value = float(pos.get("market_value_base") or 0.0)
                 valuation_currency = str(pos.get("valuation_currency") or account.get("base_currency") or "CNY")
-                converted, _, _ = self.portfolio_service.convert_amount(
-                    amount=market_value,
-                    from_currency=valuation_currency,
-                    to_currency="CNY",
-                    as_of_date=as_of_date,
-                )
-                exposure_by_symbol[symbol] = exposure_by_symbol.get(symbol, 0.0) + converted
+                self.portfolio_service._normalize_currency(valuation_currency)
+                exposure_by_symbol[symbol] = exposure_by_symbol.get(symbol, 0.0) + market_value
 
         rows = []
         for symbol, exposure in exposure_by_symbol.items():
@@ -345,12 +340,7 @@ class PortfolioRiskService:
 
                 market_value = float(pos.get("market_value_base") or 0.0)
                 valuation_currency = str(pos.get("valuation_currency") or account.get("base_currency") or "CNY")
-                converted, _, _ = self.portfolio_service.convert_amount(
-                    amount=market_value,
-                    from_currency=valuation_currency,
-                    to_currency="CNY",
-                    as_of_date=as_of_date,
-                )
+                self.portfolio_service._normalize_currency(valuation_currency)
 
                 sector = self._resolve_primary_sector(
                     symbol=symbol,
@@ -359,7 +349,7 @@ class PortfolioRiskService:
                     coverage=coverage,
                     errors=errors,
                 )
-                sector_exposure[sector] = sector_exposure.get(sector, 0.0) + converted
+                sector_exposure[sector] = sector_exposure.get(sector, 0.0) + market_value
                 sector_symbols.setdefault(sector, set()).add(symbol)
 
         rows = []
@@ -484,21 +474,13 @@ class PortfolioRiskService:
                 "max_drawdown_pct": 0.0,
                 "current_drawdown_pct": 0.0,
                 "alert": False,
-                "fx_stale": False,
             }
 
         grouped: Dict[str, float] = {}
-        stale_flag = False
         for row in rows:
             key = row.snapshot_date.isoformat()
-            converted, stale, _ = self.portfolio_service.convert_amount(
-                amount=float(row.total_equity or 0.0),
-                from_currency=str(row.base_currency or "CNY"),
-                to_currency="CNY",
-                as_of_date=row.snapshot_date,
-            )
-            grouped[key] = grouped.get(key, 0.0) + converted
-            stale_flag = stale_flag or stale or bool(row.fx_stale)
+            self.portfolio_service._normalize_currency(str(row.base_currency or "CNY"))
+            grouped[key] = grouped.get(key, 0.0) + float(row.total_equity or 0.0)
 
         series: List[Tuple[str, float]] = sorted(grouped.items(), key=lambda item: item[0])
         peak = 0.0
@@ -518,7 +500,6 @@ class PortfolioRiskService:
             "max_drawdown_pct": round(max_drawdown, 4),
             "current_drawdown_pct": round(current_drawdown, 4),
             "alert": bool(max_drawdown >= threshold_pct),
-            "fx_stale": stale_flag,
         }
 
     @staticmethod
