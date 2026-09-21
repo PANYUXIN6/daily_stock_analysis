@@ -487,7 +487,6 @@ class DataCapabilityService:
             self._news_events_dataset(),
             self._screening_dataset(priority_map.get("screening.snapshot", {})),
             self._alert_monitor_dataset(),
-            self._local_dataset("portfolio.account", "portfolio"),
         ]
         return datasets
 

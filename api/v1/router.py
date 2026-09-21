@@ -23,7 +23,6 @@ from api.v1.endpoints import (
     health,
     history,
     intelligence,
-    portfolio,
     stocks,
     system_config,
     usage,
@@ -81,11 +80,6 @@ router.include_router(
     tags=["Usage"]
 )
 
-router.include_router(
-    portfolio.router,
-    prefix="/portfolio",
-    tags=["Portfolio"]
-)
 
 router.include_router(
     alerts.router,

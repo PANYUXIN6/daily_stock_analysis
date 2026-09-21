@@ -340,15 +340,6 @@ For the notification baseline, diagnostics, and deployment notes, see [Notificat
 
 > Search services are optional enhancements. If search is unavailable, the system logs a warning and continues within the available capability boundary.
 
-### Futu Portfolio Import Configuration
-
-| Variable | Description | Default | Required |
-|--------|------|--------|:----:|
-| `FUTU_SECURITY_FIRM` | Futu `SecurityFirm` enum name. `NONE` performs the SDK's official auto-detection once; set an explicit broker when required. | `NONE` | Optional |
-| `FUTU_ACC_ID` | Select one eligible REAL account ID. When empty, all explicitly `ACTIVE` `NORMAL` and `MASTER` securities accounts are merged. Treat account IDs as sensitive configuration and do not commit them. | empty | Optional |
-
-`MASTER` is Futu's master-account role, not a read-only attribute. This integration is read-only because it calls only account, position, and security-information queries; it never unlocks trading or places, modifies, or cancels orders.
-
 ### Data Source Configuration
 
 | Variable | Description | Default | Required |
@@ -361,8 +352,6 @@ For the notification baseline, diagnostics, and deployment notes, see [Notificat
 | `TICKFLOW_KLINE_ADJUST` | TickFlow daily K-line adjustment mode: `none`, `forward`, `backward`, `forward_additive`, or `backward_additive`. | `none` | Optional |
 | `TICKFLOW_BATCH_DAILY_ENABLED` | Enable TickFlow batch daily K-line prefetch when the current plan supports it; permission failures are negative-cached and fall back to per-stock providers. | `true` | Optional |
 | `TICKFLOW_BATCH_SIZE` | Maximum symbols per TickFlow batch request. | `100` | Optional |
-| `FUTU_OPEND_HOST` | Futu OpenD address; use an IPv4 address or an IPv4-resolvable hostname. Leave empty to disable Futu market data. | empty | Optional |
-| `FUTU_OPEND_PORT` | Futu OpenD TCP port, from `1` to `65535`. | `11111` | Optional |
 | `ENABLE_REALTIME_QUOTE` | Enable real-time quotes (if disabled, uses historical closing prices for analysis) | `true` | Optional |
 | `ENABLE_REALTIME_TECHNICAL_INDICATORS` | Intraday real-time technicals: Calculate MA5/MA10/MA20 and bull trends using real-time prices when enabled (Issue #234); uses yesterday's close if disabled. | `true` | Optional |
 | `ENABLE_CHIP_DISTRIBUTION` | Enable chip distribution analysis (this API is unstable, recommended to disable for cloud deployment). GitHub Actions users must set `ENABLE_CHIP_DISTRIBUTION=true` in Repository Variables to enable; disabled by default in workflows. | `true` | Optional |
@@ -647,7 +636,6 @@ python main.py                        # Full analysis (stocks + market review)
 python main.py --market-review        # Market review only
 python main.py --no-market-review     # Stock analysis only
 python main.py --stocks 600519,300750 # Specify stocks
-python main.py --portfolio futu       # Use real Futu LONG stock holdings (overrides --stocks/STOCK_LIST)
 python main.py --dry-run              # Fetch data only, no AI analysis
 python main.py --no-notify            # Don't send notifications
 python main.py --schedule             # Scheduled task mode
@@ -728,26 +716,6 @@ Registered indices are persisted under their lowercase canonical identity (`sh00
 - **Task / SSE / API metadata**: task lists and SSE events expose an optional `asset_type` (`stock`/`index`) derived from the submitted `analysis_target` (never re-guessed); history list items and stock-bar items gain the same optional field. Clients that do not know the field simply ignore it — the field is optional and additive.
 - **Web Dashboard identity keys**: `assetType` on tasks/reports/history wins first, and backend-guaranteed canonical codes are only **case-folded** (`SH000016` -> `sh000016`) — prefix/suffix regex canonical guessing is forbidden (it would fabricate `csi000300` from `000300.CSI` or treat `sz399300` as an independent canonical, violating the registry as the single asset-type authority). Only raw watchlist strings without a type use an exact canonical/display/alias hit on the loaded `assetType=index` rows of `stocks.index.json` (never normalize-then-match, never prefix-regex guessing; batch analysis stays disabled while the registry loads, and a load failure or request exceeding 10 seconds falls back to existing stock semantics). Row selection, active-task matching, and completed-task auto-selection bucket by asset type, so an index row and a same-code stock row keep independent states and completion auto-selects the correct canonical index report.
 
-### Use real Futu holdings as the analysis list
-
-Standard source installs (`pip install -r requirements.txt`), official Docker images,  already include the pinned `futu-api==10.8.6808`. Install it manually from the [Futu OpenAPI SDK guide](https://openapi.futunn.com/futu-api-doc/en/intro/intro.html) only when using a reduced custom Python environment. After starting and signing in to Futu OpenD, run:
-
-```bash
-# Only reduced custom environments need the next line
-pip install "futu-api==10.8.6808"
-# Standard installs can run the command directly
-python main.py --portfolio futu
-```
-
-`--portfolio futu` only reads `REAL` securities accounts whose status is explicitly `ACTIVE`, and refreshes positions with `refresh_cache=True` before each analysis run. Accounts with a missing, `N/A`, unknown, or `DISABLED` status are rejected. Without `FUTU_ACC_ID`, it merges all usable `NORMAL` and `MASTER` securities accounts and deduplicates symbols; when set, only that positive integer account ID is read. Per the [Futu `get_acc_list` account-role contract](https://openapi.futunn.com/futu-api-doc/en/trade/get-acc-list.html), `MASTER` means the master-account role rather than a read-only attribute, and Malaysian `IPO` accounts are not portfolio sources. The integration is read-only because it calls only query APIs.
-
-Only non-zero `LONG` positions whose Futu static type is `STOCK` and whose code converts to an A-share are analyzed. Other markets, `SHORT`, unknown-direction, option, ETF, warrant, futures, and other non-stock positions are excluded.
-
-OpenD defaults to `127.0.0.1:11111`; override it with `FUTU_OPEND_HOST` / `FUTU_OPEND_PORT`. The pinned `futu-api==10.8.6808` networking layer uses IPv4 sockets, so `FUTU_OPEND_HOST` must be an IPv4 address or a hostname that resolves to IPv4; IPv6 addresses such as `::1` are unsupported. Inside a Docker container, `127.0.0.1` refers to the container itself. When OpenD runs on the host, set `FUTU_OPEND_HOST=host.docker.internal` on macOS or Windows; on Linux, add a `host.docker.internal:host-gateway` mapping to the container before using that hostname. Cross-host connections carry real account and position data, and [Futu recommends protocol encryption for real-trading connections](https://openapi.futunn.com/futu-api-doc/en/ftapi/protocol.html). This integration does not modify process-wide SDK encryption settings; prefer running OpenD on the same host, or use a trusted network or local port forwarding. When `FUTU_SECURITY_FIRM` is unset, discovery makes one call with the Futu SDK's official `SecurityFirm.NONE` auto-detection mode; it does not enumerate brokers or silently combine partial probe results. Set the variable explicitly when a fixed broker is required.
-
-If `--stocks` is also present, the Futu portfolio wins. Scheduled mode reloads real positions for every run instead of reusing a startup snapshot. If no Futu holdings qualify, stock analysis is skipped without falling back to `STOCK_LIST`; an enabled market review still runs according to its existing configuration. When no market review is requested either, the run does not refresh the stock index or construct the analysis pipeline; an enabled auto-backtest still runs as an independent step. A one-shot CLI exits non-zero only when SDK, OpenD, account discovery, position loading, or security classification fails inside the portfolio-resolution boundary. Trading-calendar, pipeline, and report failures after a successful portfolio import retain the existing analysis error semantics. An already running service or scheduler logs portfolio import errors and continues. This integration only reads accounts and positions; it does not place, modify, cancel, or unlock trades. Existing analysis logs include the stock symbols for the current run, but not account IDs, quantities, costs, or cash balances; redact those symbols as needed before sharing logs.
-
----
 
 ## Scheduled Task Configuration
 
@@ -938,13 +906,12 @@ Normalization functions are explicitly called in `_parse_response()` and `parse_
 
 `signal_attribution` is an optional display field, not a required integrity field. Missing it does not fail integrity checks, is not recorded in the `missing` list, and does not trigger a completion prompt; when present, it is normalized and rendered by supported report paths.
 
-### Alerts, Portfolio, and History Linkage (Issue #1386 P6)
+### Alerts and History Linkage (Issue #1386 P6)
 
-P6 reuses the existing `market_phase_summary` and `analysis_context_pack_overview` across alerts, portfolio, history, backtesting, and notifications. It does not introduce a new phase/pack protocol and does not require a database migration. Alert trigger rows keep using the existing text `diagnostics` field; when diagnostics can be represented as JSON, the worker merges `analysis_visibility.market_phase_summary`, `analysis_visibility.analysis_context_pack_overview`, and `analysis_visibility.source` into triggered rows. Legacy plain-text diagnostics remain readable; Alert API derived fields stay empty and `analysis_visibility_source=legacy_text`.
+P6 reuses the existing `market_phase_summary` and `analysis_context_pack_overview` across alerts, history, backtesting, and notifications. It does not introduce a new phase/pack protocol and does not require a database migration. Alert trigger rows keep using the existing text `diagnostics` field; when diagnostics can be represented as JSON, the worker merges `analysis_visibility.market_phase_summary`, `analysis_visibility.analysis_context_pack_overview`, and `analysis_visibility.source` into triggered rows. Legacy plain-text diagnostics remain readable; Alert API derived fields stay empty and `analysis_visibility_source=legacy_text`.
 
 Alert phase summaries are generated from trigger-time A-share context, and `target_scope=market` uses `cn`. The pack overview only comes from an evaluator-provided overview or a recent low-sensitivity history snapshot from the last 30 days. Missing data returns `null`; the alert worker does not fabricate packs or automatically run a lightweight LLM analysis.
 
-The portfolio page adds a manual per-position analysis action backed by `POST /api/v1/portfolio/positions/{symbol}/analysis`. The request accepts `account_id`, `analysis_phase=auto|premarket|intraday|postmarket`, and `force`. Only non-zero current holdings can be submitted; missing holdings return 404, and the same symbol held in multiple accounts without `account_id` returns `400 ambiguous_position_account`. The endpoint keeps the existing async accepted / duplicate semantics, and `force` only controls refresh behavior; it does not bypass in-flight duplicate detection. The backend passes only a low-sensitivity `portfolio_context` internally into the pipeline and into an optional context-pack `portfolio` block. That block does not affect the six existing data-quality weights and is not exposed through task lists or SSE payloads.
 
 History lists, same-stock history, StockBar items, and details extract `market_phase_summary` from `context_snapshot`; old rows, missing snapshots, or parse failures return `null`. Backtest result items now include `market_phase` and `market_phase_summary`, and result/performance/summary queries support `analysis_phase=premarket|intraday|postmarket|unknown`. Statistics fold `intraday`, `lunch_break`, and `closing_auction` into intraday, and fold `non_trading`, missing, and invalid values into unknown. Phase-filtered backtest queries batch-read results and snapshots through the repository, bucket before pagination, and expose `phase_breakdown` plus `raw_phase_counts` in summary diagnostics.
 
@@ -967,7 +934,7 @@ Entrypoints and visibility:
 | Entrypoint | Phase Behavior |
 | --- | --- |
 | `POST /api/v1/analysis/analyze` | Supports `analysis_phase=auto|premarket|intraday|postmarket`; omitted values default to `auto`. |
-| Web main analysis / re-analysis / portfolio manual analysis | There is currently no phase override selector. The frontend defaults to `auto`, the in-progress task panel shows the requested phase, and the final report page shows the final phase label. |
+| Web main analysis / re-analysis | There is currently no phase override selector. The frontend defaults to `auto`, the in-progress task panel shows the requested phase, and the final report page shows the final phase label. |
 | Bot / CLI / schedule / default GitHub Actions | Do not pass `analysis_phase`; they continue to use `auto` inference, and the default post-market behavior is unchanged. |
 | History / backtest / notifications / alerts | Only consume public `market_phase_summary` and low-sensitivity `analysis_context_pack_overview`; they do not expose the full pack, prompt summary, news body text, or sensitive portfolio details. |
 
@@ -1352,7 +1319,7 @@ Core fields include `stock_code`, `stock_name`, `market`, `source_type`, `source
 New API endpoints:
 
 - `POST /api/v1/decision-signals`: create or deduplicate a signal and return `{ item, created }` with HTTP 200. New writes may omit `decision_profile` and default to `balanced`, or pass a valid `conservative|balanced|aggressive` value; a top-level explicit `null`, empty value, or invalid value is rejected. Only when the top-level field is missing may the service fall back to a valid `metadata.decision_profile`, and before persistence it synchronizes `metadata.decision_profile` to the first-class field value. Omitted or explicit `null` metadata is treated as absent, objects are shallow-copied, and non-object metadata is rejected. Exact deduplication uses `(source_report_id, source_type, market, stock_code, decision_profile, action, horizon, market_phase)` when `source_report_id` is present, or `(trace_id, source_type, market, stock_code, decision_profile, action, horizon, market_phase)` when only `trace_id` is present. Signals without either source identifier are not deduplicated. Exact deduplication, relaxed fallback, horizon/phase fill, expired refresh, active invalidation, and stale backfill invalidation all use same-profile semantics: `NULL` only matches `NULL`, and a non-null profile only matches the same profile. Expired duplicate refresh never rewrites `decision_profile`. After an exact miss, a narrow relaxed fallback searches the same source plus `source_type/market/stock_code/decision_profile/action` and only fills old blank `horizon/market_phase` values. `horizon` can be filled only when the new value was generated by the service default; explicit different horizons, already different phases, or different profiles remain separate rows. When the same source key matches an expired same-profile signal and the new request is active with a future `expires_at`, the existing row is refreshed in place, still returns `created=false`, and that renewal is treated as a new active activation event. Active creation or expired renewal of a bullish signal (`buy/add`) invalidates earlier active defensive signals (`reduce/sell/avoid`) for the same stock and same profile, and the reverse also applies; different non-null profiles may coexist even for opposite active signals. Active duplicate retries also rerun the same-profile repair to recover from a previous partial create where the signal was saved but invalidation failed; ordinary old duplicate/replay attempts are not treated as new activation events. `hold/watch/alert` do not trigger automatic invalidation. Both refreshed and duplicate outcomes return `created=false`. P3 does not guarantee concurrent idempotency.
-- `GET /api/v1/decision-signals`: paginated query with `market`, `stock_code`, `action`, `market_phase`, `decision_profile`, `source_type`, `source_report_id`, `trace_id`, `trigger_source`, `status`, time ranges, `holding_only`, and `account_id`. Omitting or passing an empty `decision_profile` applies no profile condition and returns all profiles; `decision_profile=unknown` queries legacy `NULL` rows; valid profile values match exactly.
+- `GET /api/v1/decision-signals`: paginated query with `market`, `stock_code`, `action`, `market_phase`, `decision_profile`, `source_type`, `source_report_id`, `trace_id`, `trigger_source`, `status`, time ranges. Omitting or passing an empty `decision_profile` applies no profile condition and returns all profiles; `decision_profile=unknown` queries legacy `NULL` rows; valid profile values match exactly.
 - `POST /api/v1/decision-signals/outcomes/run`: explicitly trigger signal-level outcome evaluation; by default it skips completed and terminal unable rows, recomputes recoverable unable rows, and `force=true` recomputes and overwrites the current key.
 - `GET /api/v1/decision-signals/outcomes`: paginated query for signal outcome rows.
 - `GET /api/v1/decision-signals/outcomes/stats`: aggregate current outcome-engine stats; by default it excludes archived signals.
@@ -1363,7 +1330,7 @@ New API endpoints:
 - `PATCH /api/v1/decision-signals/{signal_id}/status`: update a valid status and optional `metadata`; omitting metadata preserves the stored value, explicit `null` clears it to SQL `NULL`, and an object replaces the whole value. A non-null formal `decision_profile` overwrites a conflicting metadata profile; for a legacy formal `NULL`, the profile key is removed from the request object and the formal field is not promoted. `expired/invalidated/closed/archived` terminal states cannot be patched directly back to `active`; expired renewal still requires re-posting active data with a future `expires_at`.
 - `GET /api/v1/decision-signals/latest/{stock_code}`: return latest active signals for a stock, default `limit=1`.
 
-Read paths lazily expire active signals whose `expires_at` has passed. A-share code variants such as `600519`, `SH600519`, and `600519.SH` match the same stored code. `holding_only=true` reads only cached active-account positions with `quantity > 0`.
+Read paths lazily expire active signals whose `expires_at` has passed. A-share code variants such as `600519`, `SH600519`, and `600519.SH` match the same stored code.
 
 `source_report_id` is nullable and is not required to reference an existing history row; deleting history records explicitly removes only history-bound signals with `source_type=analysis` whose `source_report_id` matches actually deleted IDs, so `manual/agent/alert/market_review` weak-reference signals are not deleted solely because of an ID collision. The list endpoint supports typed filters for `source_report_id` and `trace_id`. Follow-up association fields such as `task_id` and `alert_trigger_id` should be stored in `metadata` for P1; P1 does not add dedicated columns or typed filters for them, which are deferred to the later integration phase. JSON fields, long text fields, and public short text fields (`stock_name/source_agent/trigger_source/action_label`) are sanitized before persistence with a signal-specific sanitizer that redacts sensitive keys, Bearer values, Authorization/Cookie headers or assignments, token-like strings, other sensitive assignments, webhook URLs, URL userinfo, and URLs with sensitive query or fragment parameters. Ordinary evidence URLs are preserved for source traceability, and long text does not use the diagnostics 300-character truncation. `trace_id` is a same-source identity field; if it contains sensitive credentials that would be redacted, the API rejects the request instead of storing a lossy redacted value.
 
@@ -1373,15 +1340,14 @@ These endpoints inherit the existing `/api/v1/*` admin authentication middleware
 
 #1390 P5 adds signal-level feedback, forward outcome evaluation, and stats sidecars. It does not extend the `decision_signals` main table and does not reuse `BacktestResult`, which is tied to `analysis_history_id`. `decision_signal_feedback` stores the latest `useful|not_useful` feedback per `signal_id` with optional reason/note/source. `decision_signal_outcomes` stores idempotent rows by `(signal_id, horizon, engine_version)`, currently `engine_version=decision-signal-v1`. Each outcome freezes `action/market/market_phase/source_type/source_agent/plan_quality/data_quality_level/holding_state` at evaluation time so historical stats are not rewritten by later live-join changes. Deleting history first finds `source_type=analysis` signals bound to the deleted history IDs, then removes their feedback/outcome sidecars.
 
-P5 outcome evaluation supports only daily-bar-verifiable `1d/3d/5d/10d`. The window means the next 1/3/5/10 `StockDaily` bars after the anchor, not the natural-day expiration semantics from `DecisionSignalService._horizon_days()`. `anchor_date` first reads `metadata.market_phase_summary.session_date`, then falls back to `created_at.date()`; the exact anchor date must have `StockDaily.close`, with no previous-trading-day fallback. Action mapping is `buy/add -> up`, `hold -> not_down`, and `reduce/sell/avoid -> not_up`. `watch/alert`, `intraday/swing/long`, missing anchor price, and insufficient forward bars persist `eval_status=unable` with an explicit `unable_reason`. Missing/invalid anchor price, insufficient forward bars, and missing/invalid window close are recoverable unable states that default reruns will evaluate again after data arrives; non-directional actions, unsupported horizons, and missing anchor dates are terminal unable states and stay idempotently skipped by default. Automatic extraction may receive runtime `portfolio_context.quantity`; it writes only low-sensitive `holding_state=holding|empty|unknown` into metadata for outcome snapshots, never quantity, account, or cost.
+P5 outcome evaluation supports only daily-bar-verifiable `1d/3d/5d/10d`. The window means the next 1/3/5/10 `StockDaily` bars after the anchor, not the natural-day expiration semantics from `DecisionSignalService._horizon_days()`. `anchor_date` first reads `metadata.market_phase_summary.session_date`, then falls back to `created_at.date()`; the exact anchor date must have `StockDaily.close`, with no previous-trading-day fallback. Action mapping is `buy/add -> up`, `hold -> not_down`, and `reduce/sell/avoid -> not_up`. `watch/alert`, `intraday/swing/long`, missing anchor price, and insufficient forward bars persist `eval_status=unable` with an explicit `unable_reason`. Missing/invalid anchor price, insufficient forward bars, and missing/invalid window close are recoverable unable states that default reruns will evaluate again after data arrives; non-directional actions, unsupported horizons, and missing anchor dates are terminal unable states and stay idempotently skipped by default. Automatic extraction records `holding_state=unknown`; existing outcome records retain their historical metadata.
 
 P5 extends the existing Web `/decision-signals` page instead of adding a new navigation page or BacktestPage entry. The filter area now shows current outcome-engine stat cards; the details drawer lazily loads outcomes and lets the user submit useful/not useful feedback. P5 does not add a background scheduler: outcome calculation is triggered explicitly through `POST /api/v1/decision-signals/outcomes/run`. Batch runs prioritize missing outcomes first and then retry recoverable unable rows, so completed or terminal-unable newest signals do not keep consuming the `limit`.
 
 #1758 adds `profile_calibration` to the same `GET /api/v1/decision-signals/outcomes/stats` response. It returns structured groups for decision profile, profile + action, profile + horizon, profile + market phase, profile + frozen data quality, and profile source. Every group independently requires `completed >= 30`; below that threshold it keeps counts while all five descriptive metrics are `null`, and the Web shows sample counts with “Insufficient sample size; for observation only.” It never ranks or recommends profiles. Hit and miss rates use `hit + miss` as their denominator, while the unable rate uses total. Maximum adverse move is derived only from persisted outcome `start_price/min_low/max_high` values and never triggers a market-data read. `decision_profile` and metadata-backed `profile_source` are current attribution values joined from the signal at query time; action, horizon, market phase, and data quality remain frozen outcome values. A new outcome falls back to normalized metadata data quality only when its summary has no explicit level, and existing outcomes are not silently rewritten. The Web reuses the original stats request and card, exposing only Conservative/Balanced/Aggressive plus by-action/by-horizon views; legacy servers without the new field keep the original stats card usable. See [DecisionSignal Topic](decision-signals.md) for the full contract.
 
-The portfolio page loads AI signals as a non-blocking enhancement. Each A-share holding is queried with `market=cn`, and matching reuses the Web A-share code equivalence rules such as `600519/SH600519/600519.SH`.
 
-#1390 P6 reuses `DecisionSignal` across alerts, notifications, and portfolio risk without adding tables, migrations, or configuration. Real stock-level alert triggers first link the latest active signal for the same symbol and write a low-sensitive `decision_signal_summary` into `alert_triggers.diagnostics`; when no active signal exists, the worker creates only a minimal `source_type=alert`, `action=alert` signal. Its `trace_id=alert-rule-<hash>` is for best-effort retry de-duplication, not active-signal overwrites, and the payload intentionally omits `market_phase` to avoid cross-phase duplicates. Alert and analysis notifications reference only public summary fields such as `action/horizon/reason/watch_conditions/risk_summary/source_report_id`, and notification failure does not block trigger or signal writes. `GET /api/v1/portfolio/risk` now includes a `decision_signal_risk` block that counts active `sell/reduce/alert` signals for current holdings, explicitly excluding `avoid/buy/add/hold/watch`; if signal lookup fails, the risk endpoint fails open and the Web risk card shows a degraded state.
+#1390 P6 reuses `DecisionSignal` across alerts and notifications without adding tables, migrations, or configuration. Real stock-level alert triggers first link the latest active signal for the same symbol and write a low-sensitive `decision_signal_summary` into `alert_triggers.diagnostics`; when no active signal exists, the worker creates only a minimal `source_type=alert`, `action=alert` signal. Its `trace_id=alert-rule-<hash>` is for best-effort retry de-duplication, not active-signal overwrites, and the payload intentionally omits `market_phase` to avoid cross-phase duplicates. Alert and analysis notifications reference only public summary fields such as `action/horizon/reason/watch_conditions/risk_summary/source_report_id`, and notification failure does not block trigger or signal writes.
 
 #1390 P7 is documented in [DecisionSignal Topic](decision-signals.md) (Chinese-only). #1756 adds no `DECISION_SIGNAL_*` configuration or runtime switch, but it does add a nullable `decision_profile` column, API request/response field, and profile-aware indexes for `decision_signals`. Existing SQLite databases only run `ALTER TABLE ADD COLUMN` when the column is missing; the migration does not drop/rebuild `decision_signals` and does not delete old indexes. It creates profile-aware indexes idempotently and defensively parses `metadata_json` row by row, backfilling only legal `metadata.decision_profile` values while keeping invalid JSON, non-object metadata, or invalid profiles as `NULL`. Rollback is to revert the related code. After rollback, signal extraction and writes stop, while report saving, alert triggering, notification sending, and the portfolio risk main flow continue through their existing paths. Historical signal, feedback, and outcome rows are not deleted automatically.
 
@@ -1439,7 +1405,7 @@ Backtesting triggers automatically after the daily analysis flow completes (non-
 
 ## Local WebUI Management Interface
 
-The WebUI and FastAPI API share the same service process. After startup, use the browser workspace for configuration management, manual analysis, task progress, historical reports, backtesting, portfolio management, and smart import. Authentication, cloud-server access, and API usage details are covered below.
+The WebUI and FastAPI API share the same service process. After startup, use the browser workspace for configuration management, manual analysis, task progress, historical reports, backtesting management, and smart import. Authentication, cloud-server access, and API usage details are covered below.
 
 ### FastAPI API Service
 
@@ -1498,7 +1464,7 @@ For this feature, the product behavior is:
 | `/api/v1/history/{record_id}/share-image` | GET | Generate a historical-report PNG for browsers; requires an available `MD2IMG_ENGINE` |
 | `/api/v1/history/{record_id}/diagnostics` | GET | Query a historical report run diagnostic summary and sanitized copy text |
 | `/api/v1/decision-signals` | POST | Explicitly create or deduplicate a decision signal and return `{ item, created }` |
-| `/api/v1/decision-signals` | GET | Paginated decision-signal query with stock, market, action, phase, profile, source, status, time-range, and cache-only holdings filters |
+| `/api/v1/decision-signals` | GET | Paginated decision-signal query with stock, market, action, phase, profile, source, status, time-range filters |
 | `/api/v1/decision-signals/outcomes/run` | POST | Explicitly trigger signal outcome evaluation; by default skips completed/terminal unable rows, recomputes recoverable unable rows, and `force=true` recomputes |
 | `/api/v1/decision-signals/outcomes` | GET | Paginated signal outcome query |
 | `/api/v1/decision-signals/outcomes/stats` | GET | Query current outcome-engine stats; archived signals are excluded by default |
@@ -1642,20 +1608,6 @@ A: Check if Actions is enabled, and if cron expression is correct (note it's UTC
 
 ---
 
-## Portfolio Web Notes
-
-### Portfolio account archive on `/portfolio`
-
-- The `/portfolio` account toolbar can delete a selected single account through the existing `DELETE /api/v1/portfolio/accounts/{account_id}` endpoint.
-- Account deletion uses soft-delete/archive semantics. Archived accounts are hidden from default account lists, portfolio snapshots, risk summaries, entry forms, and event lists.
-- Historical trade, cash-ledger, corporate-action, and daily snapshot rows are not physically removed. To correct a specific ledger row from the Web UI, delete that row before archiving its account.
-
-### Portfolio currency and valuation
-
-Portfolio accepts only CNY for new accounts and ledger entries. Historical foreign-currency records remain readable, but valuation and risk calculations reject them until the original ledger is reconciled; they are never treated as CNY at a 1:1 rate. The FX refresh endpoint, setting and status fields have been removed.
-
-- Portfolio snapshot `positions[]` includes price metadata such as `price_source`, `price_date`, `price_stale`, and `price_available`. Today's snapshot tries realtime quotes by default, then falls back to the latest historical close on or before `as_of` when the realtime quote is unavailable or non-positive. Passing `include_realtime=false` skips realtime quotes and uses the local historical-close fallback path directly; the Web portfolio page uses this mode to render holdings before slow external realtime quote sources can block the first screen. Historical `as_of` snapshots stay on historical-close semantics and no longer silently treat cost basis as the current price. Missing-price positions are marked with `price_available=false` and excluded from market value / unrealized PnL totals.
-
 ## Agent Tool Data Cache And Persistence
 
 - `get_daily_history` first tries to reuse local `stock_daily` daily-bar cache; when the cache is fresh and contains at least the dashboard default of 30 records, it avoids another external data-source request.
@@ -1668,7 +1620,7 @@ Portfolio accepts only CNY for new accounts and ledger entries. Historical forei
 
 ## Agent Event Monitor
 
-When `AGENT_EVENT_MONITOR_ENABLED=true`, schedule mode runs the alert worker every `AGENT_EVENT_MONITOR_INTERVAL_MINUTES` minutes. The worker reads enabled rules created through the Alert API and continues to support legacy rules in `AGENT_EVENT_ALERT_RULES_JSON`; triggered alerts still go through the existing notification channels. Alert API / Web persisted rules support price, change-percent, volume, daily technical indicators, `watchlist`, `portfolio_holdings`, `portfolio_account`, and `market` Market Light targets; legacy JSON still supports only the three basic rule types.
+When `AGENT_EVENT_MONITOR_ENABLED=true`, schedule mode runs the alert worker every `AGENT_EVENT_MONITOR_INTERVAL_MINUTES` minutes. The worker reads enabled rules created through the Alert API and continues to support legacy rules in `AGENT_EVENT_ALERT_RULES_JSON`; triggered alerts still go through the existing notification channels. Alert API / Web persisted rules support price, change-percent, volume, daily technical indicators, `watchlist`, and `market` Market Light targets; legacy JSON still supports only the three basic rule types.
 
 > Compatibility and rollback note: this section documents current Event Monitor rule behavior (including `price_change_percent`) and does not change external model/provider API semantics such as model names, providers, Base URL, LiteLLM, `OPENAI_*`, `DEEPSEEK_*`, or `GEMINI_*` configuration.
 > Legacy JSON is not automatically migrated, deleted, or rewritten. To roll back the background alert worker, clear or disable `AGENT_EVENT_MONITOR_ENABLED`/related rule config.
@@ -1683,10 +1635,6 @@ When `AGENT_EVENT_MONITOR_ENABLED=true`, schedule mode runs the alert worker eve
 | `macd_cross` | `bullish_cross` / `bearish_cross` | `fast_period`, `slow_period`, `signal_period` | DIF/DEA edge golden/death cross |
 | `kdj_cross` | `bullish_cross` / `bearish_cross` | `period`, `k_period`, `d_period` | K/D edge golden/death cross |
 | `cci_threshold` | `above` / `below` | `period`, `threshold` | CCI edge-crosses a threshold |
-| `portfolio_stop_loss` | `mode=near|breach` | - | Account-level stop-loss proximity or breach |
-| `portfolio_concentration` | - | - | Account-level symbol concentration |
-| `portfolio_drawdown` | - | - | Account-level maximum drawdown alert |
-| `portfolio_price_stale` | - | - | Stale or missing portfolio prices |
 | `market_light_status` | - | `statuses` | Current Market Light status matches the configured `red/yellow` list |
 | `market_light_score_drop` | - | `min_drop` | Market Light score drops from the previous trading day by at least the threshold |
 
@@ -1700,7 +1648,7 @@ AGENT_EVENT_ALERT_RULES_JSON=[{"stock_code":"600519","alert_type":"price_cross",
 
 The worker writes `triggered`, `skipped`, `degraded`, and `failed` rows to `alert_triggers` as evaluation history; normal non-triggered checks do not write history. For DB-persisted rules, `triggered` history is best-effort deduplicated by `rule_id + target + data_source + data_timestamp`: repeated hits for the same data point reuse the earliest trigger row, while records without `data_timestamp` are not deduplicated. Real triggers write per-channel attempts to `alert_notifications`, and Alert API persisted rules write business cooldown state to `alert_cooldowns`; if the persisted cooldown read fails, the worker temporarily falls back to the in-process fingerprint guard to avoid repeated notifications during the DB failure. Legacy `AGENT_EVENT_ALERT_RULES_JSON` rules continue to use the in-process fingerprint suppressor and do not write persisted cooldown state; the notification infrastructure `notification_noise.py` guard remains independent. The Web rule list uses the backend-provided `cooldown_active` flag instead of browser-local timezone parsing to decide whether a rule is cooling down.
 
-Technical indicator rules use daily-close edge triggers only. `watchlist` rules refresh `STOCK_LIST`, portfolio rules expand A-share positions, and `market` rules accept only `cn` with structured `MarketLightSnapshot` data. See [Real-Time Alert Center](alerts.md) for detailed boundaries.
+Technical indicator rules use daily-close edge triggers only. `watchlist` rules refresh `STOCK_LIST`, `market` rules accept only `cn` with structured `MarketLightSnapshot` data. See [Real-Time Alert Center](alerts.md) for detailed boundaries.
 
 ---
 

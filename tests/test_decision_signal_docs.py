@@ -47,7 +47,6 @@ def test_decision_signal_topic_references_live_api_schema_and_docs() -> None:
         "DecisionSignalProfileCalibrationBreakdowns",
         "DecisionSignalProfileCalibrationBucket",
         "DecisionSignalFeedbackRequest",
-        "PortfolioDecisionSignalRiskBlock",
     ):
         assert schema_name in api_spec["components"]["schemas"]
 

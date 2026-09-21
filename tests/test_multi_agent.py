@@ -8,7 +8,6 @@ Covers:
 - AgentOrchestrator: pipeline execution, mode selection, error handling
 - StrategyRouter: regime detection, manual mode, user override
 - StrategyAggregator: weighted consensus, empty input
-- PortfolioAgent.post_process: JSON parsing via try_parse_json
 """
 
 import json
@@ -874,43 +873,8 @@ class TestStrategyAggregator(unittest.TestCase):
 
 
 # ============================================================
-# PortfolioAgent.post_process
 # ============================================================
 
-class TestPortfolioAgentPostProcess(unittest.TestCase):
-    """Test PortfolioAgent.post_process uses try_parse_json correctly."""
-
-    def _make_agent(self):
-        from src.agent.agents.portfolio_agent import PortfolioAgent
-        mock_registry = MagicMock()
-        mock_adapter = MagicMock()
-        return PortfolioAgent(tool_registry=mock_registry, llm_adapter=mock_adapter)
-
-    def test_parse_plain_json(self):
-        agent = self._make_agent()
-        ctx = AgentContext()
-        data = {"portfolio_risk_score": 3, "summary": "Looks good"}
-        op = agent.post_process(ctx, json.dumps(data))
-        self.assertIsNotNone(op)
-        self.assertEqual(op.signal, "buy")
-        self.assertEqual(ctx.data.get("portfolio_assessment"), data)
-
-    def test_parse_markdown_json(self):
-        agent = self._make_agent()
-        ctx = AgentContext()
-        data = {"portfolio_risk_score": 8, "summary": "High risk"}
-        raw = f"Here is the analysis:\n```json\n{json.dumps(data)}\n```"
-        op = agent.post_process(ctx, raw)
-        self.assertIsNotNone(op)
-        self.assertEqual(op.signal, "sell")
-
-    def test_parse_failure_returns_hold(self):
-        agent = self._make_agent()
-        ctx = AgentContext()
-        op = agent.post_process(ctx, "This is not JSON at all")
-        self.assertIsNotNone(op)
-        self.assertEqual(op.signal, "hold")
-        self.assertAlmostEqual(op.confidence, 0.3)
 
 
 class TestDecisionAgentPostProcess(unittest.TestCase):
@@ -1797,7 +1761,6 @@ class TestOrchestratorExecution(unittest.TestCase):
             "agent_intel_agent_timeout_s": 0,
             "agent_risk_agent_timeout_s": 0,
             "agent_decision_agent_timeout_s": 0,
-            "agent_portfolio_agent_timeout_s": 0,
             "agent_skill_agent_timeout_s": 0,
             "agent_risk_override": True,
         }

@@ -156,7 +156,6 @@ class AgentOrchestrator:
             ("intel", "agent_intel_agent_timeout_s"),
             ("risk", "agent_risk_agent_timeout_s"),
             ("decision", "agent_decision_agent_timeout_s"),
-            ("portfolio", "agent_portfolio_agent_timeout_s"),
             ("skill", "agent_skill_agent_timeout_s"),
         ]
         return {

@@ -105,7 +105,6 @@ def test_build_payload_maps_report_context_and_price_plan() -> None:
     payload = build_decision_signal_payload_from_report(
         result,
         context_snapshot=context_snapshot,
-        portfolio_context={"quantity": "200"},
         source_report_id=88,
         trace_id="trace-88",
         query_source="api",
@@ -147,7 +146,7 @@ def test_build_payload_maps_report_context_and_price_plan() -> None:
         "session_date": "2026-06-15",
         "minutes_to_close": 120,
     }
-    assert payload["metadata"]["holding_state"] == "holding"
+    assert payload["metadata"]["holding_state"] == "unknown"
 
 
 def test_build_payload_adds_market_structure_metadata() -> None:
@@ -337,18 +336,6 @@ def test_build_payload_aligns_low_neutral_action_to_reduce() -> None:
     assert payload["metadata"]["score_scale"]["score_band"] == "20-39"
 
 
-def test_build_payload_records_empty_holding_state_from_explicit_portfolio_context() -> None:
-    payload = build_decision_signal_payload_from_report(
-        _result(),
-        portfolio_context={"quantity": 0},
-        trace_id="trace-empty-holding",
-        query_source="api",
-        report_type="simple",
-        profile_source=BUILD_PROFILE_SOURCE,
-    )
-
-    assert payload is not None
-    assert payload["metadata"]["holding_state"] == "empty"
 
 
 def test_runtime_decision_signal_summary_is_not_serialized_by_analysis_result_to_dict() -> None:
@@ -455,7 +442,6 @@ def test_extract_and_persist_reuses_service_dedup_and_sanitization(isolated_db) 
     first = extract_and_persist_from_analysis_result(
         result,
         context_snapshot={"market_phase_summary": {"phase": "intraday"}},
-        portfolio_context={"quantity": 10},
         source_report_id=901,
         trace_id="trace-901",
         query_source="api",
@@ -466,7 +452,6 @@ def test_extract_and_persist_reuses_service_dedup_and_sanitization(isolated_db) 
     second = extract_and_persist_from_analysis_result(
         result,
         context_snapshot={"market_phase_summary": {"phase": "intraday"}},
-        portfolio_context={"quantity": 10},
         source_report_id=901,
         trace_id="trace-901",
         query_source="api",
@@ -488,7 +473,7 @@ def test_extract_and_persist_reuses_service_dedup_and_sanitization(isolated_db) 
     assert listed["total"] == 1
     persisted = listed["items"][0]
     assert persisted["source_report_id"] == 901
-    assert persisted["metadata"]["holding_state"] == "holding"
+    assert persisted["metadata"]["holding_state"] == "unknown"
     assert persisted["metadata"]["decision_profile"] == "balanced"
     assert persisted["metadata"]["profile_source"] == "auto_default"
     assert persisted["metadata"]["profile_policy_version"] == "decision-profile-v1"
@@ -522,7 +507,6 @@ def test_extract_and_persist_reuses_stability_score_metadata(isolated_db) -> Non
     created = extract_and_persist_from_analysis_result(
         result,
         context_snapshot={"market_phase_summary": {"phase": "intraday"}},
-        portfolio_context={"quantity": 10},
         source_report_id=903,
         trace_id="trace-stability-persist",
         query_source="api",
@@ -575,7 +559,6 @@ def test_build_payload_index_uses_market_override_cn() -> None:
     payload = build_decision_signal_payload_from_report(
         result,
         context_snapshot=None,
-        portfolio_context=None,
         source_report_id=955,
         trace_id="trace-index-csi",
         query_source="cli",
@@ -601,7 +584,6 @@ def test_extract_and_persist_index_signal_with_market_override(isolated_db) -> N
     created = extract_and_persist_from_analysis_result(
         result,
         context_snapshot={"market_phase_summary": {"phase": "intraday"}},
-        portfolio_context={"quantity": 0},
         source_report_id=955,
         trace_id="trace-index-csi",
         query_source="cli",

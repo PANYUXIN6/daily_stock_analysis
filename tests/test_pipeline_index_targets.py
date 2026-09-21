@@ -114,7 +114,6 @@ def _analysis_pipeline(
     pipeline.query_source = "cli"
     pipeline.save_context_snapshot = False
     pipeline.progress_callback = None
-    pipeline.portfolio_context = None
     pipeline.analysis_phase = "auto"
     pipeline._emit_progress = MagicMock()
     pipeline._load_daily_market_context = MagicMock(return_value=None)

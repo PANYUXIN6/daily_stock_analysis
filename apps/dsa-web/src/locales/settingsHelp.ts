@@ -38,7 +38,7 @@ const settingsHelpZhCN: SettingsHelpMap = {
     summary: '决定系统用哪种方式生成个股分析、大盘复盘和普通文本回复。',
     usage: '通常保持“默认模型配置”。只有在本机已安装并登录对应 CLI，且你信任它处理分析内容时，才选择本地 CLI 生成方式（实验）。',
     valueNotes: [
-      '本地 CLI 生成方式是本机启动的命令行程序，不等于离线模型；背后的服务可能处理股票代码、新闻、持仓上下文、分析请求和报告草稿。',
+      '本地 CLI 生成方式是本机启动的命令行程序，不等于离线模型；背后的服务可能处理股票代码、新闻、分析请求和报告草稿。',
       'Docker、云服务器、CI 不天然拥有你本机的登录状态；DSA 不读取 Codex/Claude/OpenCode 登录凭据文件，但对应 CLI 自己可能使用它的登录状态。',
     ],
     impact: ['影响普通分析、大盘复盘和文本生成入口，不改变问股助手的工具执行规则。'],
@@ -350,22 +350,6 @@ const settingsHelpZhCN: SettingsHelpMap = {
     ],
     impact: ['影响现价、技术指标、盘中分析和部分报告字段。'],
     notes: ['单一数据源失败应降级到后续数据源，不应拖垮主流程。'],
-  },
-  'settings.data_source.FUTU_OPEND_HOST': {
-    title: 'Futu OpenD 地址',
-    summary: '配置 Futu OpenD 服务地址，用于导入沪深 A 股持仓。',
-    usage: '填写 IPv4 地址或可解析到 IPv4 的主机名。',
-    valueNotes: ['OpenD 必须允许 DSA 容器访问。'],
-    impact: ['影响 Futu 沪深 A 股持仓导入，不参与行情数据源选择。'],
-    notes: ['这是服务地址，不是 Futu 账号密码。'],
-  },
-  'settings.data_source.FUTU_OPEND_PORT': {
-    title: 'Futu OpenD 端口',
-    summary: '配置 Futu OpenD TCP 端口。',
-    usage: '填写 1 到 65535 之间的端口，默认 11111。',
-    valueNotes: ['端口必须与 OpenD 实际监听端口一致。'],
-    impact: ['影响 DSA 与 Futu OpenD 的连接。'],
-    notes: ['修改后通常需要重启 DSA 服务以重新建立连接。'],
   },
   'settings.data_source.search_api_keys': {
     title: '搜索服务 API Key',
@@ -1032,7 +1016,7 @@ const settingsHelpZhCN: SettingsHelpMap = {
     summary: '通过 JSON 数组配置基础价格和成交量告警规则。',
     usage: 'JSON 数组格式，每条规则包含 alert_type、stock_code 和条件字段。仅支持 price_cross、price_change_percent 和 volume_spike 三种基础类型。',
     valueNotes: [
-      '技术指标、自选股、持仓、大盘红绿灯等高级规则需通过 Alert API 或 Web 告警中心管理，不在此 JSON 中配置。',
+      '技术指标、自选股、大盘红绿灯等高级规则需通过 Alert API 或 Web 告警中心管理，不在此 JSON 中配置。',
       '规则在定时模式下由事件监控定期评估。',
     ],
     impact: ['影响后台告警检测和通知推送。'],
@@ -1538,22 +1522,6 @@ const settingsHelpEnUS: SettingsHelpMap = {
     valueNotes: ['Very large batches may hit plan or server limits; the default is usually appropriate.'],
     impact: ['Affects request count and per-request pressure for TickFlow batch prefetch.'],
     notes: ['This setting only affects TickFlow batch paths.'],
-  },
-  'settings.data_source.FUTU_OPEND_HOST': {
-    title: 'Futu OpenD Host',
-    summary: 'Configures the Futu OpenD service address for importing Shanghai/Shenzhen A-share positions.',
-    usage: 'Use an IPv4 address or a hostname resolving to IPv4.',
-    valueNotes: ['The OpenD service must be reachable from the DSA container.'],
-    impact: ['Affects Futu A-share position imports; it is not used as a quote provider.'],
-    notes: ['This is a service address, not a Futu account credential.'],
-  },
-  'settings.data_source.FUTU_OPEND_PORT': {
-    title: 'Futu OpenD Port',
-    summary: 'Configures the Futu OpenD TCP port.',
-    usage: 'Use a port from 1 to 65535; the default is 11111.',
-    valueNotes: ['The port must match the OpenD listener.'],
-    impact: ['Affects the DSA connection to Futu OpenD.'],
-    notes: ['Restarting DSA is normally required after changing it.'],
   },
   'settings.data_source.stock_index_remote': {
     title: 'Remote Stock Index',
@@ -2236,7 +2204,7 @@ const settingsHelpEnUS: SettingsHelpMap = {
     summary: 'Configures basic price and volume alert rules via a JSON array.',
     usage: 'JSON array format. Each rule has alert_type, stock_code, and condition fields. Only price_cross, price_change_percent, and volume_spike are supported.',
     valueNotes: [
-      'Technical indicator, watchlist, portfolio, and market light rules are managed through the Alert API or Web alert center, not this JSON.',
+      'Technical indicator, watchlist and market light rules are managed through the Alert API or Web alert center, not this JSON.',
       'Rules are evaluated periodically by the event monitor in schedule mode.',
     ],
     impact: ['Affects background alert detection and notification delivery.'],

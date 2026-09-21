@@ -884,8 +884,6 @@ class Config:
     tickflow_priority: int = 2
     tickflow_batch_daily_enabled: bool = True
     tickflow_batch_size: int = 100
-    futu_opend_host: Optional[str] = None
-    futu_opend_port: int = 11111
     stock_index_remote_update_enabled: bool = True
 
     # === Built-in stock screening ===
@@ -1005,7 +1003,6 @@ class Config:
     agent_intel_agent_timeout_s: float = 0
     agent_risk_agent_timeout_s: float = 0
     agent_decision_agent_timeout_s: float = 0
-    agent_portfolio_agent_timeout_s: float = 0
     agent_skill_agent_timeout_s: float = 0
     # Per-category default timeouts for agent tool calls (seconds).
     # 0 / unset means "no category default" -> falls back to the global
@@ -1234,12 +1231,6 @@ class Config:
     # 基本面缓存最大条目数（避免长时间运行内存增长）
     fundamental_cache_max_entries: int = 256
 
-    # === Portfolio PR2: import/risk settings ===
-    portfolio_risk_concentration_alert_pct: float = 35.0
-    portfolio_risk_drawdown_alert_pct: float = 15.0
-    portfolio_risk_stop_loss_alert_pct: float = 10.0
-    portfolio_risk_stop_loss_near_ratio: float = 0.8
-    portfolio_risk_lookback_days: int = 180
 
     # Discord 机器人状态
     discord_bot_status: str = "A股智能分析 | /help"
@@ -1786,8 +1777,6 @@ class Config:
             tickflow_priority=parse_env_int(os.getenv('TICKFLOW_PRIORITY'), 2, field_name='TICKFLOW_PRIORITY', minimum=0),
             tickflow_batch_daily_enabled=parse_env_bool(os.getenv('TICKFLOW_BATCH_DAILY_ENABLED'), default=True),
             tickflow_batch_size=parse_env_int(os.getenv('TICKFLOW_BATCH_SIZE'), 100, field_name='TICKFLOW_BATCH_SIZE', minimum=1),
-            futu_opend_host=os.getenv('FUTU_OPEND_HOST') or None,
-            futu_opend_port=parse_env_int(os.getenv('FUTU_OPEND_PORT'), 11111, field_name='FUTU_OPEND_PORT', minimum=1, maximum=65535),
             stock_index_remote_update_enabled=parse_env_bool(
                 os.getenv('STOCK_INDEX_REMOTE_UPDATE_ENABLED'),
                 default=True,
@@ -1933,10 +1922,6 @@ class Config:
             agent_decision_agent_timeout_s=parse_env_float(
                 os.getenv('AGENT_DECISION_AGENT_TIMEOUT_S'), 0,
                 field_name='AGENT_DECISION_AGENT_TIMEOUT_S', minimum=0,
-            ),
-            agent_portfolio_agent_timeout_s=parse_env_float(
-                os.getenv('AGENT_PORTFOLIO_AGENT_TIMEOUT_S'), 0,
-                field_name='AGENT_PORTFOLIO_AGENT_TIMEOUT_S', minimum=0,
             ),
             agent_skill_agent_timeout_s=parse_env_float(
                 os.getenv('AGENT_SKILL_AGENT_TIMEOUT_S'), 0,
@@ -2236,36 +2221,6 @@ class Config:
                 os.getenv('FUNDAMENTAL_CACHE_MAX_ENTRIES'),
                 256,
                 field_name='FUNDAMENTAL_CACHE_MAX_ENTRIES',
-                minimum=1,
-            ),
-            portfolio_risk_concentration_alert_pct=parse_env_float(
-                os.getenv('PORTFOLIO_RISK_CONCENTRATION_ALERT_PCT'),
-                35.0,
-                field_name='PORTFOLIO_RISK_CONCENTRATION_ALERT_PCT',
-                minimum=0.0,
-            ),
-            portfolio_risk_drawdown_alert_pct=parse_env_float(
-                os.getenv('PORTFOLIO_RISK_DRAWDOWN_ALERT_PCT'),
-                15.0,
-                field_name='PORTFOLIO_RISK_DRAWDOWN_ALERT_PCT',
-                minimum=0.0,
-            ),
-            portfolio_risk_stop_loss_alert_pct=parse_env_float(
-                os.getenv('PORTFOLIO_RISK_STOP_LOSS_ALERT_PCT'),
-                10.0,
-                field_name='PORTFOLIO_RISK_STOP_LOSS_ALERT_PCT',
-                minimum=0.0,
-            ),
-            portfolio_risk_stop_loss_near_ratio=parse_env_float(
-                os.getenv('PORTFOLIO_RISK_STOP_LOSS_NEAR_RATIO'),
-                0.8,
-                field_name='PORTFOLIO_RISK_STOP_LOSS_NEAR_RATIO',
-                minimum=0.0,
-            ),
-            portfolio_risk_lookback_days=parse_env_int(
-                os.getenv('PORTFOLIO_RISK_LOOKBACK_DAYS'),
-                180,
-                field_name='PORTFOLIO_RISK_LOOKBACK_DAYS',
                 minimum=1,
             ),
             screening_enabled=parse_env_bool(os.getenv('SCREENING_ENABLED'), default=False),

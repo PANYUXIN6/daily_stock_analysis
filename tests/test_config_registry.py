@@ -700,7 +700,6 @@ class TestAgentEventAlertRulesJsonField(unittest.TestCase):
         self.assertIn("Legacy JSON supports only price_cross, price_change_percent, and volume_spike", description)
         self.assertIn("Technical indicator", description)
         self.assertIn("watchlist", description)
-        self.assertIn("portfolio", description)
         self.assertIn("market light", description)
         self.assertIn("Alert API/Web center", description)
 
@@ -873,28 +872,3 @@ class TestDingTalkWebhookFieldsRegistered(unittest.TestCase):
             fields["DINGTALK_WEBHOOK_URL"]["help_key"],
             "settings.notification.DINGTALK_WEBHOOK_URL",
         )
-
-
-class TestFutuFieldsRegistered(unittest.TestCase):
-    def test_futu_fields_are_explicitly_registered(self):
-        for key in (
-            "FUTU_OPEND_HOST",
-            "FUTU_OPEND_PORT",
-
-        ):
-            field = get_field_definition(key)
-            self.assertEqual(field["category"], "data_source")
-            self.assertNotEqual(field["display_order"], 9000)
-
-    def test_futu_port_has_bounds(self):
-        field = get_field_definition("FUTU_OPEND_PORT")
-        self.assertEqual(field["data_type"], "integer")
-        self.assertEqual(field["validation"], {"min": 1, "max": 65535})
-
-    def test_schema_response_includes_futu_fields(self):
-        keys = {
-            field["key"]
-            for category in build_schema_response()["categories"]
-            for field in category["fields"]
-        }
-        self.assertTrue({"FUTU_OPEND_HOST", "FUTU_OPEND_PORT"} <= keys)

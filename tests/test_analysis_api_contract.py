@@ -4264,35 +4264,23 @@ class BatchTaskQueueContractTestCase(unittest.TestCase):
         broadcast_events = []
         queue._broadcast_event = lambda event_type, data: broadcast_events.append((event_type, data))
         request_skills = ["growth_quality"]
-        portfolio_context = {
-            "account_id": 7,
-            "account_name": "Main",
-            "symbol": "600519",
-            "quantity": 100,
-        }
 
         accepted, duplicates = queue.submit_tasks_batch(
             ["600519"],
             report_type="detailed",
             analysis_phase="intraday",
-            query_source="portfolio",
-            portfolio_context=portfolio_context,
+            query_source="web",
             skills=request_skills,
         )
         request_skills.append("mutated_after_submit")
-        portfolio_context["quantity"] = 999
 
         self.assertEqual(duplicates, [])
         self.assertEqual(accepted[0].analysis_phase, "intraday")
         self.assertEqual(accepted[0].to_dict()["analysis_phase"], "intraday")
-        self.assertNotIn("portfolio_context", accepted[0].to_dict())
         self.assertNotIn("query_source", accepted[0].to_dict())
-        self.assertNotIn("portfolio_context", broadcast_events[0][1])
         self.assertNotIn("query_source", broadcast_events[0][1])
         self.assertEqual(accepted[0].copy().analysis_phase, "intraday")
-        self.assertEqual(accepted[0].query_source, "portfolio")
-        self.assertEqual(accepted[0].portfolio_context["quantity"], 100)
-        self.assertEqual(accepted[0].copy().portfolio_context["quantity"], 100)
+        self.assertEqual(accepted[0].query_source, "web")
         self.assertEqual(accepted[0].skills, ["growth_quality"])
         self.assertIs(executor.calls[0][1][5], accepted[0].skills)
         self.assertIsNone(executor.calls[0][1][6])
@@ -4308,11 +4296,7 @@ class BatchTaskQueueContractTestCase(unittest.TestCase):
         )
         self.assertEqual(service_instance.analyze_stock.call_args.kwargs["skills"], ["growth_quality"])
         self.assertEqual(service_instance.analyze_stock.call_args.kwargs["analysis_phase"], "intraday")
-        self.assertEqual(service_instance.analyze_stock.call_args.kwargs["query_source"], "portfolio")
-        self.assertEqual(
-            service_instance.analyze_stock.call_args.kwargs["portfolio_context"]["quantity"],
-            100,
-        )
+        self.assertEqual(service_instance.analyze_stock.call_args.kwargs["query_source"], "web")
 
     def test_batch_submit_deduplicates_equivalent_stock_code_shapes(self) -> None:
         queue = AnalysisTaskQueue(max_workers=1)

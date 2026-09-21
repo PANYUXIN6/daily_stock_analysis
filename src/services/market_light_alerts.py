@@ -15,7 +15,7 @@ from src.services.market_light_service import (
     load_previous_snapshot,
     normalize_market_alert_region,
 )
-from src.services.portfolio_alerts import RuntimeAlertPayload
+from src.services.watchlist_alerts import RuntimeAlertPayload
 
 
 MARKET_ALERT_TYPES = frozenset({"market_light_status", "market_light_score_drop"})

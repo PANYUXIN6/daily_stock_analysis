@@ -14,7 +14,6 @@
 | Tencent / Sina | 实时行情与已登记指数链路 | 默认可用 |
 | TickFlow | A 股日线、实时、股票列表与市场增强 | 可选 `TICKFLOW_API_KEY` |
 
-Futu OpenD 只保留为 A 股真实持仓导入入口，不参与行情 fallback。
 
 ## 运行原则
 

@@ -231,7 +231,6 @@ class StockAnalysisPipeline:
         progress_callback: Optional[Callable[[int, str], None]] = None,
         analysis_skills: Optional[List[str]] = None,
         analysis_phase: str = "auto",
-        portfolio_context: Optional[Dict[str, Any]] = None,
         daily_market_context_enabled: Optional[bool] = None,
         daily_market_context_allow_generate: bool = True,
     ):
@@ -254,7 +253,6 @@ class StockAnalysisPipeline:
         self.progress_callback = progress_callback
         self.analysis_skills = list(analysis_skills) if analysis_skills is not None else None
         self.analysis_phase = analysis_phase or "auto"
-        self.portfolio_context = dict(portfolio_context) if isinstance(portfolio_context, dict) else None
         self.daily_market_context_enabled = (
             bool(getattr(self.config, "daily_market_context_enabled", True))
             if daily_market_context_enabled is None
@@ -432,9 +430,6 @@ class StockAnalysisPipeline:
         """
         stock_name = code
         try:
-            portfolio_context = getattr(self, "portfolio_context", None)
-            if not isinstance(portfolio_context, dict):
-                portfolio_context = None
             is_index = (
                 analysis_target is not None
                 and analysis_target.asset_type == ParseStatus.INDEX
@@ -643,7 +638,6 @@ class StockAnalysisPipeline:
                     market_phase_context=market_phase_context_dict,
                     market_phase_summary=market_phase_summary,
                     daily_market_context=daily_market_context,
-                    portfolio_context=portfolio_context,
                     market_structure_context=market_structure_context,
                     analysis_target=analysis_target,
                 )
@@ -739,7 +733,6 @@ class StockAnalysisPipeline:
                 stock_name,  # 传入股票名称
                 fundamental_context,
                 market_phase_context=market_phase_context_dict,
-                portfolio_context=portfolio_context,
             )
             enhanced_context["market_phase_context"] = market_phase_context_dict
             self._attach_daily_market_context(
@@ -747,8 +740,6 @@ class StockAnalysisPipeline:
                 daily_market_context,
                 report_language=report_language,
             )
-            if portfolio_context is not None:
-                enhanced_context["portfolio_context"] = dict(portfolio_context)
             if isinstance(market_structure_context, dict):
                 enhanced_context["market_structure_context"] = market_structure_context
             
@@ -771,7 +762,6 @@ class StockAnalysisPipeline:
                     news_context=news_context,
                     news_result_count=news_result_count,
                     query_id=query_id,
-                    portfolio_context=portfolio_context,
                 ),
                 report_language=report_language,
                 code=code,
@@ -936,7 +926,6 @@ class StockAnalysisPipeline:
                             source_report_id=saved_history_id,
                             report_type=report_type.value,
                             context_snapshot=context_snapshot,
-                            portfolio_context=portfolio_context,
                             analysis_target=analysis_target,
                         )
                 except Exception as e:
@@ -963,7 +952,6 @@ class StockAnalysisPipeline:
         stock_name: str = "",
         fundamental_context: Optional[Dict[str, Any]] = None,
         market_phase_context: Optional[Dict[str, Any]] = None,
-        portfolio_context: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         增强分析上下文
@@ -989,8 +977,6 @@ class StockAnalysisPipeline:
             enhanced['stock_name'] = stock_name
         elif realtime_quote and getattr(realtime_quote, 'name', None):
             enhanced['stock_name'] = realtime_quote.name
-        if isinstance(portfolio_context, dict):
-            enhanced["portfolio_context"] = dict(portfolio_context)
 
         # 将运行时搜索窗口透传给 analyzer，避免与全局配置重新读取产生窗口不一致
         enhanced['news_window_days'] = getattr(self.search_service, "news_window_days", 3)
@@ -1418,7 +1404,6 @@ class StockAnalysisPipeline:
         market_phase_context: Optional[Dict[str, Any]] = None,
         market_phase_summary: Optional[Dict[str, Any]] = None,
         daily_market_context: Optional[DailyMarketContext] = None,
-        portfolio_context: Optional[Dict[str, Any]] = None,
         market_structure_context: Optional[Dict[str, Any]] = None,
         analysis_target: Optional[AnalysisTarget] = None,
     ) -> Optional[AnalysisResult]:
@@ -1455,8 +1440,6 @@ class StockAnalysisPipeline:
                 "report_language": report_language,
                 "fundamental_context": fundamental_context,
             }
-            if isinstance(portfolio_context, dict):
-                initial_context["portfolio_context"] = dict(portfolio_context)
             if self.analysis_skills is not None:
                 initial_context["skills"] = self.analysis_skills
             if market_phase_context is not None:
@@ -1513,7 +1496,6 @@ class StockAnalysisPipeline:
                     fundamental_context=fundamental_context,
                     query_id=query_id,
                     base_context=analysis_context,
-                    portfolio_context=portfolio_context,
                 ),
                 report_language=report_language,
                 code=code,
@@ -1837,7 +1819,6 @@ class StockAnalysisPipeline:
                             source_report_id=saved_history_id,
                             report_type=report_type.value,
                             context_snapshot=agent_context_snapshot,
-                            portfolio_context=portfolio_context,
                             analysis_target=analysis_target,
                         )
                     latest_diagnostic_snapshot = current_diagnostic_snapshot()
@@ -2790,7 +2771,6 @@ class StockAnalysisPipeline:
         source_report_id: int,
         report_type: str,
         context_snapshot: Dict[str, Any],
-        portfolio_context: Optional[Dict[str, Any]] = None,
         analysis_target: Optional[AnalysisTarget] = None,
     ) -> None:
         """Best-effort DecisionSignal extraction after analysis history is saved."""
@@ -2822,7 +2802,6 @@ class StockAnalysisPipeline:
                 trace_id=str(trace_id),
                 query_source=getattr(self, "query_source", None) or "system",
                 report_type=report_type,
-                portfolio_context=portfolio_context,
                 profile_source="auto_default",
                 market_override=market_override,
             )
@@ -2984,7 +2963,6 @@ class StockAnalysisPipeline:
         news_context: Optional[str],
         news_result_count: Optional[int],
         query_id: str,
-        portfolio_context: Optional[Dict[str, Any]] = None,
     ) -> PipelineAnalysisArtifacts:
         return PipelineAnalysisArtifacts(
             code=code,
@@ -3003,7 +2981,6 @@ class StockAnalysisPipeline:
                 "query_id": query_id,
                 "trigger_source": self.query_source,
             },
-            portfolio_context=dict(portfolio_context) if isinstance(portfolio_context, dict) else None,
         )
 
     def _build_agent_analysis_artifacts(
@@ -3017,7 +2994,6 @@ class StockAnalysisPipeline:
         fundamental_context: Optional[Dict[str, Any]],
         query_id: str,
         base_context: Optional[Dict[str, Any]] = None,
-        portfolio_context: Optional[Dict[str, Any]] = None,
     ) -> PipelineAnalysisArtifacts:
         context_candidate = base_context
         if not isinstance(context_candidate, dict):
@@ -3053,7 +3029,6 @@ class StockAnalysisPipeline:
                 "query_id": query_id,
                 "trigger_source": self.query_source,
             },
-            portfolio_context=dict(portfolio_context) if isinstance(portfolio_context, dict) else None,
         )
 
     def _build_analysis_context_pack_outputs(
@@ -3094,7 +3069,7 @@ class StockAnalysisPipeline:
         """
         sanitized = dict(context)
         sanitized.pop("market_phase_context", None)
-        sanitized.pop("portfolio_context", None)
+        sanitized.pop("portfolio_context", None)  # Strip private data from legacy snapshots.
         sanitized.pop("analysis_context_pack", None)
         sanitized.pop("analysis_context_pack_summary", None)
         sanitized.pop("daily_market_context_summary", None)

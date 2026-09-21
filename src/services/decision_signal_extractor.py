@@ -19,7 +19,6 @@ from src.schemas.decision_scale import (
     score_band_metadata,
 )
 from src.services.decision_signal_service import DecisionSignalService
-from src.services.portfolio_service import VALID_MARKETS
 from src.utils.sniper_points import extract_sniper_points
 
 
@@ -44,7 +43,6 @@ def build_decision_signal_payload_from_report(
     result: AnalysisResult,
     *,
     context_snapshot: Dict[str, Any] | None = None,
-    portfolio_context: Dict[str, Any] | None = None,
     source_report_id: int | None = None,
     trace_id: str,
     query_source: str,
@@ -82,10 +80,10 @@ def build_decision_signal_payload_from_report(
     if not market:
         logger.warning("Skip decision signal extraction: unrecognized market stock_code=%s", raw_code)
         return None
-    if market not in VALID_MARKETS:
+    if market not in {"cn"}:
         # A market the data layer recognizes but the decision-signal service
         # layer does not accept (e.g. a market added to detection ahead of
-        # VALID_MARKETS). Skip gracefully instead of letting create_signal
+        # {"cn"}). Skip gracefully instead of letting create_signal
         # raise a swallowed ValueError + noisy traceback.
         logger.info(
             "Skip decision signal extraction: market=%s not yet wired for signals stock_code=%s",
@@ -138,7 +136,7 @@ def build_decision_signal_payload_from_report(
     market_structure_summary = _extract_market_structure_summary(context_snapshot, result)
     if market_structure_summary:
         metadata.update(market_structure_summary)
-    metadata["holding_state"] = _extract_holding_state(portfolio_context)
+    metadata["holding_state"] = "unknown"
 
     payload: Dict[str, Any] = {
         "stock_code": raw_code,
@@ -208,7 +206,6 @@ def extract_and_persist_from_analysis_result(
     result: AnalysisResult,
     *,
     context_snapshot: Dict[str, Any] | None = None,
-    portfolio_context: Dict[str, Any] | None = None,
     source_report_id: int | None = None,
     trace_id: str,
     query_source: str,
@@ -223,7 +220,6 @@ def extract_and_persist_from_analysis_result(
         payload = build_decision_signal_payload_from_report(
             result,
             context_snapshot=context_snapshot,
-            portfolio_context=portfolio_context,
             source_report_id=source_report_id,
             trace_id=trace_id,
             query_source=query_source,
@@ -446,18 +442,6 @@ def _extract_data_quality(context_snapshot: Optional[Mapping[str, Any]], result:
     return _as_mapping(getattr(result, "analysis_context_pack_overview", None)).get("data_quality")
 
 
-def _extract_holding_state(portfolio_context: Optional[Mapping[str, Any]]) -> str:
-    context = _as_mapping(portfolio_context)
-    quantity = context.get("quantity")
-    if quantity in (None, ""):
-        return "unknown"
-    try:
-        numeric_quantity = float(quantity)
-    except (TypeError, ValueError):
-        return "unknown"
-    if not math.isfinite(numeric_quantity):
-        return "unknown"
-    return "holding" if abs(numeric_quantity) > 0 else "empty"
 
 
 def _risk_summary(result: AnalysisResult, dashboard: Mapping[str, Any]) -> Optional[Any]:

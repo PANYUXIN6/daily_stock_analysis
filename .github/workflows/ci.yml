@@ -106,9 +106,6 @@ jobs:
             echo "Dependency install attempt ${attempt} failed, retrying in 15s..." >&2
             sleep 15
           done
-      - name: 🔌 Verify global Futu SDK
-        if: matrix.shard == 1
-        run: python -c "import futu; print('✅ futu SDK import OK')"
       - name: ✅ Python syntax check
         if: matrix.shard == 1
         run: ./scripts/ci_gate.sh syntax
@@ -180,7 +177,6 @@ jobs:
           from src.patches.eastmoney_patch import eastmoney_patch; print('✅ patch')
           from bot.dispatcher import CommandDispatcher; print('✅ bot')
           from api.app import app; print('✅ api')
-          import futu; print('✅ futu')
           print('✅ All Docker imports OK')
           "
 

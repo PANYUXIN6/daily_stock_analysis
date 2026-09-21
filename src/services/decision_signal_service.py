@@ -17,7 +17,6 @@ from src.repositories.decision_signal_repo import (
     DecisionSignalCreateResult,
     DecisionSignalRepository,
 )
-from src.repositories.portfolio_repo import PortfolioRepository
 from src.report_language import normalize_report_language
 from src.schemas.decision_action import (
     DecisionAction,
@@ -33,7 +32,6 @@ from src.schemas.decision_profile import (
     normalize_decision_profile_filter,
 )
 from src.schemas.decision_scale import action_for_score, score_action_conflicts_without_guardrail
-from src.services.portfolio_service import VALID_MARKETS
 from src.storage import (
     AnalysisHistory,
     DatabaseManager,
@@ -109,11 +107,9 @@ class DecisionSignalService:
     def __init__(
         self,
         repo: Optional[DecisionSignalRepository] = None,
-        portfolio_repo: Optional[PortfolioRepository] = None,
         db_manager: Optional[DatabaseManager] = None,
     ):
         self.repo = repo or DecisionSignalRepository(db_manager)
-        self.portfolio_repo = portfolio_repo or PortfolioRepository(db_manager)
         self.db = db_manager or getattr(self.repo, "db", None) or DatabaseManager.get_instance()
 
     def create_signal(self, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -209,8 +205,6 @@ class DecisionSignalService:
         created_to: Optional[Any] = None,
         expires_from: Optional[Any] = None,
         expires_to: Optional[Any] = None,
-        holding_only: bool = False,
-        account_id: Optional[int] = None,
         stock_identities: Optional[List[Tuple[str, str]]] = None,
         page: int = 1,
         page_size: int = 20,
@@ -251,21 +245,6 @@ class DecisionSignalService:
             stock_codes = None
             if not stock_identity_filters:
                 return {"items": [], "total": 0, "page": safe_page, "page_size": safe_page_size}
-        elif holding_only:
-            held_identities = self._cached_holding_identities(account_id=account_id)
-            if market_norm:
-                held_identities = {
-                    identity for identity in held_identities if identity[0] == market_norm
-                }
-            if stock_codes:
-                requested_codes = set(stock_codes)
-                held_identities = {
-                    identity for identity in held_identities if identity[1] in requested_codes
-                }
-            stock_identity_filters = sorted(held_identities)
-            stock_codes = None
-            if not stock_identity_filters:
-                return {"items": [], "total": 0, "page": safe_page, "page_size": safe_page_size}
 
         rows, total = self.repo.list(
             stock_codes=stock_codes,
@@ -302,7 +281,6 @@ class DecisionSignalService:
             expires_from=expires_from_dt,
             expires_to=expires_to_dt,
             stock_identities=stock_identity_filters,
-            holding_only=holding_only,
         ):
             self._backfill_analysis_signal_from_history(source_report_id_norm)
             rows, total = self.repo.list(
@@ -411,7 +389,6 @@ class DecisionSignalService:
         expires_from: Optional[datetime],
         expires_to: Optional[datetime],
         stock_identities: Optional[List[Tuple[str, str]]],
-        holding_only: bool,
     ) -> bool:
         """Only lazy-backfill for the exact report section query used by Web."""
 
@@ -439,7 +416,6 @@ class DecisionSignalService:
                 expires_from,
                 expires_to,
                 stock_identities,
-                holding_only,
             )
         )
 
@@ -1072,15 +1048,6 @@ class DecisionSignalService:
             return "partial"
         return "minimal"
 
-    def _cached_holding_identities(self, *, account_id: Optional[int]) -> set[Tuple[str, str]]:
-        identities = self.portfolio_repo.list_cached_position_identities(account_id=account_id)
-        normalized: set[Tuple[str, str]] = set()
-        for market, symbol in identities:
-            if not str(symbol or "").strip():
-                continue
-            market_norm = self._normalize_market(market)
-            normalized.add((market_norm, self._normalize_stock_code(symbol, market=market_norm)))
-        return normalized
 
     @classmethod
     def _stock_filter_codes(
@@ -1118,7 +1085,7 @@ class DecisionSignalService:
     @staticmethod
     def _normalize_market(value: Any) -> str:
         market = str(value or "").strip().lower()
-        if market not in VALID_MARKETS:
+        if market not in {"cn"}:
             raise ValueError("market must be cn")
         return market
 

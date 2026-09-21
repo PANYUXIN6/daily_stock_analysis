@@ -218,8 +218,6 @@ describe('decisionSignalsApi', () => {
       createdTo: '2026-06-11T00:00:00',
       expiresFrom: '2026-06-12T00:00:00',
       expiresTo: '2026-06-30T00:00:00',
-      holdingOnly: true,
-      accountId: 3,
       page: 2,
       pageSize: 10,
     });
@@ -240,8 +238,6 @@ describe('decisionSignalsApi', () => {
         created_to: '2026-06-11T00:00:00',
         expires_from: '2026-06-12T00:00:00',
         expires_to: '2026-06-30T00:00:00',
-        holding_only: true,
-        account_id: 3,
         page: 2,
         page_size: 10,
       },

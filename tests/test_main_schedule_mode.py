@@ -18,7 +18,6 @@ ensure_litellm_stub()
 
 _ENV_BEFORE_MAIN_IMPORT = dict(os.environ)
 import main
-from src.brokers.futu.portfolio import FutuPortfolioError
 from src.config import Config
 from src.services.stock_list_parser import ParseStatus, parse_analysis_target
 
@@ -99,7 +98,6 @@ class MainScheduleModeTestCase(unittest.TestCase):
         defaults = {
             "debug": False,
             "stocks": None,
-            "portfolio": None,
             "webui": False,
             "webui_only": False,
             "serve": False,
@@ -610,116 +608,9 @@ class MainScheduleModeTestCase(unittest.TestCase):
             unittest.mock.ANY,
         )
 
-    def test_portfolio_futu_with_bad_stocks_token_reaches_run_full_analysis(self) -> None:
-        """Review 反例：`--portfolio futu --stocks 930956.CSI` 同框时分类整体跳过，
-        坏 token 不拦截；run_full_analysis 内 portfolio 覆盖 `--stocks`。"""
-        args = self._make_args(portfolio="futu", stocks="930956.CSI")
-        config = self._make_config(run_immediately=True)
 
-        with patch.dict(os.environ, {"GITHUB_ACTIONS": "false"}, clear=False), \
-             patch("main.parse_arguments", return_value=args), \
-             patch("main.get_config", return_value=config), \
-             patch("main.setup_logging"), \
-             patch("main._refresh_stock_index_cache_for_analysis") as refresh, \
-             patch("main._classify_stock_list_tokens") as classify, \
-             patch(
-                 "src.brokers.futu.portfolio.load_futu_stock_codes",
-                 return_value=["AAPL"],
-             ), \
-             patch(
-                 "main._compute_trading_day_filter",
-                 return_value=(["AAPL"], "us", False),
-             ), \
-             patch("main._run_analysis_with_runtime_scheduler_lock") as run_with_lock:
-            exit_code = main.main()
 
-        self.assertEqual(exit_code, 0)
-        refresh.assert_not_called()
-        classify.assert_not_called()
-        run_with_lock.assert_called_once_with(config, args, None, None)
 
-    def test_portfolio_futu_with_bad_stocks_token_runs_portfolio_codes(self) -> None:
-        """对照组：`--portfolio futu --stocks 600519` 时 run_full_analysis 内
-        portfolio 覆盖 `--stocks`，覆盖语义不回归。走真实运行时锁路径
-        （threading.Lock，无进程/磁盘副作用），验证 loader 被调用且进入
-        run_full_analysis 的代码为 portfolio 持仓。"""
-        args = self._make_args(portfolio="futu", stocks="600519")
-        config = self._make_config(run_immediately=True)
-
-        with patch.dict(os.environ, {"GITHUB_ACTIONS": "false"}, clear=False), \
-             patch("main.parse_arguments", return_value=args), \
-             patch("main.get_config", return_value=config), \
-             patch("main.setup_logging"), \
-             patch("main._refresh_stock_index_cache_for_analysis"), \
-             patch(
-                 "src.brokers.futu.portfolio.load_futu_stock_codes",
-                 return_value=["AAPL", "HK00700"],
-             ) as loader, \
-             patch(
-                 "main._compute_trading_day_filter",
-                 return_value=(["AAPL", "HK00700"], "us,hk", False),
-             ), \
-             patch("src.core.pipeline.StockAnalysisPipeline"):
-            exit_code = main.main()
-
-        self.assertEqual(exit_code, 0)
-        loader.assert_called_once_with()
-
-    def test_actions_portfolio_futu_with_bad_stock_list_reaches_run_full_analysis(self) -> None:
-        """Review 反例补格：`GITHUB_ACTIONS=true` + `--portfolio futu` 时 Actions
-        分支的 STOCK_LIST 分类同样整体跳过，坏 watchlist 不拦截 portfolio 覆盖。"""
-        args = self._make_args(portfolio="futu")
-        config = self._make_config(run_immediately=True)
-        config.stock_list = ["930956.CSI"]
-
-        with patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}), \
-             patch("main.parse_arguments", return_value=args), \
-             patch("main.get_config", return_value=config), \
-             patch("main.setup_logging"), \
-             patch("main._refresh_stock_index_cache_for_analysis") as refresh, \
-             patch("main._classify_stock_list_tokens") as classify, \
-             patch(
-                 "src.brokers.futu.portfolio.load_futu_stock_codes",
-                 return_value=["AAPL"],
-             ), \
-             patch(
-                 "main._compute_trading_day_filter",
-                 return_value=(["AAPL"], "us", False),
-             ), \
-             patch("main._run_analysis_with_runtime_scheduler_lock") as run_with_lock:
-            exit_code = main.main()
-
-        self.assertEqual(exit_code, 0)
-        refresh.assert_not_called()
-        classify.assert_not_called()
-        run_with_lock.assert_called_once_with(config, args, None, None)
-
-    def test_portfolio_futu_with_bad_stocks_token_runs_pipeline_with_portfolio_codes(self) -> None:
-        """断言到达真实风险层：portfolio 覆盖后 pipeline.run 收到的 stock_codes
-        来自 Futu loader，与 `--stocks` 无关。"""
-        args = self._make_args(portfolio="futu", stocks="930956.CSI")
-        config = self._make_config(run_immediately=True)
-
-        with patch.dict(os.environ, {"GITHUB_ACTIONS": "false"}, clear=False), \
-             patch("main.parse_arguments", return_value=args), \
-             patch("main.get_config", return_value=config), \
-             patch("main.setup_logging"), \
-             patch("main._refresh_stock_index_cache_for_analysis"), \
-             patch(
-                 "src.brokers.futu.portfolio.load_futu_stock_codes",
-                 return_value=["AAPL", "HK00700"],
-             ), \
-             patch(
-                 "main._compute_trading_day_filter",
-                 return_value=(["AAPL", "HK00700"], "us,hk", False),
-             ), \
-             patch("src.core.pipeline.StockAnalysisPipeline") as pipeline_class:
-            exit_code = main.main()
-
-        self.assertEqual(exit_code, 0)
-        pipeline_run_kwargs = pipeline_class.return_value.run.call_args.kwargs
-        self.assertEqual(pipeline_run_kwargs["stock_codes"], ["AAPL", "HK00700"])
-        self.assertIsNone(pipeline_run_kwargs["analysis_targets"])
 
     def test_schedule_mode_with_bad_stocks_token_reaches_scheduler(self) -> None:
         """Review 反例：`--schedule --stocks 930956.CSI` 不因坏 token 分类退出，
@@ -851,71 +742,8 @@ class MainScheduleModeTestCase(unittest.TestCase):
         self.assertEqual(exit_code, 1)
         run_with_lock.assert_called_once_with(config, args, None, None)
 
-    def test_standalone_futu_portfolio_failure_returns_nonzero(self) -> None:
-        args = self._make_args(portfolio="futu")
-        config = self._make_config(run_immediately=True)
-        error = FutuPortfolioError("OpenD unavailable")
 
-        with (
-            patch("main.parse_arguments", return_value=args),
-            patch("main.get_config", return_value=config),
-            patch("main.setup_logging"),
-            patch("main._refresh_stock_index_cache_for_analysis"),
-            patch(
-                "src.brokers.futu.portfolio.load_futu_stock_codes",
-                side_effect=error,
-            ) as loader,
-        ):
-            exit_code = main.main()
 
-        self.assertEqual(exit_code, 1)
-        loader.assert_called_once_with()
-
-    def test_standalone_futu_portfolio_success_returns_zero(self) -> None:
-        args = self._make_args(portfolio="futu")
-        config = self._make_config(run_immediately=True)
-
-        with (
-            patch("main.parse_arguments", return_value=args),
-            patch("main.get_config", return_value=config),
-            patch("main.setup_logging"),
-            patch("main._refresh_stock_index_cache_for_analysis"),
-            patch(
-                "src.brokers.futu.portfolio.load_futu_stock_codes",
-                return_value=["AAPL"],
-            ) as loader,
-            patch(
-                "main._compute_trading_day_filter",
-                return_value=([], "", True),
-            ),
-        ):
-            exit_code = main.main()
-
-        self.assertEqual(exit_code, 0)
-        loader.assert_called_once_with()
-
-    def test_standalone_futu_downstream_failure_keeps_existing_exit_semantics(self) -> None:
-        args = self._make_args(portfolio="futu")
-        config = self._make_config(run_immediately=True)
-
-        with (
-            patch("main.parse_arguments", return_value=args),
-            patch("main.get_config", return_value=config),
-            patch("main.setup_logging"),
-            patch("main._refresh_stock_index_cache_for_analysis"),
-            patch(
-                "src.brokers.futu.portfolio.load_futu_stock_codes",
-                return_value=["AAPL"],
-            ) as loader,
-            patch(
-                "main._compute_trading_day_filter",
-                side_effect=RuntimeError("calendar unavailable"),
-            ),
-        ):
-            exit_code = main.main()
-
-        self.assertEqual(exit_code, 0)
-        loader.assert_called_once_with()
 
     def test_schedule_mode_reload_uses_latest_runtime_config(self) -> None:
         args = self._make_args(schedule=True)
@@ -1256,7 +1084,6 @@ class MainScheduleModeTestCase(unittest.TestCase):
         args = self._make_args(
             serve=True,
             schedule=False,
-            portfolio="futu",
             host="127.0.0.1",
             port=8000,
         )
@@ -1281,40 +1108,6 @@ class MainScheduleModeTestCase(unittest.TestCase):
         run_full_analysis.assert_not_called()
         start_bots.assert_called_once_with(config)
 
-    def test_serve_mode_keeps_running_after_futu_portfolio_load_failure(self) -> None:
-        args = self._make_args(
-            serve=True,
-            schedule=False,
-            portfolio="futu",
-            host="127.0.0.1",
-            port=8000,
-        )
-        config = self._make_config(webui_enabled=False, run_immediately=True)
-        error = FutuPortfolioError("OpenD unavailable")
-
-        with (
-            patch.dict(os.environ, {"GITHUB_ACTIONS": "false"}, clear=False),
-            patch("main.parse_arguments", return_value=args),
-            patch("main.get_config", return_value=config),
-            patch("main.prepare_webui_frontend_assets", return_value=True),
-            patch("main.start_api_server"),
-            patch("main.start_bot_stream_clients") as start_bots,
-            patch("main.time.sleep", side_effect=KeyboardInterrupt),
-            patch(
-                "main._run_analysis_with_runtime_scheduler_lock",
-                side_effect=error,
-            ) as run_with_lock,
-            patch("main.logger.exception") as exception_log,
-        ):
-            exit_code = main.main()
-
-        self.assertEqual(exit_code, 0)
-        run_with_lock.assert_called_once_with(config, args, None, None)
-        start_bots.assert_called_once_with(config)
-        exception_log.assert_any_call(
-            "Futu 持仓导入失败，Web/API 服务继续运行: %s",
-            error,
-        )
 
     def test_serve_schedule_flag_enables_api_runtime_scheduler(self) -> None:
         from src.services.runtime_scheduler import (

@@ -61,9 +61,7 @@ COPY --from=web-builder /app/static ./static/
 COPY docker/entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 # Verify globally bundled runtime dependencies without leaving SDK logs in the image.
-RUN mkdir -p /tmp/futu-sdk-smoke-home && \
-    HOME=/tmp/futu-sdk-smoke-home python -c "import src.services.screening.pipeline; import futu" && \
-    rm -rf /tmp/futu-sdk-smoke-home
+RUN python -c "import src.services.screening.pipeline"
 
 # 确保数据目录存在并授权给 non-root 用户
 RUN mkdir -p /app/data /app/logs /app/reports && \

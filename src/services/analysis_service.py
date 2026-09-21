@@ -86,7 +86,6 @@ class AnalysisService:
         skills: Optional[List[str]] = None,
         analysis_phase: str = "auto",
         query_source: str = "api",
-        portfolio_context: Optional[Dict[str, Any]] = None,
         report_language: Optional[str] = None,
         analysis_target: Optional[Any] = None,
     ) -> Optional[Dict[str, Any]]:
@@ -145,7 +144,6 @@ class AnalysisService:
                 progress_callback=progress_callback,
                 analysis_skills=skills,
                 analysis_phase=analysis_phase,
-                portfolio_context=portfolio_context,
             )
             
             # 确定报告类型 (API: simple/detailed/full/brief -> ReportType)

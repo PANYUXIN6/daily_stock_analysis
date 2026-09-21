@@ -21,7 +21,7 @@
 - A 股大盘复盘：汇总主要指数、市场宽度、板块表现与次日策略。
 - 数据聚合：复用 AkShare、Tushare、Efinance、Pytdx、Baostock、腾讯与 TickFlow 等 A 股数据源，并按可用性降级。
 - 新闻与公告：支持 Anspire、博查、Tavily、SerpAPI、Brave、MiniMax 和 SearXNG 等可选搜索服务。
-- Web / API：支持任务提交、进度、历史报告、持仓、回测和配置管理。
+- Web / API：支持任务提交、进度、历史报告、回测和配置管理。
 - 自动化通知：支持 GitHub Actions、本地调度、Docker，以及企业微信、飞书、Telegram、Discord、Slack 和邮件。
 
 项目主流程是：股票列表解析 → 行情与新闻获取 → 技术面和大模型分析 → 报告生成 → 可选通知。后端入口集中在 `main.py` 与 `server.py`，Web 前端位于 `apps/dsa-web/`。

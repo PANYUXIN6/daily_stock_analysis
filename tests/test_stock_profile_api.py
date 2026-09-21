@@ -121,7 +121,6 @@ def _service(**overrides: object) -> tuple[StockProfileService, dict[str, MagicM
         "stock_service": MagicMock(),
         "history_service": MagicMock(),
         "intelligence_service": MagicMock(),
-        "portfolio_repository": MagicMock(),
         "alert_service": MagicMock(),
     }
     dependencies.update(overrides)
@@ -131,7 +130,6 @@ def _service(**overrides: object) -> tuple[StockProfileService, dict[str, MagicM
     dependencies["history_service"].get_history_detail_by_id.return_value = _report_detail()
     dependencies["history_service"].get_latest_fundamental_snapshot.return_value = None
     dependencies["intelligence_service"].list_items.return_value = _intelligence()
-    dependencies["portfolio_repository"].list_cached_position_identities.return_value = [("cn", "600519")]
     dependencies["alert_service"].list_rules.return_value = {
         "items": [{"id": 8, "enabled": True}, {"id": 9, "enabled": False}],
         "total": 2,
@@ -150,13 +148,12 @@ def test_profile_uses_one_canonical_code_and_returns_structured_research() -> No
     assert payload["history"]["status"] == "fresh"
     assert payload["research"]["status"] == "fresh"
     assert payload["research"]["data"]["structured_report"]["artifact_id"] == "report:12"
-    assert payload["portfolio"]["data"] == {"held": True, "matched_markets": ["cn"]}
     assert payload["monitors"]["data"] == {
         "total_rule_count": 2,
         "enabled_rule_count": 1,
         "rule_ids": [8, 9],
     }
-    assert payload["evidence_quality"]["status"] == "partial"
+    assert payload["evidence_quality"]["status"] == "fresh"
     dependencies["stock_service"].get_realtime_quote.assert_called_once_with("600519")
     dependencies["stock_service"].get_history_data.assert_called_once_with(
         "600519", period="daily", days=45
@@ -338,7 +335,6 @@ def test_optional_block_failures_remain_partial_and_do_not_hide_monitor_data() -
     dependencies["stock_service"].get_history_data.return_value = {"data": []}
     dependencies["history_service"].get_history_detail_by_id.return_value = None
     dependencies["intelligence_service"].list_items.side_effect = RuntimeError("intel failed")
-    dependencies["portfolio_repository"].list_cached_position_identities.side_effect = RuntimeError("db failed")
 
     payload = service.get_profile("600519")
 
@@ -347,7 +343,6 @@ def test_optional_block_failures_remain_partial_and_do_not_hide_monitor_data() -
     assert payload["research"]["status"] == "partial"
     assert payload["research"]["data"]["recent_reports"][0]["id"] == 12
     assert payload["intelligence"]["status"] == "unavailable"
-    assert payload["portfolio"]["status"] == "unavailable"
     assert payload["monitors"]["status"] == "fresh"
     assert payload["evidence_quality"]["status"] == "partial"
     assert "latest_report_detail_unavailable" in payload["evidence_quality"]["limitations"]
@@ -360,7 +355,6 @@ def test_all_dependency_failures_return_unavailable_profile_instead_of_raising()
         ("stock_service", "get_history_data"),
         ("history_service", "get_history_list"),
         ("intelligence_service", "list_items"),
-        ("portfolio_repository", "list_cached_position_identities"),
         ("alert_service", "list_rules"),
     ):
         getattr(dependencies[dependency], method).side_effect = RuntimeError("offline")

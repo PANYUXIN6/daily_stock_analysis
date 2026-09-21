@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+- [改进] 移除持仓管理及账户、交易流水、CSV/Futu 导入、估值、回撤、止损预警、持仓 Agent、持仓筛选与关联 API；保留历史数据库记录，旧持仓告警不再执行。
+
 - [改进] Portfolio 收敛为人民币记账，移除汇率刷新接口、配置与 Web 状态卡片；历史外币记录保留，估值与风险计算明确拒绝外币。
 - [文档] 清理当前配置、运行提示与指南中的 Electron 桌面端残留，统一为 Web 与后端服务说明。
 

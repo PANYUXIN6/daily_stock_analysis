@@ -220,32 +220,9 @@ def test_alerts_doc_defines_p5_indicator_scope() -> None:
         assert token in doc
 
 
-def test_alerts_doc_defines_p6_portfolio_and_watchlist_scope() -> None:
+def test_alerts_doc_defines_watchlist_scope() -> None:
     doc = _read_doc()
-
-    for token in (
-        "## P6 持仓与自选股联动",
-        "P6 scope/type 矩阵",
-        "`watchlist`",
-        "`portfolio_holdings`",
-        "`portfolio_account`",
-        "`portfolio_stop_loss`",
-        "`portfolio_concentration`",
-        "`portfolio_drawdown`",
-        "`portfolio_price_stale`",
-        "Target Identity Contract",
-        "`effective_target`",
-        "`RuntimeAlertRule.key`",
-        "`{parent_key}|{effective_target}`",
-        "dry-run",
-        "`degraded_count`",
-        "soft cap",
-        "cooldown_active",
-        "父规则摘要",
-        "legacy `AGENT_EVENT_ALERT_RULES_JSON` 不支持 watchlist、portfolio",
-        "sector 级集中度",
-        "P6 PR",
-    ):
+    for token in ("## 自选股批量告警", "`watchlist`", "`target=default`", "`effective_target`", "`RuntimeAlertRule.key`", "`{parent_key}|{effective_target}`", "Dry-run", "`degraded_count`", "父规则摘要"):
         assert token in doc
 
 
@@ -308,7 +285,7 @@ def test_alerts_doc_defines_p8_user_and_deployment_boundaries() -> None:
         "Alert API / Web 告警中心持久化规则",
         "legacy `AGENT_EVENT_ALERT_RULES_JSON`",
         "只兼容 `single_symbol`",
-        "P5 技术指标、P6 watchlist/portfolio 或 P7 market light",
+        "P5 技术指标、P6 watchlist 或 P7 market light",
         "docker/Dockerfile",
         "`python main.py --schedule`",
         "保留 `data/` 数据库卷",

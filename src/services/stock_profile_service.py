@@ -8,7 +8,6 @@ from typing import Any, Dict, List, Optional
 
 from data_provider.base import canonical_stock_code
 from src.analysis_context_pack_overview import extract_analysis_context_pack_overview
-from src.repositories.portfolio_repo import PortfolioRepository
 from src.services.alert_service import AlertService
 from src.services.history_service import HistoryService
 from src.services.intelligence_service import IntelligenceService
@@ -20,7 +19,7 @@ from src.utils.data_processing import (
     extract_market_structure_detail_field,
 )
 
-_BLOCK_NAMES = ("quote", "history", "research", "intelligence", "portfolio", "monitors")
+_BLOCK_NAMES = ("quote", "history", "research", "intelligence", "monitors")
 
 
 class InvalidStockProfileCode(ValueError):
@@ -36,13 +35,11 @@ class StockProfileService:
         stock_service: Optional[StockService] = None,
         history_service: Optional[HistoryService] = None,
         intelligence_service: Optional[IntelligenceService] = None,
-        portfolio_repository: Optional[PortfolioRepository] = None,
         alert_service: Optional[AlertService] = None,
     ):
         self.stock_service = stock_service
         self.history_service = history_service
         self.intelligence_service = intelligence_service
-        self.portfolio_repository = portfolio_repository
         self.alert_service = alert_service
 
     def get_profile(self, requested_code: str, *, history_days: int = 60) -> Dict[str, Any]:
@@ -53,7 +50,6 @@ class StockProfileService:
             "history": self._history_block(canonical_code, history_days=history_days),
             "research": self._research_block(canonical_code, market=market),
             "intelligence": self._intelligence_block(canonical_code, market=market),
-            "portfolio": self._portfolio_block(canonical_code, market=market),
             "monitors": self._monitor_block(canonical_code, market=market),
         }
         return {
@@ -216,28 +212,6 @@ class StockProfileService:
             "limitations": ["intelligence_alias_query_partial"] if failed_queries else [],
         }
 
-    def _portfolio_block(self, code: str, *, market: str) -> Dict[str, Any]:
-        try:
-            profile_identity = resolve_daily_stock_identity(code, market_hint=market)
-            identities = self._portfolio_repository().list_cached_position_identities()
-            matches = []
-            for position_market, symbol in identities:
-                normalized_market = str(position_market or "").strip().lower()
-                identity = resolve_daily_stock_identity(symbol, market_hint=normalized_market)
-                if identity is None or identity.market != normalized_market or identity.market != market:
-                    continue
-                if self._same_profile_identity(identity, profile_identity):
-                    matches.append(normalized_market)
-        except Exception:
-            return self._unavailable(
-                "portfolio_relation_unavailable",
-                data={"held": False, "matched_markets": []},
-            )
-        return {
-            "status": "partial",
-            "data": {"held": bool(matches), "matched_markets": list(dict.fromkeys(matches))},
-            "limitations": ["cached_positions_only"],
-        }
 
     @staticmethod
     def _same_profile_identity(position_identity: Any, profile_identity: Any) -> bool:
@@ -410,10 +384,6 @@ class StockProfileService:
             self.intelligence_service = IntelligenceService()
         return self.intelligence_service
 
-    def _portfolio_repository(self) -> PortfolioRepository:
-        if self.portfolio_repository is None:
-            self.portfolio_repository = PortfolioRepository()
-        return self.portfolio_repository
 
     def _alert_service(self) -> AlertService:
         if self.alert_service is None:

@@ -145,15 +145,8 @@ class StockProfileIntelligenceBlock(BaseModel):
     limitations: List[str] = Field(default_factory=list)
 
 
-class StockProfilePortfolioRelation(BaseModel):
-    held: bool = False
-    matched_markets: List[str] = Field(default_factory=list)
 
 
-class StockProfilePortfolioBlock(BaseModel):
-    status: StockProfileStatus
-    data: StockProfilePortfolioRelation = Field(default_factory=StockProfilePortfolioRelation)
-    limitations: List[str] = Field(default_factory=list)
 
 
 class StockProfileMonitorData(BaseModel):
@@ -183,6 +176,5 @@ class StockProfileResponse(BaseModel):
     history: StockProfileHistoryBlock
     research: StockProfileResearchBlock
     intelligence: StockProfileIntelligenceBlock
-    portfolio: StockProfilePortfolioBlock
     monitors: StockProfileMonitorBlock
     evidence_quality: StockProfileEvidenceQuality

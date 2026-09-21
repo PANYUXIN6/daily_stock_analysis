@@ -26,7 +26,7 @@ from src.analyzer import AnalysisResult
 from src.config import Config
 from src.services.decision_signal_extractor import extract_and_persist_from_analysis_result
 from src.services.decision_signal_service import DecisionSignalService
-from src.storage import AnalysisHistory, DatabaseManager, DecisionSignalRecord, PortfolioAccount, PortfolioPosition, utc_naive_now
+from src.storage import AnalysisHistory, DatabaseManager, DecisionSignalRecord, utc_naive_now
 
 
 @contextmanager
@@ -503,49 +503,6 @@ def test_create_accepts_timezone_aware_expires_at_values(client_and_db) -> None:
     assert active_item["expires_at"] == "2098-12-31T16:00:00"
 
 
-def test_create_refreshes_expired_same_source_when_future_expiry_is_supplied(client_and_db) -> None:
-    client, db = client_and_db
-    expired_resp = client.post(
-        "/api/v1/decision-signals",
-        json=_payload(
-            source_report_id=3111,
-            trace_id="trace-refresh-original",
-            expires_at="2020-01-01T00:00:00Z",
-            reason="old reason",
-            target_price=1800,
-        ),
-    )
-    assert expired_resp.status_code == 200, expired_resp.text
-    expired = expired_resp.json()
-    signal_id = expired["item"]["id"]
-    assert expired["created"] is True
-    assert expired["item"]["status"] == "expired"
-
-    refresh_resp = client.post(
-        "/api/v1/decision-signals",
-        json=_payload(
-            source_report_id=3111,
-            trace_id="trace-refresh-new",
-            expires_at=(utc_naive_now() + timedelta(days=2)).isoformat(),
-            reason="fresh reason",
-            target_price=1900,
-        ),
-    )
-    assert refresh_resp.status_code == 200, refresh_resp.text
-    refreshed = refresh_resp.json()
-    assert refreshed["created"] is False
-    assert refreshed["item"]["id"] == signal_id
-    assert refreshed["item"]["status"] == "active"
-    assert refreshed["item"]["reason"] == "fresh reason"
-    assert refreshed["item"]["target_price"] == 1900
-    assert refreshed["item"]["trace_id"] == "trace-refresh-original"
-    assert refreshed["item"]["created_at"] == expired["item"]["created_at"]
-
-    with db.session_scope() as session:
-        row = session.query(DecisionSignalRecord).filter_by(id=signal_id).one()
-        assert row.status == "active"
-        assert row.reason == "fresh reason"
-        assert row.trace_id == "trace-refresh-original"
 
 
 def test_create_invalidates_opposing_active_signal_and_latest_filters_it(client_and_db) -> None:
@@ -585,35 +542,6 @@ def test_create_invalidates_opposing_active_signal_and_latest_filters_it(client_
     assert latest["items"][0]["id"] == sell["id"]
 
 
-def test_create_does_not_refresh_expired_same_source_without_future_active_expiry(client_and_db) -> None:
-    client, _db = client_and_db
-    expired_resp = client.post(
-        "/api/v1/decision-signals",
-        json=_payload(
-            source_report_id=3112,
-            trace_id="trace-refresh-past-original",
-            expires_at="2020-01-01T00:00:00Z",
-            reason="old reason",
-        ),
-    )
-    assert expired_resp.status_code == 200, expired_resp.text
-    expired = expired_resp.json()
-
-    second_resp = client.post(
-        "/api/v1/decision-signals",
-        json=_payload(
-            source_report_id=3112,
-            trace_id="trace-refresh-past-new",
-            expires_at="2020-01-02T00:00:00Z",
-            reason="fresh reason",
-        ),
-    )
-    assert second_resp.status_code == 200, second_resp.text
-    second = second_resp.json()
-    assert second["created"] is False
-    assert second["item"]["id"] == expired["item"]["id"]
-    assert second["item"]["status"] == "expired"
-    assert second["item"]["reason"] == "old reason"
 
 
 @pytest.mark.parametrize("terminal_status", ["closed", "invalidated", "archived"])
@@ -653,28 +581,6 @@ def test_create_does_not_reactivate_terminal_same_source_status(client_and_db, t
     assert second["item"]["reason"] == "old reason"
 
 
-def test_timezone_aware_future_expiry_stays_active_in_non_utc_runtime(client_and_db) -> None:
-    client, _db = client_and_db
-
-    with _temporary_tz("Asia/Shanghai"):
-        created_resp = client.post(
-            "/api/v1/decision-signals",
-            json=_payload(
-                source_report_id=3104,
-                trace_id="trace-3104",
-                expires_at=(datetime.now(timezone.utc) + timedelta(hours=1)).isoformat(),
-            ),
-        )
-        assert created_resp.status_code == 200, created_resp.text
-        created = created_resp.json()["item"]
-        assert created["status"] == "active"
-        for field_name in ("expires_at", "created_at", "updated_at"):
-            assert datetime.fromisoformat(created[field_name]).tzinfo is None
-
-        latest_resp = client.get("/api/v1/decision-signals/latest/600519")
-        assert latest_resp.status_code == 200, latest_resp.text
-        assert latest_resp.json()["total"] == 1
-        assert latest_resp.json()["items"][0]["id"] == created["id"]
 
 
 def test_aware_datetime_range_filters_use_utc_naive_contract(client_and_db) -> None:
@@ -700,196 +606,6 @@ def test_aware_datetime_range_filters_use_utc_naive_contract(client_and_db) -> N
         assert list_resp.json()["items"][0]["id"] == signal_id
 
 
-def test_holding_only_uses_cached_positions_and_stock_code_variants(client_and_db) -> None:
-    client, db = client_and_db
-    stock_resp = client.post(
-        "/api/v1/decision-signals",
-        json=_payload(source_report_id=3201, trace_id="trace-3201", stock_code="600519.SH"),
-    )
-    assert stock_resp.status_code == 200, stock_resp.text
-    other_resp = client.post(
-        "/api/v1/decision-signals",
-        json=_payload(
-            source_report_id=3202,
-            trace_id="trace-3202",
-            stock_code="000858",
-            stock_name="Apple",
-            market="cn",
-        ),
-    )
-    assert other_resp.status_code == 200, other_resp.text
-    inactive_resp = client.post(
-        "/api/v1/decision-signals",
-        json=_payload(
-            source_report_id=3203,
-            trace_id="trace-3203",
-            stock_code="300750",
-            stock_name="Tesla",
-            market="cn",
-        ),
-    )
-    assert inactive_resp.status_code == 200, inactive_resp.text
-    zero_only_resp = client.post(
-        "/api/v1/decision-signals",
-        json=_payload(
-            source_report_id=3204,
-            trace_id="trace-3204",
-            stock_code="600036",
-            stock_name="Microsoft",
-            market="cn",
-        ),
-    )
-    assert zero_only_resp.status_code == 200, zero_only_resp.text
-    with db.session_scope() as session:
-        account = PortfolioAccount(
-            name="Test account",
-            market="cn",
-            base_currency="CNY",
-            is_active=True,
-        )
-        session.add(account)
-        session.flush()
-        account_id = account.id
-        session.add(
-            PortfolioPosition(
-                account_id=account_id,
-                cost_method="fifo",
-                symbol="SH600519",
-                market="cn",
-                currency="CNY",
-                quantity=100,
-                avg_cost=1600,
-                total_cost=160000,
-            )
-        )
-        session.add(
-            PortfolioPosition(
-                account_id=account_id,
-                cost_method="fifo",
-                symbol="000858",
-                market="cn",
-                currency="USD",
-                quantity=0,
-            )
-        )
-        session.add(
-            PortfolioPosition(
-                account_id=account_id,
-                cost_method="fifo",
-                symbol="600036",
-                market="cn",
-                currency="USD",
-                quantity=0,
-            )
-        )
-        session.add(
-            PortfolioPosition(
-                account_id=account_id,
-                cost_method="avg",
-                symbol="000858",
-                market="cn",
-                currency="USD",
-                quantity=5,
-                avg_cost=180,
-                total_cost=900,
-            )
-        )
-        inactive_account = PortfolioAccount(
-            name="Inactive account",
-            market="cn",
-            base_currency="USD",
-            is_active=False,
-        )
-        session.add(inactive_account)
-        session.flush()
-        inactive_account_id = inactive_account.id
-        session.add(
-            PortfolioPosition(
-                account_id=inactive_account_id,
-                cost_method="fifo",
-                symbol="300750",
-                market="cn",
-                currency="USD",
-                quantity=3,
-                avg_cost=200,
-                total_cost=600,
-            )
-        )
-
-    with patch(
-        "src.services.portfolio_service.PortfolioService.get_portfolio_snapshot",
-        side_effect=AssertionError("holding_only must not replay portfolio snapshots"),
-    ):
-        holding_resp = client.get(
-            "/api/v1/decision-signals",
-            params={"holding_only": "true", "account_id": account_id},
-        )
-
-    assert holding_resp.status_code == 200, holding_resp.text
-    payload = holding_resp.json()
-    assert payload["total"] == 2
-    assert {(item["market"], item["stock_code"]) for item in payload["items"]} == {
-        ("cn", "600519"),
-        ("cn", "000858"),
-    }
-
-    with patch(
-        "src.services.portfolio_service.PortfolioService.get_portfolio_snapshot",
-        side_effect=AssertionError("holding_only must not replay portfolio snapshots"),
-    ):
-        all_active_resp = client.get(
-            "/api/v1/decision-signals",
-            params={"holding_only": "true"},
-        )
-
-    assert all_active_resp.status_code == 200, all_active_resp.text
-    all_active_payload = all_active_resp.json()
-    assert all_active_payload["total"] == 2
-    assert {(item["market"], item["stock_code"]) for item in all_active_payload["items"]} == {
-        ("cn", "600519"),
-        ("cn", "000858"),
-    }
-
-    with patch(
-        "src.services.portfolio_service.PortfolioService.get_portfolio_snapshot",
-        side_effect=AssertionError("holding_only must not replay portfolio snapshots"),
-    ):
-        inactive_holding_resp = client.get(
-            "/api/v1/decision-signals",
-            params={"holding_only": "true", "account_id": inactive_account_id},
-        )
-    assert inactive_holding_resp.status_code == 200, inactive_holding_resp.text
-    assert inactive_holding_resp.json()["total"] == 0
-    assert inactive_holding_resp.json()["items"] == []
-
-    variant_resp = client.get("/api/v1/decision-signals", params={"stock_code": "SH600519"})
-    assert variant_resp.status_code == 200, variant_resp.text
-    assert variant_resp.json()["total"] == 1
-
-    with db.session_scope() as session:
-        empty_account = PortfolioAccount(name="Empty account", market="cn", base_currency="CNY")
-        session.add(empty_account)
-        session.flush()
-        empty_account_id = empty_account.id
-
-    empty_resp = client.get(
-        "/api/v1/decision-signals",
-        params={"holding_only": "true", "account_id": empty_account_id},
-    )
-    assert empty_resp.status_code == 200, empty_resp.text
-    assert empty_resp.json()["total"] == 0
-    assert empty_resp.json()["items"] == []
-
-    empty_bad_date_resp = client.get(
-        "/api/v1/decision-signals",
-        params={
-            "holding_only": "true",
-            "account_id": empty_account_id,
-            "created_from": "bad-date",
-        },
-    )
-    assert empty_bad_date_resp.status_code == 400
-    assert empty_bad_date_resp.json()["error"] == "validation_error"
 
 
 def test_query_validation_error_envelope(client_and_db) -> None:

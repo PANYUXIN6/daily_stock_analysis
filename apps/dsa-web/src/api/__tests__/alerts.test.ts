@@ -238,11 +238,11 @@ describe('alertsApi', () => {
       .mockResolvedValueOnce({
         data: {
           id: 5,
-          name: 'portfolio stop loss',
-          target_scope: 'portfolio_account',
-          target: 'all',
-          alert_type: 'portfolio_stop_loss',
-          parameters: { mode: 'breach' },
+          name: 'watchlist price',
+          target_scope: 'watchlist',
+          target: 'default',
+          alert_type: 'price_cross',
+          parameters: { direction: 'above', price: 10 },
           severity: 'critical',
           enabled: true,
           source: 'api',
@@ -276,26 +276,26 @@ describe('alertsApi', () => {
       });
 
     const created = await alertsApi.createRule({
-      name: 'portfolio stop loss',
-      targetScope: 'portfolio_account',
-      target: 'all',
-      alertType: 'portfolio_stop_loss',
-      parameters: { mode: 'breach' },
+      name: 'watchlist price',
+      targetScope: 'watchlist',
+      target: 'default',
+      alertType: 'price_cross',
+      parameters: { direction: 'above', price: 10 },
       severity: 'critical',
       enabled: true,
     });
     const dryRun = await alertsApi.testRule(5);
 
     expect(post).toHaveBeenNthCalledWith(1, '/api/v1/alerts/rules', {
-      name: 'portfolio stop loss',
-      target_scope: 'portfolio_account',
-      target: 'all',
-      alert_type: 'portfolio_stop_loss',
-      parameters: { mode: 'breach' },
+      name: 'watchlist price',
+      target_scope: 'watchlist',
+      target: 'default',
+      alert_type: 'price_cross',
+      parameters: { direction: 'above', price: 10 },
       severity: 'critical',
       enabled: true,
     });
-    expect(created.parameters.mode).toBe('breach');
+    expect(created.parameters.price).toBe(10);
     expect(dryRun.evaluatedCount).toBe(2);
     expect(dryRun.degradedCount).toBe(1);
     expect(dryRun.targetResults?.[0].displayTarget).toBe('自选股 - 600519');

@@ -104,8 +104,6 @@ export interface DecisionSignalListParams {
   createdTo?: string;
   expiresFrom?: string;
   expiresTo?: string;
-  holdingOnly?: boolean;
-  accountId?: number;
   page?: number;
   pageSize?: number;
 }

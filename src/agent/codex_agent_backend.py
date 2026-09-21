@@ -31,7 +31,7 @@ _BASE_INSTRUCTIONS = (
     "You are the DSA stock-analysis Agent runtime. DSA instructions and DSA tools define your task; "
     "coding-agent defaults do not. Never modify files, request approval, or use unregistered tools. "
     "Only the tools shown for this turn are safe to cancel; never imply access to live quotes, news, "
-    "portfolio data, or recalculation tools when they are not listed."
+    "or recalculation tools when they are not listed."
 )
 _NO_STOCK_SCOPE_INSTRUCTION = (
     "No stock scope was established for this turn. Do not call any DSA tool that requires a "
