@@ -40,12 +40,12 @@ const baseSnapshot: RunFlowSnapshot = {
       metadata: { data_type: 'news_search', attempt: 1 },
     },
     {
-      id: 'provider_news_search_searxng_2',
+      id: 'provider_news_search_bocha_2',
       lane: 'data_source',
       kind: 'data_source',
-      label: '新闻舆情 · SearXNG',
+      label: '新闻舆情 · Bocha',
       status: 'success',
-      provider: 'SearXNG',
+      provider: 'Bocha',
       startedAt: '2026-06-08T10:00:03',
       endedAt: '2026-06-08T10:00:04',
       durationMs: 1000,
@@ -88,13 +88,13 @@ const baseSnapshot: RunFlowSnapshot = {
     {
       id: 'news-1-news-2',
       from: 'provider_news_search_tavily_1',
-      to: 'provider_news_search_searxng_2',
+      to: 'provider_news_search_bocha_2',
       kind: 'fallback',
       status: 'success',
     },
     {
       id: 'news-2-block',
-      from: 'provider_news_search_searxng_2',
+      from: 'provider_news_search_bocha_2',
       to: 'context_block_news',
       kind: 'data',
       status: 'success',
@@ -132,13 +132,13 @@ describe('buildRunFlowTopologyModel', () => {
     const model = buildRunFlowTopologyModel(baseSnapshot);
 
     expect(model.nodes.map((node) => node.id)).not.toContain('provider_news_search_tavily_1');
-    expect(model.nodes.map((node) => node.id)).not.toContain('provider_news_search_searxng_2');
+    expect(model.nodes.map((node) => node.id)).not.toContain('provider_news_search_bocha_2');
 
     const newsGroup = model.nodes.find((node) => node.id === 'topology_data_news_search');
     expect(newsGroup).toMatchObject({
       label: '新闻舆情',
       status: 'fallback',
-      provider: 'Tavily -> SearXNG',
+      provider: 'Tavily -> Bocha',
       attempts: 2,
       recordCount: 6,
     });
@@ -402,7 +402,7 @@ describe('buildRunFlowTopologyModel', () => {
 
     expect(model.nodes.map((node) => node.id)).toContain('topology_data_news_search');
     expect(model.nodes.map((node) => node.id)).toContain('provider_news_search_tavily_1');
-    expect(model.nodes.map((node) => node.id)).toContain('provider_news_search_searxng_2');
+    expect(model.nodes.map((node) => node.id)).toContain('provider_news_search_bocha_2');
     expect(model.edges).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -411,7 +411,7 @@ describe('buildRunFlowTopologyModel', () => {
         }),
         expect.objectContaining({
           from: 'provider_news_search_tavily_1',
-          to: 'provider_news_search_searxng_2',
+          to: 'provider_news_search_bocha_2',
           kind: 'fallback',
         }),
       ]),
@@ -437,7 +437,7 @@ describe('buildRunFlowTopologyModel', () => {
       expandedGroupIds: new Set(['topology_data_news_search']),
     });
     const tavily = model.nodes.find((node) => node.id === 'provider_news_search_tavily_1');
-    const searxng = model.nodes.find((node) => node.id === 'provider_news_search_searxng_2');
+    const bocha = model.nodes.find((node) => node.id === 'provider_news_search_bocha_2');
 
     expect(tavily?.metadata).toMatchObject({
       data_type: 'news_search',
@@ -445,7 +445,7 @@ describe('buildRunFlowTopologyModel', () => {
       topologyRole: 'provider_attempt',
       topologyOrder: 1,
     });
-    expect(searxng?.metadata).toMatchObject({
+    expect(bocha?.metadata).toMatchObject({
       data_type: 'news_search',
       topologyParentId: 'topology_data_news_search',
       topologyRole: 'provider_attempt',
@@ -464,7 +464,7 @@ describe('buildRunFlowTopologyModel', () => {
             status: 'success',
           };
         }
-        if (node.id === 'provider_news_search_searxng_2') {
+        if (node.id === 'provider_news_search_bocha_2') {
           return {
             ...node,
             status: 'running',

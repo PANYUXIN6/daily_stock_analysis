@@ -781,8 +781,8 @@ class TestStorage(unittest.TestCase):
         db.save_agent_provider_turn(
             session_id="retention",
             run_id="run-other",
-            provider="anthropic",
-            model="anthropic/claude-test",
+            provider="deepseek",
+            model="deepseek/deepseek-flash",
             anchor_user_message_id=user_id,
             anchor_assistant_message_id=assistant_id,
             messages=[{"role": "assistant", "provider_blocks": [{"type": "thinking"}], "tool_calls": [{"id": "c-other", "name": "echo", "arguments": {}}]}],
@@ -800,8 +800,8 @@ class TestStorage(unittest.TestCase):
         )
         anthropic_rows = db.get_agent_provider_turns(
             "retention",
-            provider="anthropic",
-            model="anthropic/claude-test",
+            provider="deepseek",
+            model="deepseek/deepseek-flash",
         )
 
         self.assertEqual(len(deepseek_rows), 3)

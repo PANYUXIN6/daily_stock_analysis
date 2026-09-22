@@ -5,7 +5,6 @@ Data tools — wraps DataFetcherManager methods as agent-callable tools.
 Tools:
 - get_realtime_quote: real-time stock quote
 - get_daily_history: historical OHLCV data
-- get_chip_distribution: chip distribution analysis
 - get_analysis_context: historical analysis context from DB
 """
 
@@ -306,51 +305,6 @@ get_daily_history_tool = ToolDefinition(
 
 
 # ============================================================
-# get_chip_distribution
-# ============================================================
-
-def _handle_get_chip_distribution(stock_code: str) -> dict:
-    """Get chip distribution data."""
-    manager = _get_fetcher_manager()
-    chip = manager.get_chip_distribution(stock_code)
-
-    if chip is None:
-        return {"error": f"No chip distribution data available for {stock_code}"}
-
-    return {
-        "code": chip.code,
-        "date": chip.date,
-        "source": chip.source,
-        "profit_ratio": chip.profit_ratio,
-        "avg_cost": chip.avg_cost,
-        "cost_90_low": chip.cost_90_low,
-        "cost_90_high": chip.cost_90_high,
-        "concentration_90": chip.concentration_90,
-        "cost_70_low": chip.cost_70_low,
-        "cost_70_high": chip.cost_70_high,
-        "concentration_70": chip.concentration_70,
-    }
-
-
-get_chip_distribution_tool = ToolDefinition(
-    name="get_chip_distribution",
-    description="Get chip distribution analysis for a stock. Returns profit ratio, "
-                "average cost, chip concentration at 90% and 70% levels. "
-                "Useful for judging support/resistance and holding structure.",
-    parameters=[
-        ToolParameter(
-            name="stock_code",
-            type="string",
-            description="A-share stock code, e.g., '600519'",
-        ),
-    ],
-    handler=_handle_get_chip_distribution,
-    category="data",
-    policy=_MARKET_DATA_STOCK_POLICY,
-)
-
-
-# ============================================================
 # get_analysis_context
 # ============================================================
 
@@ -467,7 +421,6 @@ get_stock_info_tool = ToolDefinition(
 ALL_DATA_TOOLS = [
     get_realtime_quote_tool,
     get_daily_history_tool,
-    get_chip_distribution_tool,
     get_analysis_context_tool,
     get_stock_info_tool,
 ]

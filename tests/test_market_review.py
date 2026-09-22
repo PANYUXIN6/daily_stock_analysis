@@ -18,7 +18,7 @@ def _build_optional_module_stubs() -> dict[str, ModuleType]:
     stubs: dict[str, ModuleType] = {}
     google_module: ModuleType | None = None
 
-    for module_name in ("google.generativeai", "google.genai", "anthropic"):
+    for module_name in ("google.generativeai", "google.genai", "deepseek"):
         try:
             importlib.import_module(module_name)
             continue
@@ -209,14 +209,14 @@ class MarketReviewLocalizationTestCase(unittest.TestCase):
     def test_run_market_review_reraises_generation_backend_config_error(self) -> None:
         notifier = self._make_notifier()
         backend_error = GenerationError(
-            error_code=GenerationErrorCode.BACKEND_NOT_CONFIGURED,
+            error_code=GenerationErrorCode.UNSAFE_CONFIG,
             stage="generation",
             retryable=False,
             fallbackable=False,
-            backend="codex",
+            backend="litellm",
             details={
-                "field": "GENERATION_BACKEND",
-                "requested_backend": "codex",
+                "field": "LLM_CHANNELS",
+                "code": "invalid_api_surface",
             },
         )
         market_analyzer = MagicMock()

@@ -18,27 +18,7 @@
 
 `系统设置 -> AI 模型`
 
-只选下面一个方案即可。
-
-> 重要：每次改完设置后，都要点击页面上的保存按钮；看到保存成功提示后，再切换页面或回到首页。
-
-### 方案 A：Anspire Open
-
-1. 打开 [Anspire Open](https://open.anspire.cn/)，注册 / 登录后创建 API Key。
-2. 回到Web 工作台，在快速添加渠道里选择 `Anspire Open`。
-3. 粘贴 API Key。
-4. 模型名选择控制台里已开通的模型；不确定就先选控制台推荐或轻量模型。
-5. 点击保存；看到保存成功后，再点击测试连接。
-
-### 方案 B：AIHubMix
-
-1. 打开 [AIHubMix](https://aihubmix.com/)，注册 / 登录后创建 API Key。
-2. 回到Web 工作台，在快速添加渠道里选择 `AIHubmix（聚合平台）`。
-3. 粘贴 API Key。
-4. 模型名选择控制台里已开通的模型；不确定就先选控制台推荐模型。
-5. 点击保存；看到保存成功后，再点击测试连接。
-
-看到测试成功，就继续下一步。
+在 [DeepSeek 控制台](https://platform.deepseek.com/)创建 API Key，回到 Web 工作台填写 DeepSeek Key，主模型选 `deepseek/deepseek-flash`。保存后点击测试连接，成功后继续填写自选股。
 
 ## 3. 填写自选股
 
@@ -65,10 +45,7 @@
 
 `系统设置 -> 数据源`
 
-按你的模型服务选择：
-
-1. 用 Anspire Open：找到 `Anspire API Keys`，填入同一个 Anspire Key，保存成功后即可。
-2. 用 AIHubMix：可另行申请 [SerpAPI](https://serpapi.com/) 或 [Tavily](https://tavily.com/) 的 Key，填到 `SerpAPI API Keys` 或 `Tavily API Keys`，保存成功后即可。
+申请 [Bocha](https://open.bocha.cn/) 或 [Tavily](https://tavily.com/) 的 Key，填到 `Bocha API Keys` 或 `Tavily API Keys` 后保存。两者均配置时优先使用 Bocha，失败或结果不适用时尝试 Tavily。
 
 想先试用也可以跳过新闻源，Web 工作台仍然能生成基础分析。
 

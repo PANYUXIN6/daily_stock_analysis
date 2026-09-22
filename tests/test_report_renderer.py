@@ -235,7 +235,7 @@ class TestReportRenderer(unittest.TestCase):
         self.assertNotIn("AI 决策信号", out)
 
     def test_render_brief_respects_model_visibility_toggle(self) -> None:
-        r = _make_result(model_used="gemini/gemini-2.5-flash")
+        r = _make_result(model_used="deepseek/deepseek-flash")
 
         with patch("src.services.report_renderer.get_config", return_value=_make_renderer_config(True)):
             visible = render("brief", [r])
@@ -244,9 +244,9 @@ class TestReportRenderer(unittest.TestCase):
 
         self.assertIsNotNone(visible)
         self.assertIsNotNone(hidden)
-        self.assertIn("分析模型: gemini/gemini-2.5-flash", visible)
+        self.assertIn("分析模型: deepseek/deepseek-flash", visible)
         self.assertNotIn("分析模型", hidden)
-        self.assertNotIn("gemini/gemini-2.5-flash", hidden)
+        self.assertNotIn("deepseek/deepseek-flash", hidden)
 
     def test_render_templates_show_compact_market_status_only(self) -> None:
         r = _make_result()
@@ -306,15 +306,15 @@ class TestReportRenderer(unittest.TestCase):
         self.assertNotIn("市场状态：美股 · 盘前", out)
 
     def test_render_markdown_footer_uses_consistent_separator(self) -> None:
-        r = _make_result(model_used="gemini/gemini-2.5-flash")
+        r = _make_result(model_used="deepseek/deepseek-flash")
 
         with patch("src.services.report_renderer.get_config", return_value=_make_renderer_config(True)):
             out = render("markdown", [r], summary_only=True)
 
         self.assertIsNotNone(out)
         self.assertIn("报告生成时间：", out)
-        self.assertIn("分析模型：gemini/gemini-2.5-flash", out)
-        self.assertNotIn("分析模型: gemini/gemini-2.5-flash", out)
+        self.assertIn("分析模型：deepseek/deepseek-flash", out)
+        self.assertNotIn("分析模型: deepseek/deepseek-flash", out)
 
     def test_render_markdown_in_english(self) -> None:
         """Markdown renderer switches headings and summary labels for English reports."""

@@ -61,7 +61,7 @@ def _make_screening_core(
 ) -> SimpleNamespace:
     return SimpleNamespace(
         screen=screen or MagicMock(return_value=[]),
-        list_strategies=list_strategies or (lambda: [{"id": "dual_low", "name": "双低选股", "description": "", "category": "价值"}]),
+        list_strategies=list_strategies or (lambda: [{"id": "balanced_alpha", "name": "均衡多因子", "description": "", "category": "价值"}]),
         get_status=get_status or (lambda: {"supported_markets": ["cn"], "contract_version": "1", "version": "0.2.0", "strategy_count": 1}),
     )
 
@@ -149,7 +149,9 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
         self.assertEqual(status["engine"], "builtin")
         self.assertEqual(status["reference_revision"], REFERENCE_REVISION)
         self.assertEqual(status["strategy_count"], len(strategies))
-        self.assertIn("dual_low", {item["id"] for item in strategies})
+        default_strategy = screening_endpoint.ScreeningScreenRequest().strategy
+        self.assertEqual(default_strategy, "balanced_alpha")
+        self.assertIn(default_strategy, {item["id"] for item in strategies})
 
     def test_status_exposes_builtin_engine_provenance(self) -> None:
         payload = screening_endpoint.screening_status(config=self._config(enabled=True))
@@ -237,7 +239,7 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
         config = self._config(enabled=True)
         fake_module = _make_screening_core(
             list_strategies=lambda: [
-                {"id": "dual_low", "name": "双低选股", "description": "value", "category": "价值"},
+                {"id": "balanced_alpha", "name": "均衡多因子", "description": "value", "category": "价值"},
                 {"id": "trend_quality", "title": "趋势质量", "description": "trend", "tag": "框架"},
             ],
         )
@@ -247,8 +249,8 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
 
         self.assertEqual(payload["enabled"], True)
         self.assertEqual(payload["strategy_count"], 2)
-        self.assertEqual(payload["strategies"][0]["id"], "dual_low")
-        self.assertEqual(payload["strategies"][0]["name"], "双低选股")
+        self.assertEqual(payload["strategies"][0]["id"], "balanced_alpha")
+        self.assertEqual(payload["strategies"][0]["name"], "均衡多因子")
         self.assertEqual(payload["strategies"][1]["name"], "趋势质量")
 
     def test_hotspots_returns_screening_hotspot_summaries(self) -> None:
@@ -885,7 +887,7 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
         def run_screen() -> None:
             try:
                 screening_service._call_screening_screen(
-                    "dual_low",
+                    "balanced_alpha",
                     "cn",
                     5,
                     config,
@@ -966,7 +968,7 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
                 self.assertTrue(hotspot_started.wait(timeout=1))
                 try:
                     screening_service._call_screening_screen(
-                        "dual_low",
+                        "balanced_alpha",
                         "cn",
                         5,
                         config,
@@ -1543,7 +1545,7 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
         self.assertEqual(search_service.search_topic_news_bounded.call_count, 2)
 
     def test_hotspot_search_summary_does_not_call_llm(self) -> None:
-        config = Config(screening_enabled=True, litellm_model="openai/gpt-5-mini")
+        config = Config(screening_enabled=True, litellm_model="deepseek/deepseek-v4-pro")
         provider = screening_service.DsaEastMoneyHotspotProvider()
         provider.hotspot_detail = MagicMock(return_value={
             "topic": "钼",
@@ -2364,7 +2366,7 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
             ) as screen_mock,
         ):
             payload = screening_endpoint.screening_start_screen_task(
-                screening_endpoint.ScreeningScreenRequest(market="cn", strategy="dual_low", max_results=3),
+                screening_endpoint.ScreeningScreenRequest(market="cn", strategy="balanced_alpha", max_results=3),
                 http_request=self._request(),
                 config=config,
             )
@@ -2376,7 +2378,7 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
         fake_queue.submit_background_task.assert_called_once()
         self.assertEqual(fake_queue.submit_background_task.call_args.kwargs["report_type"], "screening_screen")
         screen_mock.assert_called_once_with(
-            strategy="dual_low",
+            strategy="balanced_alpha",
             market="cn",
             max_results=3,
             selection_seed="",
@@ -2439,15 +2441,15 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
             screen=MagicMock(
                 return_value={
                     "run_id": "run123",
-                    "strategy": "dual_low",
+                    "strategy": "balanced_alpha",
                     "market": "cn",
                     "snapshot_count": 100,
                     "snapshot_source": "em_datacenter",
                     "after_filter_count": 5,
                     "llm_ranked": True,
                     "llm_coverage": 1.0,
-                    "llm_model_used": "openai/gpt-4.1",
-                    "llm_attempted_models": ["deepseek/deepseek-chat", "openai/gpt-4.1"],
+                    "llm_model_used": "deepseek/deepseek-flash",
+                    "llm_attempted_models": ["deepseek/deepseek-chat", "deepseek/deepseek-flash"],
                     "llm_failure_reason": "",
                     "ranking_mode": "llm",
                     "warnings": "fallback",
@@ -2486,13 +2488,13 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
             payload = self._screen(
                 config,
                 market="cn",
-                strategy="dual_low",
+                strategy="balanced_alpha",
                 max_results=5,
                 variant_seed="browser-a",
             )
 
         fake_module.screen.assert_called_once_with(
-            "dual_low",
+            "balanced_alpha",
             market="cn",
             max_output=5,
             use_llm=True,
@@ -2509,10 +2511,10 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
         self.assertEqual(payload["after_filter_count"], 5)
         self.assertEqual(payload["llm_ranked"], True)
         self.assertEqual(payload["llm_coverage"], 1.0)
-        self.assertEqual(payload["llm_model_used"], "openai/gpt-4.1")
+        self.assertEqual(payload["llm_model_used"], "deepseek/deepseek-flash")
         self.assertEqual(
             payload["llm_attempted_models"],
-            ["deepseek/deepseek-chat", "openai/gpt-4.1"],
+            ["deepseek/deepseek-chat", "deepseek/deepseek-flash"],
         )
         self.assertEqual(payload["ranking_mode"], "llm")
         self.assertEqual(
@@ -2582,7 +2584,7 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
                 ),
             ) as dsa_history_mock,
         ):
-            payload = self._screen(config, market="cn", strategy="dual_low", max_results=5)
+            payload = self._screen(config, market="cn", strategy="balanced_alpha", max_results=5)
 
         daily_df = captured["daily_df"]
         self.assertEqual(daily_df.attrs["source"], "dsa:EfinanceFetcher")
@@ -2644,7 +2646,7 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
             payload = self._screen(
                 config,
                 market="cn",
-                strategy="dual_low",
+                strategy="balanced_alpha",
                 max_results=5,
                 mock_enrichment=False,
             )
@@ -2691,7 +2693,7 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
             payload = self._screen(
                 config,
                 market="cn",
-                strategy="dual_low",
+                strategy="balanced_alpha",
                 max_results=5,
                 mock_enrichment=False,
             )
@@ -2744,7 +2746,7 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
             payload = self._screen(
                 config,
                 market="cn",
-                strategy="dual_low",
+                strategy="balanced_alpha",
                 max_results=5,
                 mock_enrichment=False,
             )
@@ -2812,7 +2814,7 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
             payload = self._screen(
                 config,
                 market="cn",
-                strategy="dual_low",
+                strategy="balanced_alpha",
                 max_results=5,
                 mock_enrichment=False,
             )
@@ -2854,16 +2856,16 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
     def test_screen_bridges_dsa_llm_config_into_screening_runtime(self) -> None:
         config = Config(
             screening_enabled=True,
-            litellm_model="gemini/gemini-2.5-flash",
+            litellm_model="deepseek/deepseek-flash",
             litellm_fallback_models=["deepseek/deepseek-chat"],
             llm_channels=[
                 {
-                    "name": "gemini",
-                    "protocol": "gemini",
+                    "name": "deepseek",
+                    "protocol": "deepseek",
                     "enabled": True,
                     "base_url": "",
-                    "api_keys": ["dsa-gemini-key"],
-                    "models": ["gemini/gemini-2.5-flash"],
+                    "api_keys": ["dsa-deepseek/deepseek-flash"],
+                    "models": ["deepseek/deepseek-flash"],
                     "extra_headers": {"x-tenant": "dsa"},
                 }
             ],
@@ -2881,7 +2883,7 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
             patch.dict(
                 screening_service.os.environ,
                 {
-                    "GEMINI_API_KEY": "outer-key",
+                    "DEEPSEEK_API_KEY": "outer-key",
                     "TUSHARE_TOKEN": "",
                     "SNAPSHOT_SOURCE_PRIORITY": "",
                     "LLM_CANDIDATE_CONTEXT_ENABLED": "true",
@@ -2894,16 +2896,16 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
             ),
             _patch_screening_core(fake_module),
         ):
-            payload = self._screen(config, market="cn", strategy="dual_low", max_results=5)
-            self.assertEqual(screening_service.os.environ.get("GEMINI_API_KEY"), "outer-key")
+            payload = self._screen(config, market="cn", strategy="balanced_alpha", max_results=5)
+            self.assertEqual(screening_service.os.environ.get("DEEPSEEK_API_KEY"), "outer-key")
 
         pipeline_config = captured["config"]
         self.assertIsInstance(pipeline_config, ScreeningPipelineConfig)
-        self.assertEqual(pipeline_config.llm_model, "gemini/gemini-2.5-flash")
+        self.assertEqual(pipeline_config.llm_model, "deepseek/deepseek-flash")
         self.assertEqual(pipeline_config.llm_fallback_models, ["deepseek/deepseek-chat"])
-        self.assertEqual(pipeline_config.llm_channels[0]["name"], "gemini")
-        self.assertEqual(pipeline_config.llm_channels[0]["protocol"], "gemini")
-        self.assertEqual(pipeline_config.llm_channels[0]["api_keys"], ["dsa-gemini-key"])
+        self.assertEqual(pipeline_config.llm_channels[0]["name"], "deepseek")
+        self.assertEqual(pipeline_config.llm_channels[0]["protocol"], "deepseek")
+        self.assertEqual(pipeline_config.llm_channels[0]["api_keys"], ["dsa-deepseek/deepseek-flash"])
         self.assertFalse(pipeline_config.llm_candidate_context_enabled)
         self.assertEqual(pipeline_config.llm_candidate_multiplier, 2)
         self.assertEqual(pipeline_config.llm_max_candidates, 10)
@@ -2929,11 +2931,11 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
         )
         context = captured["context"]
         self.assertIsInstance(context, dict)
-        self.assertEqual(context["llm"]["model"], "gemini/gemini-2.5-flash")
+        self.assertEqual(context["llm"]["model"], "deepseek/deepseek-flash")
         self.assertFalse(context["llm"]["candidate_context_enabled"])
         self.assertEqual(context["llm"]["candidate_multiplier"], 2)
         self.assertEqual(context["llm"]["max_candidates"], 10)
-        self.assertEqual(context["llm"]["channels"][0]["api_keys"], ["dsa-gemini-key"])
+        self.assertEqual(context["llm"]["channels"][0]["api_keys"], ["dsa-deepseek/deepseek-flash"])
         self.assertEqual(context["llm"]["channels"][0]["extra_headers"], {"x-tenant": "dsa"})
         self.assertEqual(context["llm"]["model_list"][0]["litellm_params"]["extra_headers"], {"x-tenant": "dsa"})
         self.assertIn("get_candidate_context", context["dsa"])
@@ -2946,14 +2948,14 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
     def test_screen_injects_dsa_channel_headers_into_screening_litellm_calls(self) -> None:
         config = Config(
             screening_enabled=True,
-            litellm_model="gemini/gemini-2.5-flash",
+            litellm_model="deepseek/deepseek-flash",
             llm_channels=[
                 {
-                    "name": "gemini",
-                    "protocol": "gemini",
+                    "name": "deepseek",
+                    "protocol": "deepseek",
                     "enabled": True,
-                    "api_keys": ["dsa-gemini-key"],
-                    "models": ["gemini/gemini-2.5-flash"],
+                    "api_keys": ["dsa-deepseek/deepseek-flash"],
+                    "models": ["deepseek/deepseek-flash"],
                     "extra_headers": {"x-tenant": "dsa"},
                 }
             ],
@@ -2968,8 +2970,8 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
 
         def screen_impl(_strategy: str, **_kwargs):
             fake_litellm.completion(
-                model="gemini/gemini-2.5-flash",
-                api_key="dsa-gemini-key",
+                model="deepseek/deepseek-flash",
+                api_key="dsa-deepseek/deepseek-flash",
                 messages=[{"role": "user", "content": "rank"}],
             )
             return {"candidates": []}
@@ -2980,7 +2982,7 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
             patch.dict(sys.modules, {"litellm": fake_litellm}, clear=False),
             _patch_screening_core(fake_module),
         ):
-            payload = self._screen(config, market="cn", strategy="dual_low", max_results=5)
+            payload = self._screen(config, market="cn", strategy="balanced_alpha", max_results=5)
 
         self.assertEqual(payload["candidate_count"], 0)
         self.assertEqual(completion_calls[0]["extra_headers"], {"x-tenant": "dsa"})
@@ -2989,61 +2991,19 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
             getattr(fake_litellm.completion, "_screening_litellm_completion_bridge", False),
         )
 
-    def test_screen_bridges_legacy_openai_fields_into_screening_runtime_env(self) -> None:
+
+    def test_screen_injects_deepseek_model_headers_into_screening_litellm_calls(self) -> None:
         config = Config(
             screening_enabled=True,
-            litellm_model="openai/gpt-4o-mini",
-            openai_api_keys=["dsa-openai-key"],
-            openai_base_url="https://openai-compatible.example/v1",
-        )
-        captured: dict[str, object] = {}
-
-        def screen_impl(_strategy: str, **kwargs):
-            captured["config"] = kwargs.get("config")
-            captured["context"] = kwargs.get("context")
-            return {"candidates": []}
-
-        fake_module = _make_screening_core(screen=MagicMock(side_effect=screen_impl))
-
-        with (
-            patch.dict(
-                screening_service.os.environ,
-                {
-                    "OPENAI_API_KEY": "outer-openai-key",
-                    "OPENAI_BASE_URL": "https://outer-openai.example/v1",
-                },
-                clear=False,
-            ),
-            _patch_screening_core(fake_module),
-        ):
-            payload = self._screen(config, market="cn", strategy="dual_low", max_results=5)
-            self.assertEqual(screening_service.os.environ.get("OPENAI_API_KEY"), "outer-openai-key")
-            self.assertEqual(screening_service.os.environ.get("OPENAI_BASE_URL"), "https://outer-openai.example/v1")
-
-        pipeline_config = captured["config"]
-        self.assertIsInstance(pipeline_config, ScreeningPipelineConfig)
-        self.assertEqual(pipeline_config.llm_api_key, "dsa-openai-key")
-        self.assertEqual(pipeline_config.llm_base_url, "https://openai-compatible.example/v1")
-        self.assertEqual(pipeline_config.llm_model, "openai/gpt-4o-mini")
-
-        context = captured["context"]
-        self.assertIsInstance(context, dict)
-        self.assertEqual(context["llm"]["channels"], [])
-        self.assertEqual(context["llm"]["model_list"], [])
-        self.assertEqual(payload["candidate_count"], 0)
-
-    def test_screen_injects_openai_compatible_model_headers_into_screening_litellm_calls(self) -> None:
-        config = Config(
-            screening_enabled=True,
-            litellm_model="openai/gpt-4o-mini",
-            litellm_fallback_models=["openai/gpt-4o-mini"],
+            litellm_model="deepseek/deepseek-flash",
+            litellm_fallback_models=["deepseek/deepseek-flash"],
             llm_model_list=[
                 {
-                    "model_name": "openai/gpt-4o-mini",
+                    "model_name": "deepseek/deepseek-flash",
                     "litellm_params": {
-                        "model": "openai/gpt-4o-mini",
-                        "api_key": "dsa-openai-key",
-                        "api_base": "https://openai-compatible.example/v1",
+                        "model": "deepseek/deepseek-flash",
+                        "api_key": "dsa-deepseek-key",
+                        "api_base": "https://api.deepseek.com",
                         "extra_headers": {"x-tenant": "dsa"},
                     },
                 },
@@ -3059,9 +3019,9 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
 
         def screen_impl(_strategy: str, **_kwargs):
             fake_litellm.completion(
-                model="openai/gpt-4o-mini",
-                api_key="dsa-openai-key",
-                api_base="https://openai-compatible.example/v1",
+                model="deepseek/deepseek-flash",
+                api_key="dsa-deepseek-key",
+                api_base="https://api.deepseek.com",
                 messages=[{"role": "user", "content": "rank"}],
             )
             return {"candidates": []}
@@ -3072,32 +3032,32 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
             patch.dict(sys.modules, {"litellm": fake_litellm}, clear=False),
             _patch_screening_core(fake_module),
         ):
-            payload = self._screen(config, market="cn", strategy="dual_low", max_results=5)
+            payload = self._screen(config, market="cn", strategy="balanced_alpha", max_results=5)
 
         self.assertEqual(payload["candidate_count"], 0)
         self.assertEqual(completion_calls[0]["extra_headers"], {"x-tenant": "dsa"})
         self.assertEqual(
             completion_calls[0]["api_base"],
-            "https://openai-compatible.example/v1",
+            "https://api.deepseek.com",
         )
         self.assertIsNot(fake_litellm.completion, completion_impl)
         self.assertTrue(
             getattr(fake_litellm.completion, "_screening_litellm_completion_bridge", False),
         )
 
-    def test_screen_bridges_openai_channel_base_url_and_headers(self) -> None:
+    def test_screen_bridges_deepseek_channel_base_url_and_headers(self) -> None:
         config = Config(
             screening_enabled=True,
-            litellm_model="openai/gpt-4o-mini",
-            litellm_fallback_models=["openai/gpt-4.1"],
+            litellm_model="deepseek/deepseek-flash",
+            litellm_fallback_models=["deepseek/deepseek-v4-pro"],
             llm_channels=[
                 {
-                    "name": "openai",
-                    "protocol": "openai",
+                    "name": "deepseek",
+                    "protocol": "deepseek",
                     "enabled": True,
-                    "base_url": "https://primary-openai.example/v1",
-                    "api_keys": ["dsa-openai-primary"],
-                    "models": ["openai/gpt-4o-mini", "openai/gpt-4.1"],
+                    "base_url": "https://api.deepseek.com",
+                    "api_keys": ["dsa-deepseek-primary"],
+                    "models": ["deepseek/deepseek-flash", "deepseek/deepseek-v4-pro"],
                     "extra_headers": {"x-route": "primary", "x-tenant": "dsa"},
                 }
             ],
@@ -3116,15 +3076,15 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
             captured["config"] = kwargs.get("config")
             captured["context"] = kwargs.get("context")
             fake_litellm.completion(
-                model="openai/gpt-4o-mini",
-                api_key="dsa-openai-primary",
-                api_base="https://primary-openai.example/v1",
+                model="deepseek/deepseek-flash",
+                api_key="dsa-deepseek-primary",
+                api_base="https://api.deepseek.com",
                 messages=[{"role": "user", "content": "primary"}],
             )
             fake_litellm.completion(
-                model="openai/gpt-4.1",
-                api_key="dsa-openai-primary",
-                api_base="https://primary-openai.example/v1",
+                model="deepseek/deepseek-v4-pro",
+                api_key="dsa-deepseek-primary",
+                api_base="https://api.deepseek.com",
                 messages=[{"role": "user", "content": "fallback"}],
             )
             return {"candidates": []}
@@ -3135,48 +3095,48 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
             patch.dict(sys.modules, {"litellm": fake_litellm}, clear=False),
             _patch_screening_core(fake_module),
         ):
-            payload = self._screen(config, market="cn", strategy="dual_low", max_results=5)
+            payload = self._screen(config, market="cn", strategy="balanced_alpha", max_results=5)
 
         self.assertEqual(payload["candidate_count"], 0)
         self.assertEqual(len(completion_calls), 2)
         pipeline_config = captured["config"]
         self.assertIsInstance(pipeline_config, ScreeningPipelineConfig)
-        self.assertEqual(pipeline_config.llm_base_url, "https://primary-openai.example/v1")
-        self.assertEqual(pipeline_config.llm_api_key, "dsa-openai-primary")
-        self.assertEqual(pipeline_config.llm_channels[0]["name"], "openai")
-        self.assertEqual(pipeline_config.llm_channels[0]["base_url"], "https://primary-openai.example/v1")
-        self.assertEqual(pipeline_config.llm_channels[0]["api_keys"], ["dsa-openai-primary"])
+        self.assertEqual(pipeline_config.llm_base_url, "https://api.deepseek.com")
+        self.assertEqual(pipeline_config.llm_api_key, "dsa-deepseek-primary")
+        self.assertEqual(pipeline_config.llm_channels[0]["name"], "deepseek")
+        self.assertEqual(pipeline_config.llm_channels[0]["base_url"], "https://api.deepseek.com")
+        self.assertEqual(pipeline_config.llm_channels[0]["api_keys"], ["dsa-deepseek-primary"])
         self.assertEqual(completion_calls[0]["extra_headers"], {"x-route": "primary", "x-tenant": "dsa"})
         self.assertEqual(completion_calls[1]["extra_headers"], {"x-route": "primary", "x-tenant": "dsa"})
         context = captured["context"]
         self.assertIsInstance(context, dict)
-        self.assertEqual(context["llm"]["channels"][0]["base_url"], "https://primary-openai.example/v1")
+        self.assertEqual(context["llm"]["channels"][0]["base_url"], "https://api.deepseek.com")
         self.assertEqual(context["llm"]["channels"][0]["extra_headers"], {"x-route": "primary", "x-tenant": "dsa"})
-        self.assertEqual(context["llm"]["model_list"][0]["litellm_params"]["api_base"], "https://primary-openai.example/v1")
-        self.assertEqual(context["llm"]["fallback_models"], ["openai/gpt-4.1"])
+        self.assertEqual(context["llm"]["model_list"][0]["litellm_params"]["api_base"], "https://api.deepseek.com")
+        self.assertEqual(context["llm"]["fallback_models"], ["deepseek/deepseek-v4-pro"])
         self.assertEqual(payload["candidate_count"], 0)
 
-    def test_screen_injects_openai_compatible_fallback_headers_for_multiple_models(self) -> None:
+    def test_screen_injects_deepseek_fallback_headers_for_multiple_models(self) -> None:
         config = Config(
             screening_enabled=True,
-            litellm_model="openai/gpt-4o-mini",
-            litellm_fallback_models=["openai/gpt-4.1"],
+            litellm_model="deepseek/deepseek-flash",
+            litellm_fallback_models=["deepseek/deepseek-v4-pro"],
             llm_model_list=[
                 {
-                    "model_name": "openai/gpt-4o-mini",
+                    "model_name": "deepseek/deepseek-flash",
                     "litellm_params": {
-                        "model": "openai/gpt-4o-mini",
-                        "api_key": "dsa-openai-primary",
-                        "api_base": "https://primary.openai.example/v1",
+                        "model": "deepseek/deepseek-flash",
+                        "api_key": "dsa-deepseek-primary",
+                        "api_base": "https://api.deepseek.com",
                         "extra_headers": {"x-route": "primary", "x-tenant": "dsa"},
                     },
                 },
                 {
-                    "model_name": "openai/gpt-4.1",
+                    "model_name": "deepseek/deepseek-v4-pro",
                     "litellm_params": {
-                        "model": "openai/gpt-4.1",
-                        "api_key": "dsa-openai-fallback",
-                        "api_base": "https://fallback.openai.example/v1",
+                        "model": "deepseek/deepseek-v4-pro",
+                        "api_key": "dsa-deepseek-fallback",
+                        "api_base": "https://api.deepseek.com/v1",
                         "extra_headers": {"x-route": "fallback", "x-tenant": "dsa"},
                     },
                 },
@@ -3192,15 +3152,15 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
 
         def screen_impl(_strategy: str, **_kwargs) -> dict[str, object]:
             fake_litellm.completion(
-                model="openai/gpt-4o-mini",
-                api_key="dsa-openai-primary",
-                api_base="https://primary.openai.example/v1",
+                model="deepseek/deepseek-flash",
+                api_key="dsa-deepseek-primary",
+                api_base="https://api.deepseek.com",
                 messages=[{"role": "user", "content": "rank-1"}],
             )
             fake_litellm.completion(
-                model="openai/gpt-4.1",
-                api_key="dsa-openai-fallback",
-                api_base="https://fallback.openai.example/v1",
+                model="deepseek/deepseek-v4-pro",
+                api_key="dsa-deepseek-fallback",
+                api_base="https://api.deepseek.com/v1",
                 messages=[{"role": "user", "content": "rank-2"}],
             )
             return {"candidates": []}
@@ -3211,49 +3171,49 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
             patch.dict(sys.modules, {"litellm": fake_litellm}, clear=False),
             _patch_screening_core(fake_module),
         ):
-            payload = self._screen(config, market="cn", strategy="dual_low", max_results=5)
+            payload = self._screen(config, market="cn", strategy="balanced_alpha", max_results=5)
 
         self.assertEqual(payload["candidate_count"], 0)
         primary_call = next(
-            call for call in completion_calls if call["model"] == "openai/gpt-4o-mini"
+            call for call in completion_calls if call["model"] == "deepseek/deepseek-flash"
         )
         fallback_call = next(
-            call for call in completion_calls if call["model"] == "openai/gpt-4.1"
+            call for call in completion_calls if call["model"] == "deepseek/deepseek-v4-pro"
         )
         self.assertEqual(primary_call["extra_headers"], {"x-route": "primary", "x-tenant": "dsa"})
         self.assertEqual(
             fallback_call["extra_headers"],
             {"x-route": "fallback", "x-tenant": "dsa"},
         )
-        self.assertEqual(primary_call["api_base"], "https://primary.openai.example/v1")
-        self.assertEqual(fallback_call["api_base"], "https://fallback.openai.example/v1")
+        self.assertEqual(primary_call["api_base"], "https://api.deepseek.com")
+        self.assertEqual(fallback_call["api_base"], "https://api.deepseek.com/v1")
         self.assertTrue(getattr(fake_litellm.completion, "_screening_litellm_completion_bridge", False))
 
     def test_screen_handles_concurrent_requests_without_litellm_header_cross_pollution(self) -> None:
         config_a = Config(
             screening_enabled=True,
-            litellm_model="gemini/gemini-2.5-flash",
+            litellm_model="deepseek/deepseek-flash",
             llm_channels=[
                 {
-                    "name": "gemini",
-                    "protocol": "gemini",
+                    "name": "deepseek",
+                    "protocol": "deepseek",
                     "enabled": True,
-                    "api_keys": ["dsa-gemini-key-a"],
-                    "models": ["gemini/gemini-2.5-flash"],
+                    "api_keys": ["dsa-deepseek/deepseek-flash"],
+                    "models": ["deepseek/deepseek-flash"],
                     "extra_headers": {"x-tenant": "tenant-a"},
                 }
             ],
         )
         config_b = Config(
             screening_enabled=True,
-            litellm_model="gemini/gemini-2.5-flash",
+            litellm_model="deepseek/deepseek-flash",
             llm_channels=[
                 {
-                    "name": "gemini",
-                    "protocol": "gemini",
+                    "name": "deepseek",
+                    "protocol": "deepseek",
                     "enabled": True,
-                    "api_keys": ["dsa-gemini-key-b"],
-                    "models": ["gemini/gemini-2.5-flash"],
+                    "api_keys": ["dsa-deepseek/deepseek-flash"],
+                    "models": ["deepseek/deepseek-flash"],
                     "extra_headers": {"x-tenant": "tenant-b"},
                 }
             ],
@@ -3281,7 +3241,7 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
             else:
                 thread_b_ready.set()
             fake_litellm.completion(
-                model="gemini/gemini-2.5-flash",
+                model="deepseek/deepseek-flash",
                 api_key=(channels[0].get("api_keys") or [""])[0],
                 messages=[{"role": "user", "content": "rank"}],
             )
@@ -3290,7 +3250,7 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
         fake_module = _make_screening_core(screen=MagicMock(side_effect=screen_impl))
 
         def _run_screen(config: Config) -> None:
-            self._screen(config, market="cn", strategy="dual_low", max_results=5, mock_enrichment=False)
+            self._screen(config, market="cn", strategy="balanced_alpha", max_results=5, mock_enrichment=False)
 
         with (
             patch.dict(sys.modules, {"litellm": fake_litellm}, clear=False),
@@ -3315,9 +3275,9 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
     def test_screen_disabled_preserves_existing_llm_env_state(self) -> None:
         config = self._config(enabled=False)
         baseline_env = {
-            "OPENAI_API_KEY": "legacy-openai-key",
+            "DEEPSEEK_API_KEY": "legacy-deepseek-key",
             "OPENAI_BASE_URL": "https://outer.example.com/v1",
-            "LITELLM_MODEL": "openai/gpt-4o-mini",
+            "LITELLM_MODEL": "deepseek/deepseek-flash",
         }
         original_env = {key: screening_service.os.environ.get(key) for key in baseline_env}
 
@@ -3326,7 +3286,7 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
             patch("src.services.screening_service._build_screening_runtime_env") as runtime_env_mock,
             self.assertRaises(HTTPException) as caught,
         ):
-            self._screen(config, market="cn", strategy="dual_low", max_results=5)
+            self._screen(config, market="cn", strategy="balanced_alpha", max_results=5)
             for key, value in baseline_env.items():
                 self.assertEqual(screening_service.os.environ.get(key), value)
 
@@ -3350,7 +3310,7 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
             patch.dict(screening_service.os.environ, {"SNAPSHOT_SOURCE_PRIORITY": "tushare,em_datacenter"}, clear=False),
             _patch_screening_core(fake_module),
         ):
-            payload = self._screen(config, market="cn", strategy="dual_low", max_results=5)
+            payload = self._screen(config, market="cn", strategy="balanced_alpha", max_results=5)
 
         self.assertEqual(captured["snapshot_priority"], "tushare,em_datacenter")
         self.assertEqual(payload["candidate_count"], 0)
@@ -3369,7 +3329,7 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
             patch.dict(screening_service.os.environ, {"DAILY_SOURCE": "akshare"}, clear=False),
             _patch_screening_core(fake_module),
         ):
-            payload = self._screen(config, market="cn", strategy="dual_low", max_results=5)
+            payload = self._screen(config, market="cn", strategy="balanced_alpha", max_results=5)
 
         self.assertEqual(captured["daily_source"], "akshare")
         self.assertEqual(payload["candidate_count"], 0)
@@ -3556,49 +3516,6 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
         self.assertEqual(cache_write_mock.call_args.kwargs["source"], "auto")
         self.assertEqual(cache_write_mock.call_args.kwargs["lookback_days"], 90)
 
-    def test_screen_preserves_explicit_openai_base_url_without_openai_channel(self) -> None:
-        config = Config(
-            screening_enabled=True,
-            litellm_model="deepseek/deepseek-chat",
-            llm_channels=[
-                {
-                    "name": "deepseek",
-                    "protocol": "deepseek",
-                    "enabled": True,
-                    "base_url": "https://api.deepseek.example/v1",
-                    "api_keys": ["runtime-deepseek-key"],
-                    "models": ["deepseek/deepseek-chat"],
-                }
-            ],
-        )
-        captured: dict[str, object] = {}
-
-        def screen_impl(_strategy: str, **_kwargs):
-            captured["openai_base_url"] = screening_service.os.environ.get("OPENAI_BASE_URL")
-            captured["llm_openai_base_url"] = screening_service.os.environ.get("LLM_OPENAI_BASE_URL")
-            captured["openai_api_key"] = screening_service.os.environ.get("OPENAI_API_KEY")
-            return {"candidates": []}
-
-        fake_module = _make_screening_core(screen=MagicMock(side_effect=screen_impl))
-
-        with (
-            patch.dict(
-                screening_service.os.environ,
-                {
-                    "OPENAI_BASE_URL": "https://outer-openai.example/v1",
-                    "LLM_OPENAI_BASE_URL": "https://outer-openai-channel.example/v1",
-                    "OPENAI_API_KEY": "outer-openai-key",
-                },
-                clear=False,
-            ),
-            _patch_screening_core(fake_module),
-        ):
-            payload = self._screen(config, market="cn", strategy="dual_low", max_results=5)
-
-        self.assertEqual(captured["openai_base_url"], "https://outer-openai.example/v1")
-        self.assertEqual(captured["llm_openai_base_url"], "https://outer-openai-channel.example/v1")
-        self.assertEqual(captured["openai_api_key"], "outer-openai-key")
-        self.assertEqual(payload["candidate_count"], 0)
 
     def test_screening_runtime_priority_puts_tushare_before_sina_when_token_exists(self) -> None:
         config = self._config(enabled=True)
@@ -3609,39 +3526,16 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
 
         self.assertEqual(env["SNAPSHOT_SOURCE_PRIORITY"], "tushare,sina,efinance,akshare_em,em_datacenter")
 
-    def test_screening_runtime_env_preserves_responses_api_surface(self) -> None:
-        config = Config(
-            screening_enabled=True,
-            litellm_model="openai/gpt-5.6-sol",
-            llm_channels=[
-                {
-                    "name": "draft",
-                    "protocol": "openai",
-                    "api_surface": "responses",
-                    "enabled": True,
-                    "base_url": "https://api.example.com/v1",
-                    "api_keys": ["sk-draft"],
-                    "models": ["openai/gpt-5.6-sol"],
-                }
-            ],
-        )
-
-        env = screening_service._build_screening_runtime_env(config)
-
-        self.assertEqual(env["LLM_DRAFT_API_SURFACE"], "responses")
-        with patch.dict(os.environ, env, clear=True):
-            runtime_config = ScreeningPipelineConfig.from_env()
-        self.assertEqual(runtime_config.llm_channels[0]["api_surface"], "responses")
 
     def test_screening_runtime_env_skips_unknown_api_surface(self) -> None:
         with patch.dict(
             os.environ,
             {
                 "LLM_CHANNELS": "draft",
-                "LLM_DRAFT_PROTOCOL": "openai",
+                "LLM_DRAFT_PROTOCOL": "deepseek",
                 "LLM_DRAFT_API_SURFACE": "respones",
                 "LLM_DRAFT_API_KEY": "sk-draft",
-                "LLM_DRAFT_MODELS": "gpt-5.6-sol",
+                "LLM_DRAFT_MODELS": "deepseek/deepseek-v4-pro",
             },
             clear=True,
         ):
@@ -3649,71 +3543,9 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
 
         self.assertEqual(runtime_config.llm_channels, [])
 
-    def test_screening_runtime_env_uses_provider_protocol_before_validating_surface(self) -> None:
-        with patch.dict(
-            os.environ,
-            {
-                "LLM_CHANNELS": "gemini",
-                "LLM_GEMINI_API_SURFACE": "responses",
-                "LLM_GEMINI_API_KEY": "gemini-key",
-                "LLM_GEMINI_MODELS": "gemini-2.5-flash",
-            },
-            clear=True,
-        ):
-            runtime_config = ScreeningPipelineConfig.from_env()
 
-        self.assertEqual(runtime_config.llm_channels, [])
 
-    def test_screening_runtime_env_skips_openai_responses_channel_with_non_openai_model(self) -> None:
-        with patch.dict(
-            os.environ,
-            {
-                "LLM_CHANNELS": "draft",
-                "LLM_DRAFT_PROTOCOL": "openai",
-                "LLM_DRAFT_API_SURFACE": "responses",
-                "LLM_DRAFT_API_KEY": "sk-draft",
-                "LLM_DRAFT_MODELS": "anthropic/claude-sonnet-4-6",
-            },
-            clear=True,
-        ):
-            runtime_config = ScreeningPipelineConfig.from_env()
 
-        self.assertEqual(runtime_config.llm_channels, [])
-
-    def test_screening_runtime_env_skips_openai_responses_channel_with_direct_provider_model(self) -> None:
-        with patch.dict(
-            os.environ,
-            {
-                "LLM_CHANNELS": "draft",
-                "LLM_DRAFT_PROTOCOL": "openai",
-                "LLM_DRAFT_API_SURFACE": "responses",
-                "LLM_DRAFT_API_KEY": "sk-draft",
-                "LLM_DRAFT_MODELS": "xai/grok-beta",
-            },
-            clear=True,
-        ):
-            runtime_config = ScreeningPipelineConfig.from_env()
-
-        self.assertEqual(runtime_config.llm_channels, [])
-
-    def test_screening_runtime_env_skips_duplicate_route_alias_with_mixed_surfaces(self) -> None:
-        with patch.dict(
-            os.environ,
-            {
-                "LLM_CHANNELS": "chat,responses",
-                "LLM_CHAT_PROTOCOL": "openai",
-                "LLM_CHAT_API_KEY": "sk-chat",
-                "LLM_CHAT_MODELS": "gpt-5.6-sol",
-                "LLM_RESPONSES_PROTOCOL": "openai",
-                "LLM_RESPONSES_API_SURFACE": "responses",
-                "LLM_RESPONSES_API_KEY": "sk-responses",
-                "LLM_RESPONSES_MODELS": "gpt-5.6-sol",
-            },
-            clear=True,
-        ):
-            runtime_config = ScreeningPipelineConfig.from_env()
-
-        self.assertEqual(runtime_config.llm_channels, [])
 
     def test_screening_runtime_env_keeps_generic_channel_openai_default(self) -> None:
         with patch.dict(
@@ -3721,28 +3553,14 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
             {
                 "LLM_CHANNELS": "draft",
                 "LLM_DRAFT_API_KEY": "sk-draft",
-                "LLM_DRAFT_MODELS": "gpt-5.6-sol",
+                "LLM_DRAFT_MODELS": "deepseek/deepseek-v4-pro",
             },
             clear=True,
         ):
             runtime_config = ScreeningPipelineConfig.from_env()
 
-        self.assertEqual(runtime_config.llm_channels[0]["protocol"], "openai")
+        self.assertEqual(runtime_config.llm_channels[0]["protocol"], "deepseek")
 
-    def test_screening_runtime_env_skips_unsupported_hermes_responses_surface(self) -> None:
-        with patch.dict(
-            os.environ,
-            {
-                "LLM_CHANNELS": "hermes",
-                "LLM_HERMES_API_SURFACE": "responses",
-                "LLM_HERMES_API_KEY": "sk-hermes",
-                "LLM_HERMES_MODELS": "hermes-agent",
-            },
-            clear=True,
-        ):
-            runtime_config = ScreeningPipelineConfig.from_env()
-
-        self.assertEqual(runtime_config.llm_channels, [])
 
     def test_screen_preserves_explicit_candidate_context_provider_override(self) -> None:
         config = self._config(enabled=True)
@@ -3758,7 +3576,7 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
             patch.dict(screening_service.os.environ, {"LLM_CANDIDATE_CONTEXT_PROVIDERS": "news,announcement"}, clear=False),
             _patch_screening_core(fake_module),
         ):
-            payload = self._screen(config, market="cn", strategy="dual_low", max_results=5)
+            payload = self._screen(config, market="cn", strategy="balanced_alpha", max_results=5)
 
         self.assertEqual(captured["providers"], "news,announcement")
         self.assertEqual(payload["candidate_count"], 0)
@@ -3766,16 +3584,16 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
     def test_screen_filters_undeclared_managed_fallbacks_for_dsa_routes(self) -> None:
         config = Config(
             screening_enabled=True,
-            litellm_model="gemini/gemini-3-flash-preview",
-            litellm_fallback_models=["gemini/gemini-2.5-flash"],
+            litellm_model="deepseek/deepseek-flash",
+            litellm_fallback_models=["deepseek/deepseek-flash"],
             llm_channels=[
                 {
-                    "name": "gemini",
-                    "protocol": "gemini",
+                    "name": "deepseek",
+                    "protocol": "deepseek",
                     "enabled": True,
                     "base_url": "",
-                    "api_keys": ["dsa-gemini-key"],
-                    "models": ["gemini/gemini-3-flash-preview"],
+                    "api_keys": ["dsa-deepseek/deepseek-flash"],
+                    "models": ["deepseek/deepseek-flash"],
                 },
                 {
                     "name": "deepseek",
@@ -3788,10 +3606,10 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
             ],
             llm_model_list=[
                 {
-                    "model_name": "gemini/gemini-3-flash-preview",
+                    "model_name": "deepseek/deepseek-flash",
                     "litellm_params": {
-                        "model": "gemini/gemini-3-flash-preview",
-                        "api_key": "dsa-gemini-key",
+                        "model": "deepseek/deepseek-flash",
+                        "api_key": "dsa-deepseek/deepseek-flash",
                     },
                 },
                 {
@@ -3814,15 +3632,15 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
         fake_module = _make_screening_core(screen=MagicMock(side_effect=screen_impl))
 
         with _patch_screening_core(fake_module):
-            payload = self._screen(config, market="cn", strategy="dual_low", max_results=5)
+            payload = self._screen(config, market="cn", strategy="balanced_alpha", max_results=5)
 
         pipeline_config = captured["config"]
         self.assertIsInstance(pipeline_config, ScreeningPipelineConfig)
-        self.assertEqual(pipeline_config.llm_model, "gemini/gemini-3-flash-preview")
+        self.assertEqual(pipeline_config.llm_model, "deepseek/deepseek-flash")
         self.assertEqual(pipeline_config.llm_fallback_models, ["deepseek/deepseek-chat"])
         self.assertEqual(
             [channel["name"] for channel in pipeline_config.llm_channels],
-            ["gemini", "deepseek"],
+            ["deepseek", "deepseek"],
         )
         context = captured["context"]
         self.assertIsInstance(context, dict)
@@ -3841,7 +3659,7 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
             _patch_screening_core(fake_module),
         ):
             with self.assertRaises(HTTPException) as caught:
-                self._screen(config, market="cn", strategy="dual_low", max_results=5)
+                self._screen(config, market="cn", strategy="balanced_alpha", max_results=5)
 
         self.assertEqual(caught.exception.status_code, 424)
         self.assertEqual(caught.exception.detail.get("diagnostics", {}).get("reason"), "unexpected_exception")
@@ -3866,7 +3684,7 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
         )
 
         with _patch_screening_core(fake_module):
-            payload = self._screen(config, market="cn", strategy="dual_low", max_results=5)
+            payload = self._screen(config, market="cn", strategy="balanced_alpha", max_results=5)
 
         self.assertIsNone(payload["candidates"][0]["score"])
         self.assertIsNone(payload["candidates"][0]["raw"]["score"])
@@ -3876,7 +3694,7 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
     def test_screen_allows_non_listed_strategy_as_custom(self) -> None:
         config = self._config(enabled=True)
         fake_module = _make_screening_core(
-            list_strategies=lambda: [{"id": "dual_low", "name": "双低选股"}],
+            list_strategies=lambda: [{"id": "balanced_alpha", "name": "均衡多因子"}],
             screen=MagicMock(return_value={"candidates": []}),
         )
 
@@ -3906,7 +3724,7 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
 
         with _patch_screening_core(fake_module):
             with self.assertRaises(HTTPException) as caught:
-                self._screen(config, market="cn", strategy="dual_low", max_results=5)
+                self._screen(config, market="cn", strategy="balanced_alpha", max_results=5)
 
         self.assertEqual(caught.exception.status_code, 422)
         self.assertEqual(caught.exception.detail["error"], "screening_invalid_market")
@@ -3919,7 +3737,7 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
 
         with _patch_screening_core(fake_module):
             with self.assertRaises(HTTPException) as caught:
-                self._screen(config, market="cn", strategy="dual_low", max_results=5)
+                self._screen(config, market="cn", strategy="balanced_alpha", max_results=5)
 
         self.assertEqual(caught.exception.status_code, 400)
         self.assertEqual(caught.exception.detail["error"], "screening_screen_rejected")

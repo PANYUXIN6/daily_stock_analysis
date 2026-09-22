@@ -14,14 +14,13 @@
 | 使用 Bot / IM 接入 | [Bot 命令与接入](bot-command.md) | [Bot 平台配置](bot/)、[Grok Bot 集成](grok-bot-integration.md) |
 | 排查运行问题 | [FAQ](FAQ.md) | [更新日志](CHANGELOG.md) |
 | 处理数据源失败或降级 | [数据源稳定性与故障处理图示](data-source-stability.md) | [FAQ](FAQ.md) |
-| 参与开发或提交 PR | [贡献指南](CONTRIBUTING.md) | [API 规格](architecture/api_spec.json) |
 
 ## 快速开始
 
 | 文档 | 内容 |
 | --- | --- |
 | [README](../README.md) | 项目定位、核心能力、快速开始、推送效果 |
-| [小白客户端安装与配置](beginner-client-setup.md) | 面向不会代码用户的客户端下载、Anspire Open / AIHubMix 模型配置、新闻源配置和常见问题 |
+| [小白客户端安装与配置](beginner-client-setup.md) | 面向不会代码用户的客户端下载、DeepSeek 模型配置、新闻源配置和常见问题 |
 | [完整配置与部署指南](full-guide.md) | 环境准备、运行方式、配置说明、部署路径和常见问题 |
 | [FAQ](FAQ.md) | 常见配置、模型、通知、部署和运行问题 |
 | [数据源稳定性与故障处理图示](data-source-stability.md) | Tushare、TickFlow、AkShare、Efinance、YFinance、Longbridge 等已接入源的使用场景、fallback 链路和推荐配置 |
@@ -67,7 +66,6 @@
 | 文档 | 内容 |
 | --- | --- |
 | [API 规格](architecture/api_spec.json) | FastAPI OpenAPI 规格产物 |
-| [贡献指南](CONTRIBUTING.md) | Issue、PR、测试、文档同步和协作要求 |
 
 ## 多语言
 

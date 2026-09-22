@@ -134,7 +134,6 @@ vi.mock('../../components/settings', () => ({
           { key: 'LLM_CHANNELS', value: 'draft,backup' },
           { key: 'LLM_DRAFT_API_SURFACE', value: 'responses' },
           { key: 'LITELLM_MODEL', value: 'openai/draft-model' },
-          { key: 'GENERATION_BACKEND', value: 'codex_cli' },
         ])}
       >
         emit llm draft
@@ -145,30 +144,6 @@ vi.mock('../../components/settings', () => ({
       >
         save llm channels
       </button>
-    </div>
-  ),
-  GenerationBackendStatusPanel: ({ items }: { items: Array<{ key: string; value: string }> }) => (
-    <div data-testid="generation-backend-status-items">
-      {items.map((item) => `${item.key}=${item.value}`).join('|')}
-    </div>
-  ),
-  AgentBackendStatusPanel: ({
-    items,
-    selectedBackend,
-    agentArch,
-    onUseSingleAgent,
-  }: {
-    items: Array<{ key: string; value: string }>;
-    selectedBackend: string;
-    agentArch: string;
-    onUseSingleAgent: () => void;
-  }) => (
-    <div data-testid="agent-backend-status-panel-mock">
-      <span data-testid="agent-backend-status-items">
-        {items.map((item) => `${item.key}=${item.value}`).join('|')}
-      </span>
-      <span>{selectedBackend}:{agentArch}</span>
-      <button type="button" onClick={onUseSingleAgent}>切换为单 Agent</button>
     </div>
   ),
   NotificationTestPanel: ({ items }: { items: Array<{ key: string; value: string }> }) => (
@@ -445,32 +420,6 @@ function buildSystemConfigState(overrides: ConfigOverride = {}) {
     configVersion: 'v1',
     maskToken: '******',
     ...overrides,
-  };
-}
-
-function buildAgentItem(
-  key: string,
-  value: string,
-  displayOrder: number,
-  uiControl: 'select' | 'number' | 'text' = 'text',
-) {
-  return {
-    key,
-    value,
-    rawValueExists: true,
-    isMasked: false,
-    schema: {
-      key,
-      category: 'agent',
-      dataType: uiControl === 'number' ? 'integer' : 'string',
-      uiControl,
-      isSensitive: false,
-      isRequired: false,
-      isEditable: true,
-      options: uiControl === 'select' ? [] : [],
-      validation: {},
-      displayOrder,
-    },
   };
 }
 
@@ -974,47 +923,6 @@ describe('SettingsPage', () => {
     expect(settingsPanelErrorBoundary).toHaveBeenCalledWith('Agent 设置');
   });
 
-  it('integrates one Agent backend selector and keeps Codex limits editable as unsaved draft actions', () => {
-    const configState = buildSystemConfigState();
-    useSystemConfigMock.mockReturnValue(buildSystemConfigState({
-      activeCategory: 'agent',
-      hasDirty: true,
-      dirtyCount: 2,
-      getChangedItems: () => [
-        { key: 'AGENT_BACKEND', value: 'codex_app_server' },
-        { key: 'AGENT_ARCH', value: 'multi' },
-      ],
-      itemsByCategory: {
-        ...configState.itemsByCategory,
-        agent: [
-          buildAgentItem('AGENT_BACKEND', 'codex_app_server', 1, 'select'),
-          buildAgentItem('AGENT_GENERATION_BACKEND', 'auto', 2, 'select'),
-          buildAgentItem('AGENT_LITELLM_MODEL', 'openai/gpt-4o-mini', 3),
-          buildAgentItem('AGENT_MAX_STEPS', '10', 4, 'number'),
-          buildAgentItem('AGENT_ARCH', 'multi', 5, 'select'),
-          buildAgentItem('AGENT_ORCHESTRATOR_TIMEOUT_S', '600', 6, 'number'),
-        ],
-      },
-    }));
-
-    renderSettingsPage();
-
-    expect(screen.getByTestId('settings-field-AGENT_BACKEND')).toBeInTheDocument();
-    expect(screen.queryByTestId('settings-field-AGENT_GENERATION_BACKEND')).not.toBeInTheDocument();
-    expect(screen.getByTestId('settings-field-AGENT_MAX_STEPS')).toHaveAttribute('data-disabled', 'false');
-    expect(screen.getByTestId('settings-field-AGENT_ARCH')).toHaveAttribute(
-      'data-issues',
-      'unsupported_agent_arch',
-    );
-    expect(screen.getByTestId('agent-backend-status-items')).toHaveTextContent(
-      'AGENT_BACKEND=codex_app_server|AGENT_ARCH=multi',
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: '切换为单 Agent' }));
-    expect(setDraftValue).toHaveBeenCalledWith('AGENT_ARCH', 'single');
-    expect(save).not.toHaveBeenCalled();
-  });
-
   it('renders context compression profile labels and blank preset guidance in agent settings', () => {
     const configState = buildSystemConfigState();
     useSystemConfigMock.mockReturnValue(buildSystemConfigState({
@@ -1142,53 +1050,6 @@ describe('SettingsPage', () => {
 
     expect(refreshAfterExternalSave).toHaveBeenCalledWith(['LLM_CHANNELS']);
     expect(load).toHaveBeenCalledTimes(1);
-  });
-
-  it('passes merged generation backend draft items to the backend status panel', async () => {
-    useSystemConfigMock.mockReturnValue(buildSystemConfigState({
-      activeCategory: 'ai_model',
-      getChangedItems: () => [
-        { key: 'GENERATION_BACKEND', value: 'litellm' },
-        { key: 'LLM_CHANNELS', value: 'saved' },
-        { key: 'OPENAI_MODEL', value: 'gpt-draft' },
-        { key: 'GEMINI_MODEL', value: 'gemini-draft' },
-        { key: 'OLLAMA_API_BASE', value: 'http://localhost:11434' },
-        { key: 'WECHAT_WEBHOOK_URL', value: 'not-a-url' },
-      ],
-    }));
-
-    renderSettingsPage();
-
-    fireEvent.click(screen.getByRole('button', { name: 'emit llm draft' }));
-
-    const statusItems = await screen.findByTestId('generation-backend-status-items');
-    await waitFor(() => {
-      expect(statusItems).toHaveTextContent('GENERATION_BACKEND=litellm');
-      expect(statusItems).toHaveTextContent('LLM_CHANNELS=draft,backup');
-      expect(statusItems).toHaveTextContent('LLM_DRAFT_API_SURFACE=responses');
-      expect(statusItems).toHaveTextContent('LITELLM_MODEL=openai/draft-model');
-      expect(statusItems).toHaveTextContent('OPENAI_MODEL=gpt-draft');
-      expect(statusItems).toHaveTextContent('GEMINI_MODEL=gemini-draft');
-      expect(statusItems).toHaveTextContent('OLLAMA_API_BASE=http://localhost:11434');
-      expect(statusItems).not.toHaveTextContent('GENERATION_BACKEND=codex_cli');
-      expect(statusItems).not.toHaveTextContent('WECHAT_WEBHOOK_URL=not-a-url');
-    });
-  });
-
-  it('clears llm channel draft items after llm channel editor saves', async () => {
-    useSystemConfigMock.mockReturnValue(buildSystemConfigState({ activeCategory: 'ai_model' }));
-
-    renderSettingsPage();
-
-    fireEvent.click(screen.getByRole('button', { name: 'emit llm draft' }));
-    expect(await screen.findByTestId('generation-backend-status-items')).toHaveTextContent('LLM_CHANNELS=draft,backup');
-
-    fireEvent.click(screen.getByRole('button', { name: 'save llm channels' }));
-
-    await waitFor(() => {
-      expect(screen.getByTestId('generation-backend-status-items')).not.toHaveTextContent('LLM_CHANNELS=draft,backup');
-    });
-    expect(refreshAfterExternalSave).toHaveBeenCalledWith(['LLM_CHANNELS']);
   });
 
   it('keeps prompt cache settings collapsed and expandable at the bottom of AI model settings', () => {
@@ -2151,12 +2012,12 @@ describe('SettingsPage', () => {
             },
           },
           {
-            key: 'OPENAI_BASE_URL',
+            key: 'DEEPSEEK_API_KEY',
             value: 'https://api.openai.com/v1',
             rawValueExists: true,
             isMasked: false,
             schema: {
-              key: 'OPENAI_BASE_URL',
+              key: 'DEEPSEEK_API_KEY',
               category: 'ai_model',
               dataType: 'string',
               uiControl: 'text',
@@ -2169,12 +2030,12 @@ describe('SettingsPage', () => {
             },
           },
           {
-            key: 'OPENAI_MODEL',
+            key: 'VISION_MODEL',
             value: 'gpt-5.0',
             rawValueExists: true,
             isMasked: false,
             schema: {
-              key: 'OPENAI_MODEL',
+              key: 'VISION_MODEL',
               category: 'ai_model',
               isMasked: false,
               dataType: 'string',
@@ -2231,13 +2092,13 @@ describe('SettingsPage', () => {
     const llmEditorItems = await screen.findByTestId('llm-channel-editor-items');
     expect(llmEditorItems).toHaveTextContent('LLM_CHANNELS');
     expect(llmEditorItems).toHaveTextContent('LITELLM_MODEL');
-    expect(llmEditorItems).toHaveTextContent('OPENAI_BASE_URL');
-    expect(llmEditorItems).toHaveTextContent('OPENAI_MODEL');
+    expect(llmEditorItems).toHaveTextContent('DEEPSEEK_API_KEY');
+    expect(llmEditorItems).toHaveTextContent('VISION_MODEL');
     expect(llmEditorItems).toHaveTextContent('LLM_MY_PROXY_API_KEY');
     expect(llmEditorItems).toHaveTextContent('LLM_MY_PROXY_MODELS');
     expect(screen.queryByTestId('settings-field-LITELLM_MODEL')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('settings-field-OPENAI_BASE_URL')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('settings-field-OPENAI_MODEL')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('settings-field-DEEPSEEK_API_KEY')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('settings-field-VISION_MODEL')).not.toBeInTheDocument();
     expect(screen.queryByTestId('settings-field-LLM_MY_PROXY_API_KEY')).not.toBeInTheDocument();
     expect(screen.queryByTestId('settings-field-LLM_MY_PROXY_MODELS')).not.toBeInTheDocument();
   });

@@ -20,7 +20,7 @@
 - 普通 A 股日线按 `DataFetcherManager` 的已启用 provider 顺序尝试。
 - 实时行情由 `REALTIME_SOURCE_PRIORITY` 控制；无效或未启用的 source 会被跳过。
 - 已登记 A 股指数使用独立的 Tencent → AkShare → TickFlow 降级链，不复用普通股票优先级。
-- 基本面、资金、板块、筹码等能力按各 provider 的实际支持情况返回；可选块失败时保持 fail-open。
+- 基本面、资金、板块等能力按各 provider 的实际支持情况返回；可选块失败时保持 fail-open。
 - 缓存、熔断、超时和重试只影响对应 provider，不改变 A 股代码与字段契约。
 
 ## 推荐配置

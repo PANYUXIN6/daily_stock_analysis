@@ -94,7 +94,7 @@ class TestCommandDispatcherAsync(unittest.IsolatedAsyncioTestCase):
     async def test_parse_intent_via_llm_offloads_to_thread(self):
         fake_response = SimpleNamespace(
             content='{"intent":"analysis","codes":["600519"],"strategy":null}',
-            provider="gemini",
+            provider="deepseek",
             usage={"total_tokens": 12},
         )
         config = SimpleNamespace(litellm_model="gemini/test-model")

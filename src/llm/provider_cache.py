@@ -22,65 +22,14 @@ CacheActivation = Literal[
     "none",
     "unknown",
 ]
-ApiSurface = Literal[
-    "responses",
-    "chat_completions",
-    "anthropic_messages",
-    "gemini_generate_content",
-    "bedrock_converse",
-    "vertex_generate_content",
-    "dashscope_native",
-    "moonshot_native",
-    "minimax_native",
-    "litellm_completion",
-    "openrouter_chat_completions",
-    "unknown",
-]
-CloudPlatform = Literal["none", "aws_bedrock", "vertex_ai", "azure", "unknown"]
+ApiSurface = Literal["chat_completions", "litellm_completion", "unknown"]
+CloudPlatform = Literal["none", "unknown"]
 RateLimitSemantics = Literal["cached_counts", "cached_not_counted", "unknown"]
-CostModel = Literal[
-    "openai_cached_tokens",
-    "anthropic_read_write",
-    "gemini_implicit",
-    "gemini_explicit_cached_content",
-    "deepseek_hit_miss",
-    "gateway_specific",
-    "unknown",
-]
+CostModel = Literal["deepseek_hit_miss", "unknown"]
 
 ACTIVE_HINT_VERIFICATION_STATUSES = {"verified", "smoke_tested"}
 DIAGNOSTICS_LEVELS = {"off", "basic", "debug"}
 PROMPT_CACHE_TELEMETRY_DISABLED_ATTR = "prompt_cache_telemetry_disabled"
-
-_EXPLICIT_PROVIDER_FAMILY_ALIASES = {
-    "anthropic": "anthropic",
-    "gemini": "gemini",
-    "vertex_ai": "vertex_ai",
-    "deepseek": "deepseek",
-    "dashscope": "dashscope",
-    "qwen": "qwen",
-    "moonshot": "moonshot",
-    "kimi": "kimi",
-    "minimax": "minimax",
-    "openrouter": "openrouter",
-    "zhipu": "glm",
-    "bigmodel": "glm",
-    "glm": "glm",
-    "stepfun": "stepfun",
-    "litellm": "litellm_gateway",
-    "litellm_gateway": "litellm_gateway",
-}
-
-_API_BASE_HOST_FAMILY_SUFFIXES: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
-    ("openrouter", ("openrouter.ai",)),
-    ("dashscope", ("dashscope.aliyuncs.com", "dashscope-intl.aliyuncs.com", "bailian.aliyuncs.com")),
-    ("moonshot", ("moonshot.cn",)),
-    ("minimax", ("minimax.chat", "minimax.io")),
-    ("deepseek", ("deepseek.com",)),
-    ("glm", ("bigmodel.cn", "z.ai")),
-    ("stepfun", ("stepfun.com", "stepfun.ai")),
-)
-
 
 class PromptCacheTelemetryFilteredUsage(dict):
     """Usage mapping marker for storage without adding a public usage field."""
@@ -216,43 +165,6 @@ def _caps(
 
 PROVIDER_CACHE_REGISTRY: Tuple[ProviderCacheCaps, ...] = (
     _caps(
-        "openai",
-        api_surface="chat_completions",
-        verification_status="doc_only",
-        cache_activation="routing_hint_only",
-        directive_support=DirectiveSupport(prompt_cache_key=True, prompt_cache_retention=True),
-        native_min_cache_tokens=1024,
-        eligibility_source="provider_doc",
-        usage_paths={"cache_read": "usage.prompt_tokens_details.cached_tokens"},
-        rate_limit_semantics="cached_counts",
-        cost_model="openai_cached_tokens",
-        doc_sources=("https://developers.openai.com/api/docs/guides/prompt-caching",),
-    ),
-    _caps(
-        "anthropic",
-        api_surface="anthropic_messages",
-        verification_status="doc_only",
-        cache_activation="explicit_breakpoint",
-        directive_support=DirectiveSupport(block_cache_control=True, litellm_cache_control_injection_points=True),
-        usage_paths={
-            "cache_read": "usage.cache_read_input_tokens",
-            "cache_write": "usage.cache_creation_input_tokens",
-        },
-        cost_model="anthropic_read_write",
-        doc_sources=("https://platform.claude.com/docs/en/build-with-claude/prompt-caching",),
-    ),
-    _caps(
-        "gemini",
-        api_surface="gemini_generate_content",
-        verification_status="doc_only",
-        cache_activation="implicit_provider_managed",
-        directive_support=DirectiveSupport(cached_content_resource=True, provider_managed_no_directive=True),
-        requires_resource_lifecycle=True,
-        usage_paths={"cache_read": "usage_metadata.cached_content_token_count"},
-        cost_model="gemini_implicit",
-        doc_sources=("https://ai.google.dev/gemini-api/docs/caching",),
-    ),
-    _caps(
         "deepseek",
         api_surface="chat_completions",
         verification_status="doc_only",
@@ -265,101 +177,6 @@ PROVIDER_CACHE_REGISTRY: Tuple[ProviderCacheCaps, ...] = (
         cost_model="deepseek_hit_miss",
         doc_sources=("https://api-docs.deepseek.com/guides/kv_cache",),
         deepseek_caps=DeepSeekCaps(user_id_supported=True, user_id_enabled_by_default=False),
-    ),
-    _caps(
-        "qwen",
-        api_surface="dashscope_native",
-        verification_status="doc_only",
-        cache_activation="implicit_provider_managed",
-        directive_support=DirectiveSupport(provider_managed_no_directive=True),
-        usage_paths={"cache_read": "usage.prompt_tokens_details.cached_tokens"},
-        cost_model="gateway_specific",
-        doc_sources=("https://www.alibabacloud.com/help/en/model-studio/context-cache",),
-    ),
-    _caps(
-        "dashscope",
-        api_surface="dashscope_native",
-        verification_status="doc_only",
-        cache_activation="implicit_provider_managed",
-        directive_support=DirectiveSupport(provider_managed_no_directive=True),
-        usage_paths={"cache_read": "usage.prompt_tokens_details.cached_tokens"},
-        cost_model="gateway_specific",
-        doc_sources=("https://www.alibabacloud.com/help/en/model-studio/context-cache",),
-    ),
-    _caps(
-        "kimi",
-        api_surface="moonshot_native",
-        verification_status="doc_only",
-        cache_activation="routing_hint_only",
-        directive_support=DirectiveSupport(prompt_cache_key=True),
-        usage_paths={"cache_read": "usage.cached_tokens"},
-        cost_model="gateway_specific",
-        doc_sources=("https://platform.kimi.ai/docs/api/chat",),
-    ),
-    _caps(
-        "moonshot",
-        api_surface="moonshot_native",
-        verification_status="doc_only",
-        cache_activation="routing_hint_only",
-        directive_support=DirectiveSupport(prompt_cache_key=True),
-        usage_paths={"cache_read": "usage.cached_tokens"},
-        cost_model="gateway_specific",
-        doc_sources=("https://platform.kimi.ai/docs/api/chat",),
-    ),
-    _caps(
-        "minimax",
-        api_surface="minimax_native",
-        verification_status="doc_only",
-        cache_activation="implicit_provider_managed",
-        directive_support=DirectiveSupport(provider_managed_no_directive=True),
-        usage_paths={"cache_read": "usage.cached_tokens"},
-        cost_model="gateway_specific",
-        doc_sources=("https://platform.minimax.io/docs/api-reference/text-prompt-caching",),
-    ),
-    _caps(
-        "openrouter",
-        api_surface="openrouter_chat_completions",
-        gateway="openrouter",
-        verification_status="doc_only",
-        cache_activation="implicit_provider_managed",
-        directive_support=DirectiveSupport(session_id=True),
-        usage_paths={
-            "cache_read": "usage.cache_read_tokens",
-            "cache_write": "usage.cache_write_tokens",
-        },
-        cost_model="gateway_specific",
-        doc_sources=("https://openrouter.ai/docs/guides/best-practices/prompt-caching",),
-    ),
-    _caps(
-        "glm",
-        api_surface="chat_completions",
-        verification_status="doc_only",
-        cache_activation="implicit_provider_managed",
-        directive_support=DirectiveSupport(provider_managed_no_directive=True),
-        usage_paths={"cache_read": "usage.prompt_tokens_details.cached_tokens"},
-        cost_model="gateway_specific",
-        doc_sources=("https://docs.z.ai/guides/capabilities/cache",),
-    ),
-    _caps(
-        "stepfun",
-        api_surface="chat_completions",
-        verification_status="doc_only",
-        cache_activation="implicit_provider_managed",
-        directive_support=DirectiveSupport(provider_managed_no_directive=True),
-        usage_paths={"cache_read": "usage.cached_tokens"},
-        cost_model="gateway_specific",
-        doc_sources=("https://platform.stepfun.ai/docs/en/guides/developer/prompt-cache",),
-    ),
-    _caps(
-        "litellm_gateway",
-        api_surface="litellm_completion",
-        gateway="litellm",
-        verification_status="unverified",
-        cache_activation="unknown",
-        directive_support=DirectiveSupport(litellm_cache_control_injection_points=True),
-        usage_paths={},
-        cost_model="unknown",
-        doc_sources=("https://docs.litellm.ai/docs/completion/prompt_caching",),
     ),
 )
 
@@ -444,66 +261,12 @@ def _model_pattern_matches(pattern: str, model: str) -> bool:
     return normalized_model == normalized_pattern
 
 
-def infer_provider_family(
-    *,
-    model: str = "",
-    provider: Optional[str] = None,
-    api_base: Optional[str] = None,
-) -> str:
-    normalized_model = (model or "").strip().lower()
-    normalized_provider = (provider or "").strip().lower()
-
-    if normalized_provider in _EXPLICIT_PROVIDER_FAMILY_ALIASES:
-        return _EXPLICIT_PROVIDER_FAMILY_ALIASES[normalized_provider]
-
-    model_family = _infer_provider_family_from_model(normalized_model)
-    if model_family:
-        return model_family
-
-    if normalized_provider == "openai":
-        return "openai" if _is_native_openai_model(normalized_model) else "openai_compatible"
-    api_base_family = _infer_provider_family_from_api_base(api_base)
-    if api_base_family:
-        return api_base_family
-    if normalized_model.startswith("openai/"):
-        return "openai" if _is_native_openai_model(normalized_model) else "openai_compatible"
-    if normalized_provider == "openai_compatible":
-        return "openai_compatible"
-    if "/" in normalized_model:
-        return normalized_model.split("/", 1)[0]
-    return normalized_provider or "unknown"
-
-
-def _infer_provider_family_from_model(normalized_model: str) -> Optional[str]:
-    if not normalized_model:
-        return None
-    if normalized_model.startswith("openai/~"):
-        return "openrouter"
-    if normalized_model.startswith("anthropic/"):
-        return "anthropic"
-    if normalized_model.startswith("gemini/"):
-        return "gemini"
-    if normalized_model.startswith("vertex_ai/"):
-        return "vertex_ai"
-    if normalized_model.startswith("step/"):
-        return "stepfun"
-    if _is_glm_model(normalized_model):
-        return "glm"
-
-    model_name = normalized_model.split("/", 1)[1] if normalized_model.startswith("openai/") else normalized_model
-    if model_name.startswith(("qwen", "qwq", "qvq")):
-        return "qwen"
-    if model_name.startswith("kimi"):
-        return "kimi"
-    if model_name.startswith("moonshot"):
-        return "moonshot"
-    if model_name.startswith("minimax"):
-        return "minimax"
-    if model_name.startswith("deepseek"):
+def infer_provider_family(*, model: str = "", provider: Optional[str] = None, api_base: Optional[str] = None) -> str:
+    if provider == "deepseek" or model.startswith(("deepseek/", "deepseek-")):
         return "deepseek"
-    if model_name.startswith("step"):
-        return "stepfun"
-    return None
+    return "unknown"
+
+
 
 
 def apply_prompt_cache_hints(
@@ -545,26 +308,7 @@ def apply_prompt_cache_hints(
         api_base=route_context.api_base,
     )
 
-    if family == "openai" and caps.directive_support.prompt_cache_key:
-        prompt_key = _safe_hmac_token(
-            {
-                "provider": caps.provider,
-                "api_surface": caps.api_surface,
-                "gateway": caps.gateway,
-                "model_pattern": caps.model_pattern,
-                "call_type": route_context.call_type,
-            },
-            domain="prompt_cache_key",
-        )
-        if not prompt_key:
-            disabled_reason = "hmac_secret_unavailable"
-        else:
-            new_kwargs["prompt_cache_key"] = prompt_key
-            applied = True
-    elif family == "anthropic" and caps.directive_support.block_cache_control:
-        applied = _apply_anthropic_system_cache_control(new_kwargs)
-        disabled_reason = None if applied else "no_stable_system_prefix"
-    elif family == "deepseek" and caps.deepseek_caps and caps.deepseek_caps.user_id_enabled_by_default:
+    if family == "deepseek" and caps.deepseek_caps and caps.deepseek_caps.user_id_enabled_by_default:
         user_id = _deepseek_user_id(route_context, caps.deepseek_caps)
         if user_id:
             new_kwargs["user_id"] = user_id
@@ -614,24 +358,6 @@ def filter_prompt_cache_telemetry(usage: Mapping[str, Any], config: Any) -> Dict
     return filtered
 
 
-def _apply_anthropic_system_cache_control(call_kwargs: Dict[str, Any]) -> bool:
-    messages = call_kwargs.get("messages")
-    if not isinstance(messages, list) or not messages:
-        return False
-    first = messages[0]
-    if not isinstance(first, dict) or first.get("role") != "system":
-        return False
-    content = first.get("content")
-    if not isinstance(content, str) or not content:
-        return False
-    first["content"] = [
-        {
-            "type": "text",
-            "text": content,
-            "cache_control": {"type": "ephemeral"},
-        }
-    ]
-    return True
 
 
 def _safe_hmac_token(value: Any, *, domain: str) -> Optional[str]:
@@ -769,57 +495,17 @@ def _first_non_empty(*values: Any) -> Optional[str]:
 
 
 def _infer_api_surface(family: str, api_base: Optional[str]) -> ApiSurface:
-    if family == "anthropic":
-        return "anthropic_messages"
-    if family in {"gemini", "vertex_ai"}:
-        return "vertex_generate_content" if family == "vertex_ai" else "gemini_generate_content"
-    if family == "dashscope":
-        return "dashscope_native"
-    if family in {"kimi", "moonshot"}:
-        return "moonshot_native"
-    if family == "minimax":
-        return "minimax_native"
-    if family == "openrouter":
-        return "openrouter_chat_completions"
-    if _infer_provider_family_from_api_base(api_base) == "openrouter":
-        return "openrouter_chat_completions"
-    if family == "unknown":
-        return "unknown"
-    return "chat_completions"
+    return "chat_completions" if family == "deepseek" else "unknown"
 
 
 def _infer_gateway(api_base: Optional[str], family: str) -> Optional[str]:
-    text = (api_base or "").lower()
-    if "openrouter" in text:
-        return "openrouter"
-    if "litellm" in text:
-        return "litellm"
-    if "aihubmix" in text:
-        return "aihubmix"
-    if family == "openrouter":
-        return "openrouter"
     return None
 
 
 def _infer_cloud_platform(api_base: Optional[str], family: str) -> CloudPlatform:
-    text = (api_base or "").lower()
-    if "bedrock" in text:
-        return "aws_bedrock"
-    if "vertex" in text or family == "vertex_ai":
-        return "vertex_ai"
-    if "azure" in text:
-        return "azure"
     return "none"
 
 
-def _infer_provider_family_from_api_base(api_base: Optional[str]) -> Optional[str]:
-    host = _api_base_host(api_base)
-    if not host:
-        return None
-    for family, suffixes in _API_BASE_HOST_FAMILY_SUFFIXES:
-        if any(host == suffix or host.endswith(f".{suffix}") for suffix in suffixes):
-            return family
-    return None
 
 
 def _api_base_host(api_base: Optional[str]) -> str:
@@ -828,15 +514,3 @@ def _api_base_host(api_base: Optional[str]) -> str:
         return ""
     parsed = urlparse(text if "://" in text else f"https://{text}")
     return (parsed.hostname or "").strip(".")
-
-
-def _is_native_openai_model(normalized_model: str) -> bool:
-    model_name = normalized_model.split("/", 1)[1] if normalized_model.startswith("openai/") else normalized_model
-    return model_name.startswith(("gpt-", "o1", "o3", "o4", "chatgpt-", "gpt4"))
-
-
-def _is_glm_model(normalized_model: str) -> bool:
-    if not normalized_model:
-        return False
-    model_name = normalized_model.split("/", 1)[-1]
-    return model_name.startswith(("glm", "chatglm")) or "z-ai" in normalized_model or "zai-" in normalized_model

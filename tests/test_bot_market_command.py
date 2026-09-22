@@ -44,8 +44,6 @@ class MarketCommandRegionFilterTestCase(unittest.TestCase):
             market_review_region=market_review_region,
             trading_day_check_enabled=trading_day_check_enabled,
             has_search_capability_enabled=lambda: False,
-            gemini_api_key=None,
-            openai_api_key=None,
         )
         notifier = MagicMock()
         notifier.is_available.return_value = True

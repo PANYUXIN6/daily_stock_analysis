@@ -52,20 +52,19 @@ This document compiles common issues encountered by users and their solutions.
 
 ### Q5: GitHub Actions run failed, showing environment variable not found?
 
-**Symptom**: Actions log shows `GEMINI_API_KEY` or `STOCK_LIST` undefined
+**Symptom**: Actions log shows `DEEPSEEK_API_KEY` or `STOCK_LIST` undefined
 
 **Cause**: GitHub distinguishes `Secrets` (encrypted) and `Variables` (regular variables), wrong configuration location causes read failure.
 
 **Solution**:
 1. Go to repo `Settings` → `Secrets and variables` → `Actions`
 2. **Secrets** (click `New repository secret`): Store sensitive information
-   - `GEMINI_API_KEY`
-   - `OPENAI_API_KEY`
+   - `DEEPSEEK_API_KEY`
    - `TELEGRAM_BOT_TOKEN`
    - Various Webhook URLs
 3. **Variables** (click `Variables` tab): Store non-sensitive configuration
    - `STOCK_LIST`
-   - `GEMINI_MODEL`
+   - `LITELLM_MODEL`
    - `REPORT_TYPE`
 
 > Compatibility note: the daily analysis workflow also binds the `STOCK_LIST` environment, so a `STOCK_LIST` value mistakenly added under that Environment's variables can still be read. Repository variables remain the recommended location. Unless you want the daily job to wait for manual approval, do not add required reviewers, wait timers, or deployment branch restrictions to this Environment.
@@ -94,7 +93,7 @@ This document compiles common issues encountered by users and their solutions.
 
 ---
 
-### Q7: How to configure proxy to access Gemini/OpenAI API?
+### Q7: How to configure proxy to access DeepSeek API?
 
 **Solution**:
 
@@ -113,21 +112,17 @@ PROXY_PORT=10809
 
 > Full details: [LLM Config Guide](LLM_CONFIG_GUIDE_EN.md).
 
-**Q: Configured both GEMINI_API_KEY and LLM_CHANNELS, why does it only use channels?**
+**Q: Configured both DEEPSEEK_API_KEY and LLM_CHANNELS, why does it only use channels?**
 
 The system uses exactly one mode by priority: advanced YAML routing (`LITELLM_CONFIG`) > `LLM_CHANNELS` > legacy keys. However, YAML routing only takes effect when the file can be parsed successfully and yields a non-empty `model_list`; if the YAML path is invalid or the content is empty, the system automatically falls back to `LLM_CHANNELS` or legacy keys. Once a tier is active, lower-priority tiers are not used.
 
 **Q: check_env says no usable AI model is configured, what should I do?**
 
-Start with one provider and its API key. If you want to pin a primary model, add `LITELLM_MODEL=provider/model`. If you need multi-model switching, configure `LLM_CHANNELS` or advanced YAML routing. Run `python scripts/check_env.py --config` to validate config and `python scripts/check_env.py --llm` to actually call the API.
+Start with a DeepSeek API key. If you want to pin a primary model, add `LITELLM_MODEL=deepseek/deepseek-flash`. If you need multi-model switching, configure `LLM_CHANNELS` or advanced YAML routing. Run `python scripts/check_env.py --config` to validate config and `python scripts/check_env.py --llm` to actually call the API.
 
-**Q: How to use multiple models at once (e.g. AIHubmix + DeepSeek + Gemini)?**
+**Q: How do I configure multiple models?**
 
-Use channel mode: set `LLM_CHANNELS=aihubmix,deepseek,gemini` and configure each channel's `LLM_{NAME}_BASE_URL`, `LLM_{NAME}_API_KEY`, `LLM_{NAME}_MODELS`. You can also configure this visually in Web Settings → AI Model → AI Model Access.
-
-**Q: The ask-stock / Agent page says no usable LLM is configured, but I only use legacy `GEMINI_*` / `OPENAI_*` / `ANTHROPIC_*` settings. What should I check?**
-
-First confirm whether `LITELLM_CONFIG` or `LLM_CHANNELS` is active, because either of those tiers overrides legacy keys. If neither tier is active and `AGENT_LITELLM_MODEL` is empty, the ask-stock Agent still inherits legacy provider models automatically: `GEMINI_MODEL`, `OPENAI_MODEL`, and `ANTHROPIC_MODEL` are mapped to LiteLLM provider-prefixed model names for the corresponding runtime. This fix does not silently migrate or clear old settings; it only returns the real backend reason to the frontend so you can see whether the issue is a missing key, a missing model name, or an upper-tier config taking precedence. Full compatibility details are documented in the [LLM Config Guide](LLM_CONFIG_GUIDE_EN.md) under “Ask-Stock Agent / LiteLLM compatibility notes”.
+Use DeepSeek models with `DEEPSEEK_API_KEYS` and `LITELLM_FALLBACK_MODELS`. See [LLM configuration](LLM_CONFIG_GUIDE_EN.md). Other vendors are no longer supported.
 
 ---
 
@@ -188,29 +183,16 @@ First confirm whether `LITELLM_CONFIG` or `LLM_CHANNELS` is active, because eith
 
 ## AI Model Related
 
-### Q11: Gemini API returns 429 error (too many requests)?
+### Q11: DeepSeek API returns 429 error (too many requests)?
 
-**Symptom**: Log shows `Resource has been exhausted` or `429 Too Many Requests`
+Use the official DeepSeek API. See [configuration](LLM_CONFIG_GUIDE_EN.md). For rate limits, increase `LLM_REQUEST_DELAY` or reduce concurrency.
 
-**Solution**:
-1. Gemini free tier has rate limits (about 15 RPM)
-2. Reduce number of stocks analyzed simultaneously
-3. Increase request delay:
-   ```bash
-   GEMINI_REQUEST_DELAY=5
-   ANALYSIS_DELAY=10
-   ```
-4. Or switch to OpenAI-compatible API as backup
+### Q12: How to use DeepSeek models?
 
----
+Use the official DeepSeek API. See [configuration](LLM_CONFIG_GUIDE_EN.md). For rate limits, increase `LLM_REQUEST_DELAY` or reduce concurrency.
 
-### Q12: How to use DeepSeek and other Chinese models?
-
-**Configuration method**:
-
-```bash
-# No need to configure GEMINI_API_KEY
-OPENAI_API_KEY=sk-xxxxxxxx
+# No need to configure DEEPSEEK_API_KEY
+DEEPSEEK_API_KEY=sk-xxxxxxxx
 OPENAI_BASE_URL=https://api.deepseek.com
 OPENAI_MODEL=deepseek-v4-flash
 # deepseek-chat / deepseek-reasoner remain compatible, but DeepSeek marks them deprecated after 2026/07/24
@@ -220,51 +202,6 @@ Supported model services:
 - DeepSeek: `https://api.deepseek.com`
 - Qwen (Tongyi Qianwen): `https://dashscope.aliyuncs.com/compatible-mode/v1`
 - Moonshot: `https://api.moonshot.cn/v1`
-
----
-
-### Q12b: How to use Ollama local models?
-
-**Configuration**: Use `OLLAMA_API_BASE` + `LITELLM_MODEL`, or channel mode (`LLM_CHANNELS=ollama` + `LLM_OLLAMA_BASE_URL` + `LLM_OLLAMA_MODELS`).
-
-**Pitfall**: Do not use `OPENAI_BASE_URL` for Ollama, or the system will concatenate URLs incorrectly (e.g. 404, `api/generate/api/show`). See [LLM Config Guide](LLM_CONFIG_GUIDE_EN.md) Example 4 and channel examples.
-
----
-
-### Q12c: Getting `OllamaException / APIConnectionError` (All LLM models failed)?
-
-**Symptom**: Log shows `litellm.APIConnectionError: OllamaException` or `Analysis failed: All LLM models failed (tried 1 model(s))`.
-
-Work through the following 5 checkpoints in order:
-
-1. **Is the Ollama service running?**
-   ```bash
-   # Check process
-   pgrep -a ollama
-   # If no output, start it first
-   ollama serve
-   ```
-   Verify it is listening: `curl http://localhost:11434` should return `Ollama is running`.
-
-2. **Is `OLLAMA_API_BASE` set correctly?**
-   - ✅ Correct: `OLLAMA_API_BASE=http://localhost:11434`
-   - ❌ Wrong: Putting the Ollama address in `OPENAI_BASE_URL` causes the URL path to be mangled (e.g. `…/api/generate/api/show`).
-
-3. **Does the model name include the `ollama/` prefix?**
-   - ✅ Correct: `LITELLM_MODEL=ollama/qwen3:8b`
-   - ❌ Wrong: `LITELLM_MODEL=qwen3:8b` (missing prefix — litellm cannot route to Ollama)
-
-4. **Has the model been pulled locally?**
-   ```bash
-   ollama list           # list downloaded models
-   ollama pull qwen3:8b  # pull if missing
-   ```
-
-5. **Network / firewall for remote or Docker deployments**
-   - If Ollama runs on a different host, set `OLLAMA_API_BASE` to its actual IP, e.g. `http://192.168.1.100:11434`.
-   - Make sure port 11434 is open and Ollama binds the right address (`OLLAMA_HOST=0.0.0.0:11434`).
-
-> See [LLM Config Guide → Example 4 (Ollama)](LLM_CONFIG_GUIDE_EN.md#example-4-ollama) for a complete configuration example.
 
 ---
 

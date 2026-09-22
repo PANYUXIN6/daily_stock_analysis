@@ -1070,12 +1070,12 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
             trend_prediction="看多",
             operation_advice="持有",
             analysis_summary="稳健",
-            model_used="gemini/gemini-2.5-flash",
+            model_used="deepseek/deepseek-flash",
         )
 
         out = service.generate_brief_report([result], report_date="2026-02-01")
 
-        self.assertIn("*分析模型: gemini/gemini-2.5-flash*", out)
+        self.assertIn("*分析模型: deepseek/deepseek-flash*", out)
 
     @mock.patch("src.notification.get_config")
     def test_generate_dashboard_report_shows_model_by_default(self, mock_get_config: mock.MagicMock):
@@ -1088,12 +1088,12 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
             trend_prediction="看多",
             operation_advice="持有",
             analysis_summary="稳健",
-            model_used="gemini/gemini-2.5-flash",
+            model_used="deepseek/deepseek-flash",
         )
 
         out = service.generate_dashboard_report([result], report_date="2026-02-01")
 
-        self.assertIn("*分析模型：gemini/gemini-2.5-flash*", out)
+        self.assertIn("*分析模型：deepseek/deepseek-flash*", out)
 
     @mock.patch("src.notification.get_config")
     def test_generate_dashboard_report_shows_phase_decision_in_default_renderer(
@@ -1449,16 +1449,16 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
             trend_prediction="看多",
             operation_advice="持有",
             analysis_summary="稳健",
-            model_used="gemini/gemini-2.5-flash",
+            model_used="deepseek/deepseek-flash",
         )
 
         dashboard = service.generate_dashboard_report([result], report_date="2026-02-01")
         single = service.generate_single_stock_report(result)
 
         self.assertNotIn("分析模型", dashboard)
-        self.assertNotIn("gemini/gemini-2.5-flash", dashboard)
+        self.assertNotIn("deepseek/deepseek-flash", dashboard)
         self.assertNotIn("分析模型", single)
-        self.assertNotIn("gemini/gemini-2.5-flash", single)
+        self.assertNotIn("deepseek/deepseek-flash", single)
 
     @mock.patch("src.notification.get_config")
     def test_generate_dashboard_report_localizes_english_fallback(self, mock_get_config: mock.MagicMock):

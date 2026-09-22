@@ -89,9 +89,7 @@ class AgentChatExecutor:
             skill_instructions=self.skill_instructions,
             default_skill_policy=self.default_skill_policy,
             use_legacy_default_prompt=self.use_legacy_default_prompt,
-            use_codex_prompt=self.backend.backend_id == "codex_app_server",
-            include_provider_trace=not self.backend.runtime_owns_loop,
-            strict_initial_stock_scope=self.backend.runtime_owns_loop,
+            include_provider_trace=True,
         )
         baseline_len = len(prepared.history_messages) + 2
         run_id = str(uuid.uuid4())
@@ -151,24 +149,16 @@ class AgentChatExecutor:
 
         if result.success:
             assistant_message_id = conversation_manager.add_message(turn.session_id, "assistant", result.content)
-            if not self.backend.runtime_owns_loop:
-                persist_provider_trace_turns(
-                    session_id=turn.session_id,
-                    run_id=turn.run_id,
-                    messages=result.messages,
-                    baseline_len=turn.baseline_len,
-                    user_message_id=turn.user_message_id,
-                    assistant_message_id=assistant_message_id,
-                )
+            persist_provider_trace_turns(
+                session_id=turn.session_id,
+                run_id=turn.run_id,
+                messages=result.messages,
+                baseline_len=turn.baseline_len,
+                user_message_id=turn.user_message_id,
+                assistant_message_id=assistant_message_id,
+            )
         else:
-            if not self.backend.runtime_owns_loop:
-                failure_note = f"[分析失败] {result.error or '未知错误'}"
-            elif result.error_code == "cancelled":
-                failure_note = "[已停止] 本次分析已由用户停止。"
-            elif result.error_code == "timeout":
-                failure_note = "[已超时] 本次分析已在时间限制内结束。"
-            else:
-                failure_note = f"[分析失败] {result.error or '未知错误'}"
+            failure_note = f"[分析失败] {result.error or '未知错误'}"
             conversation_manager.add_message(
                 turn.session_id,
                 "assistant",

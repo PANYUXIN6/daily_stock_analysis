@@ -18,7 +18,7 @@ def test_status_command_reports_unified_llm_and_notification_channels():
     config = Config(
         stock_list=["600519", "AAPL"],
         litellm_model="deepseek/deepseek-v4-flash",
-        agent_litellm_model="openai/gpt-4o-mini",
+        agent_litellm_model="deepseek/deepseek-flash",
         llm_channels=[
             {
                 "name": "deepseek",
@@ -38,7 +38,7 @@ def test_status_command_reports_unified_llm_and_notification_channels():
 
     assert status["ai_available"] is True
     assert "主模型: deepseek/deepseek-v4-flash" in text
-    assert "Agent 模型: openai/gpt-4o-mini" in text
+    assert "Agent 模型: deepseek/deepseek-flash" in text
     assert "LLM 渠道: deepseek" in text
     assert "自定义 Webhook: ✅" in text
     assert "Slack: ✅" in text
@@ -62,7 +62,7 @@ def test_status_command_warns_when_no_llm_source_configured():
 def test_status_command_does_not_treat_managed_model_name_as_ready():
     config = Config(
         stock_list=["600519"],
-        litellm_model="openai/gpt-4o-mini",
+        litellm_model="deepseek/deepseek-flash",
         llm_model_list=[],
     )
     command = StatusCommand()
@@ -77,7 +77,7 @@ def test_status_command_does_not_treat_managed_model_name_as_ready():
 def test_status_command_keeps_channel_mode_priority_over_legacy_keys():
     config = Config(
         stock_list=["600519"],
-        litellm_model="openai/gpt-4o-mini",
+        litellm_model="deepseek/deepseek-flash",
         llm_channels=[
             {
                 "name": "deepseek",
@@ -94,7 +94,7 @@ def test_status_command_keeps_channel_mode_priority_over_legacy_keys():
                 },
             }
         ],
-        openai_api_keys=["openai-legacy-key"],
+        deepseek_api_keys=["openai-legacy-key"],
     )
     command = StatusCommand()
 
@@ -103,13 +103,13 @@ def test_status_command_keeps_channel_mode_priority_over_legacy_keys():
 
     assert status["ai_available"] is False
     assert "AI 服务未配置" in text
-    assert "主模型: openai/gpt-4o-mini" in text
+    assert "主模型: deepseek/deepseek-flash" in text
 
 
 def test_status_command_requires_primary_model_in_configured_router_models():
     config = Config(
         stock_list=["600519"],
-        litellm_model="openai/gpt-4o-mini",
+        litellm_model="deepseek/deepseek-flash",
         llm_channels=[
             {
                 "name": "deepseek",
@@ -146,7 +146,7 @@ def test_status_command_requires_primary_model_for_yaml_router_models():
             {
                 "model_name": "yaml-primary",
                 "litellm_params": {
-                    "model": "openai/gpt-4o-mini",
+                    "model": "deepseek/deepseek-flash",
                     "api_key": "sk-test",
                 },
             }
@@ -182,19 +182,6 @@ def test_status_command_does_not_treat_invalid_yaml_path_as_active():
     assert "AI 服务未配置" in text
 
 
-def test_status_command_treats_direct_env_provider_model_as_ready():
-    config = Config(
-        stock_list=["600519"],
-        litellm_model="cohere/command-r-plus",
-        llm_model_list=[],
-    )
-    command = StatusCommand()
-
-    status = command._collect_status(config)
-    text = command._format_status(status, "telegram")
-
-    assert status["ai_available"] is True
-    assert "系统就绪" in text
 
 
 def test_status_command_supports_legacy_key_compatibility_without_explicit_litellm_model(monkeypatch, tmp_path):
@@ -205,13 +192,13 @@ def test_status_command_supports_legacy_key_compatibility_without_explicit_litel
     env_file.write_text("", encoding="utf-8")
     monkeypatch.setenv("ENV_FILE", str(env_file))
     for key in (
-        "GEMINI_API_KEYS",
-        "GEMINI_API_KEY",
-        "ANTHROPIC_API_KEYS",
-        "ANTHROPIC_API_KEY",
         "DEEPSEEK_API_KEYS",
         "DEEPSEEK_API_KEY",
-        "OPENAI_API_KEYS",
+        "DEEPSEEK_API_KEYS",
+        "DEEPSEEK_API_KEY",
+        "DEEPSEEK_API_KEYS",
+        "DEEPSEEK_API_KEY",
+        "DEEPSEEK_API_KEYS",
         "AIHUBMIX_KEY",
         "LITELLM_MODEL",
         "LLM_CHANNELS",
@@ -219,8 +206,8 @@ def test_status_command_supports_legacy_key_compatibility_without_explicit_litel
     ):
         monkeypatch.delenv(key, raising=False)
 
-    monkeypatch.setenv("OPENAI_API_KEY", "sk-legacy-test-key")
-    monkeypatch.setenv("OPENAI_MODEL", "gpt-4o-mini")
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-legacy-test-key")
+    monkeypatch.setenv("OPENAI_MODEL", "deepseek/deepseek-flash")
 
     Config.reset_instance()
     try:
@@ -231,7 +218,7 @@ def test_status_command_supports_legacy_key_compatibility_without_explicit_litel
         text = command._format_status(status, "telegram")
 
         assert status["ai_available"] is True
-        assert "主模型: openai/gpt-4o-mini" in text
+        assert "主模型: deepseek/deepseek-flash" in text
         assert "AI 服务未配置" not in text
     finally:
         Config.reset_instance()

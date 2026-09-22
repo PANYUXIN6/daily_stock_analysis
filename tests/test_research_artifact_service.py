@@ -49,7 +49,7 @@ def test_build_research_artifact_from_report_with_evidence_and_invalidation() ->
                         "key": "news",
                         "label": "新闻",
                         "status": "partial",
-                        "source": "anspire",
+                        "source": "bocha",
                         "warnings": ["partial"],
                         "missing_reasons": [],
                     },

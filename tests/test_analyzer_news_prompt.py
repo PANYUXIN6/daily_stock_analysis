@@ -13,7 +13,7 @@ except ModuleNotFoundError:
     ensure_litellm_stub()
 
 from src.analyzer import (
-    GeminiAnalyzer,
+    DeepSeekAnalyzer,
     _BULLISH_TREND_HINTS,
     _contains_trend_hint,
     _infer_trend_direction,
@@ -22,6 +22,51 @@ from src.analyzer import (
 
 
 class AnalyzerNewsPromptTestCase(unittest.TestCase):
+    def test_volume_strategies_and_prompts_do_not_require_chip_data(self) -> None:
+        from pathlib import Path
+        from src.agent.skills.base import load_skill_from_yaml
+        from src.agent.skills.defaults import CORE_TRADING_SKILL_POLICY_ZH
+
+        for strategy_name in ("shrink_pullback", "bottom_volume"):
+            skill = load_skill_from_yaml(Path(__file__).parents[1] / "strategies" / f"{strategy_name}.yaml")
+            with self.subTest(strategy=strategy_name), patch.object(DeepSeekAnalyzer, "_init_litellm", return_value=None):
+                analyzer = DeepSeekAnalyzer(
+                    skill_instructions=skill.instructions,
+                    default_skill_policy=CORE_TRADING_SKILL_POLICY_ZH,
+                )
+                prompt = analyzer._get_analysis_system_prompt("zh", stock_code="600519")
+                prompt += analyzer._format_prompt(
+                    {"code": "600519", "today": {}, "chip": {"avg_cost": 123.456}},
+                    "验收样本",
+                )
+            self.assertIn("成交量", prompt)
+            self.assertIn("支撑", prompt)
+            for removed in ("筹码", "chip_structure", "123.456", "获利比例"):
+                self.assertNotIn(removed, prompt)
+
+    def test_new_report_discards_retired_chip_fields_but_keeps_volume(self) -> None:
+        import json
+        from src.services.report_renderer import render
+
+        with patch.object(DeepSeekAnalyzer, "_init_litellm", return_value=None):
+            analyzer = DeepSeekAnalyzer()
+        result = analyzer._parse_response(json.dumps({
+            "sentiment_score": 50,
+            "operation_advice": "观望",
+            "dashboard": {"data_perspective": {
+                "volume_analysis": {"volume_ratio": 0.6, "volume_status": "缩量", "turnover_rate": 1.2},
+                "chip_structure": {"avg_cost": 20},
+                "chip_unavailable_reason": "筹码数据缺失",
+            }},
+        }, ensure_ascii=False), "600519", "验收样本")
+        perspective = result.dashboard["data_perspective"]
+        self.assertEqual(perspective["volume_analysis"]["volume_ratio"], 0.6)
+        self.assertNotIn("chip_structure", perspective)
+        self.assertNotIn("chip_unavailable_reason", perspective)
+        report = render("markdown", [result], summary_only=False)
+        self.assertIn("缩量", report)
+        self.assertNotIn("筹码", report)
+
     def test_contains_trend_hint_treats_non_adjacent_negation_as_negated(self) -> None:
         self.assertFalse(_contains_trend_hint("尚未形成上升趋势，继续观察。", _BULLISH_TREND_HINTS))
         self.assertFalse(_contains_trend_hint("未形成上升趋势，继续观察。", _BULLISH_TREND_HINTS))
@@ -79,8 +124,8 @@ class AnalyzerNewsPromptTestCase(unittest.TestCase):
         )
 
     def test_analysis_prompt_resolves_shared_skill_prompt_state_by_default(self) -> None:
-        with patch.object(GeminiAnalyzer, "_init_litellm", return_value=None):
-            analyzer = GeminiAnalyzer()
+        with patch.object(DeepSeekAnalyzer, "_init_litellm", return_value=None):
+            analyzer = DeepSeekAnalyzer()
 
         fake_state = SimpleNamespace(
             skill_instructions="### 技能 1: 波段低吸\n- 关注支撑确认",
@@ -93,8 +138,8 @@ class AnalyzerNewsPromptTestCase(unittest.TestCase):
         self.assertNotIn("专注于趋势交易", prompt)
 
     def test_analysis_prompt_uses_injected_skill_sections_instead_of_hardcoded_trend_baseline(self) -> None:
-        with patch.object(GeminiAnalyzer, "_init_litellm", return_value=None):
-            analyzer = GeminiAnalyzer(
+        with patch.object(DeepSeekAnalyzer, "_init_litellm", return_value=None):
+            analyzer = DeepSeekAnalyzer(
                 skill_instructions="### 技能 1: 缠论\n- 关注中枢与背驰",
                 default_skill_policy="",
             )
@@ -106,8 +151,8 @@ class AnalyzerNewsPromptTestCase(unittest.TestCase):
         self.assertNotIn("多头排列：MA5 > MA10 > MA20", prompt)
 
     def test_analysis_prompt_keeps_injected_default_policy_for_implicit_default_run(self) -> None:
-        with patch.object(GeminiAnalyzer, "_init_litellm", return_value=None):
-            analyzer = GeminiAnalyzer(
+        with patch.object(DeepSeekAnalyzer, "_init_litellm", return_value=None):
+            analyzer = DeepSeekAnalyzer(
                 skill_instructions="### 技能 1: 默认多头趋势",
                 default_skill_policy="## 默认技能基线（必须严格遵守）\n- **多头排列必须条件**：MA5 > MA10 > MA20",
                 use_legacy_default_prompt=True,
@@ -121,8 +166,8 @@ class AnalyzerNewsPromptTestCase(unittest.TestCase):
 
     def test_analysis_prompt_requires_phase_decision_in_main_and_legacy_modes(self) -> None:
         for legacy in (False, True):
-            with patch.object(GeminiAnalyzer, "_init_litellm", return_value=None):
-                analyzer = GeminiAnalyzer(
+            with patch.object(DeepSeekAnalyzer, "_init_litellm", return_value=None):
+                analyzer = DeepSeekAnalyzer(
                     skill_instructions="",
                     default_skill_policy="",
                     use_legacy_default_prompt=legacy,
@@ -137,8 +182,8 @@ class AnalyzerNewsPromptTestCase(unittest.TestCase):
             self.assertIn("`confidence_level` 不得为高", prompt)
 
     def test_analysis_prompt_contains_actionability_guardrails(self) -> None:
-        with patch.object(GeminiAnalyzer, "_init_litellm", return_value=None):
-            analyzer = GeminiAnalyzer()
+        with patch.object(DeepSeekAnalyzer, "_init_litellm", return_value=None):
+            analyzer = DeepSeekAnalyzer()
 
         prompt = analyzer._get_analysis_system_prompt("zh", stock_code="002812")
 
@@ -150,8 +195,8 @@ class AnalyzerNewsPromptTestCase(unittest.TestCase):
     def test_analysis_prompt_score_scale_splits_reduce_and_sell_bands(self) -> None:
         for legacy in (False, True):
             with self.subTest(legacy=legacy):
-                with patch.object(GeminiAnalyzer, "_init_litellm", return_value=None):
-                    analyzer = GeminiAnalyzer(
+                with patch.object(DeepSeekAnalyzer, "_init_litellm", return_value=None):
+                    analyzer = DeepSeekAnalyzer(
                         skill_instructions="",
                         default_skill_policy="",
                         use_legacy_default_prompt=legacy,
@@ -166,8 +211,8 @@ class AnalyzerNewsPromptTestCase(unittest.TestCase):
                 self.assertNotIn("### 卖出/减仓（0-39分）", prompt)
 
     def test_prompt_contains_time_constraints(self) -> None:
-        with patch.object(GeminiAnalyzer, "_init_litellm", return_value=None):
-            analyzer = GeminiAnalyzer()
+        with patch.object(DeepSeekAnalyzer, "_init_litellm", return_value=None):
+            analyzer = DeepSeekAnalyzer()
 
         context = {
             "code": "600519",
@@ -198,8 +243,8 @@ class AnalyzerNewsPromptTestCase(unittest.TestCase):
         self.assertIn("禁止编造", prompt)
 
     def test_prompt_includes_capital_flow_as_operation_filter(self) -> None:
-        with patch.object(GeminiAnalyzer, "_init_litellm", return_value=None):
-            analyzer = GeminiAnalyzer()
+        with patch.object(DeepSeekAnalyzer, "_init_litellm", return_value=None):
+            analyzer = DeepSeekAnalyzer()
 
         context = {
             "code": "002812",
@@ -233,8 +278,8 @@ class AnalyzerNewsPromptTestCase(unittest.TestCase):
         self.assertIn("洗盘观察", prompt)
 
     def test_prompt_prefers_context_news_window_days(self) -> None:
-        with patch.object(GeminiAnalyzer, "_init_litellm", return_value=None):
-            analyzer = GeminiAnalyzer()
+        with patch.object(DeepSeekAnalyzer, "_init_litellm", return_value=None):
+            analyzer = DeepSeekAnalyzer()
 
         context = {
             "code": "600519",
@@ -254,8 +299,8 @@ class AnalyzerNewsPromptTestCase(unittest.TestCase):
         self.assertIn("超出近1日窗口的新闻一律忽略", prompt)
 
     def test_format_prompt_injects_market_phase_and_pack_summary_before_technical_data(self) -> None:
-        with patch.object(GeminiAnalyzer, "_init_litellm", return_value=None):
-            analyzer = GeminiAnalyzer()
+        with patch.object(DeepSeekAnalyzer, "_init_litellm", return_value=None):
+            analyzer = DeepSeekAnalyzer()
 
         context = {
             "code": "600519",
@@ -290,8 +335,8 @@ class AnalyzerNewsPromptTestCase(unittest.TestCase):
         self.assertIn("不得描述“今日走势已经发生”", prompt)
 
     def test_format_prompt_omits_market_phase_section_without_context(self) -> None:
-        with patch.object(GeminiAnalyzer, "_init_litellm", return_value=None):
-            analyzer = GeminiAnalyzer()
+        with patch.object(DeepSeekAnalyzer, "_init_litellm", return_value=None):
+            analyzer = DeepSeekAnalyzer()
 
         context = {
             "code": "600519",
@@ -306,8 +351,8 @@ class AnalyzerNewsPromptTestCase(unittest.TestCase):
         self.assertNotIn("分析上下文包摘要", prompt)
 
     def test_format_prompt_labels_intraday_partial_quote_as_estimated(self) -> None:
-        with patch.object(GeminiAnalyzer, "_init_litellm", return_value=None):
-            analyzer = GeminiAnalyzer()
+        with patch.object(DeepSeekAnalyzer, "_init_litellm", return_value=None):
+            analyzer = DeepSeekAnalyzer()
 
         context = {
             "code": "600519",
@@ -329,8 +374,8 @@ class AnalyzerNewsPromptTestCase(unittest.TestCase):
         self.assertNotIn("| 收盘价 | 1880.0 元 |", prompt)
 
     def test_format_prompt_uses_complete_daily_labels_for_premarket_and_non_trading(self) -> None:
-        with patch.object(GeminiAnalyzer, "_init_litellm", return_value=None):
-            analyzer = GeminiAnalyzer()
+        with patch.object(DeepSeekAnalyzer, "_init_litellm", return_value=None):
+            analyzer = DeepSeekAnalyzer()
 
         for phase in ("premarket", "non_trading"):
             context = {
@@ -361,8 +406,8 @@ class AnalyzerNewsPromptTestCase(unittest.TestCase):
             self.assertNotIn("| 收盘价 | 1870.0 元 |", prompt)
 
     def test_format_prompt_does_not_label_realtime_overlay_as_previous_close(self) -> None:
-        with patch.object(GeminiAnalyzer, "_init_litellm", return_value=None):
-            analyzer = GeminiAnalyzer()
+        with patch.object(DeepSeekAnalyzer, "_init_litellm", return_value=None):
+            analyzer = DeepSeekAnalyzer()
 
         for phase in ("premarket", "non_trading"):
             context = {
@@ -405,8 +450,8 @@ class AnalyzerNewsPromptTestCase(unittest.TestCase):
             self.assertNotIn("| 成交额 | 2.26 亿元 |", prompt)
 
     def test_format_prompt_does_not_label_date_mismatch_as_previous_close(self) -> None:
-        with patch.object(GeminiAnalyzer, "_init_litellm", return_value=None):
-            analyzer = GeminiAnalyzer()
+        with patch.object(DeepSeekAnalyzer, "_init_litellm", return_value=None):
+            analyzer = DeepSeekAnalyzer()
 
         context = {
             "code": "600519",
@@ -438,8 +483,8 @@ class AnalyzerNewsPromptTestCase(unittest.TestCase):
         self.assertNotIn("| 最低价 |", prompt)
 
     def test_format_prompt_keeps_legacy_quote_labels_without_partial_intraday_context(self) -> None:
-        with patch.object(GeminiAnalyzer, "_init_litellm", return_value=None):
-            analyzer = GeminiAnalyzer()
+        with patch.object(DeepSeekAnalyzer, "_init_litellm", return_value=None):
+            analyzer = DeepSeekAnalyzer()
 
         for phase_context in (
             {"phase": "intraday", "is_partial_bar": False, "warnings": []},
@@ -463,8 +508,8 @@ class AnalyzerNewsPromptTestCase(unittest.TestCase):
             self.assertIn("| 收盘价 | 1880.0 元 |", prompt)
 
     def test_format_prompt_omits_legacy_trend_checks_for_nondefault_skill_mode(self) -> None:
-        with patch.object(GeminiAnalyzer, "_init_litellm", return_value=None):
-            analyzer = GeminiAnalyzer(
+        with patch.object(DeepSeekAnalyzer, "_init_litellm", return_value=None):
+            analyzer = DeepSeekAnalyzer(
                 skill_instructions="### 技能 1: 缠论\n- 关注中枢与背驰",
                 default_skill_policy="",
                 use_legacy_default_prompt=False,
@@ -497,8 +542,8 @@ class AnalyzerNewsPromptTestCase(unittest.TestCase):
         self.assertNotIn("MA5>MA10>MA20为多头", prompt)
 
     def test_format_prompt_removes_bullish_reasons_when_final_trend_is_bearish(self) -> None:
-        with patch.object(GeminiAnalyzer, "_init_litellm", return_value=None):
-            analyzer = GeminiAnalyzer(
+        with patch.object(DeepSeekAnalyzer, "_init_litellm", return_value=None):
+            analyzer = DeepSeekAnalyzer(
                 skill_instructions="### 技能 1: 缠论\n- 关注中枢与背驰",
                 default_skill_policy="",
                 use_legacy_default_prompt=False,
@@ -540,8 +585,8 @@ class AnalyzerNewsPromptTestCase(unittest.TestCase):
         self.assertIn("技术面一致性", prompt)
 
     def test_format_prompt_removes_bearish_risks_when_final_trend_is_bullish(self) -> None:
-        with patch.object(GeminiAnalyzer, "_init_litellm", return_value=None):
-            analyzer = GeminiAnalyzer(
+        with patch.object(DeepSeekAnalyzer, "_init_litellm", return_value=None):
+            analyzer = DeepSeekAnalyzer(
                 skill_instructions="### 技能 1: 缠论\n- 关注中枢与背驰",
                 default_skill_policy="",
                 use_legacy_default_prompt=False,
@@ -577,8 +622,8 @@ class AnalyzerNewsPromptTestCase(unittest.TestCase):
         self.assertIn("已剔除与多头主判断直接冲突的空头结构风险表述", prompt)
 
     def test_format_prompt_removes_bullish_reasons_when_final_trend_is_weak_bearish(self) -> None:
-        with patch.object(GeminiAnalyzer, "_init_litellm", return_value=None):
-            analyzer = GeminiAnalyzer(
+        with patch.object(DeepSeekAnalyzer, "_init_litellm", return_value=None):
+            analyzer = DeepSeekAnalyzer(
                 skill_instructions="### 技能 1: 缠论\n- 关注中枢与背驰",
                 default_skill_policy="",
                 use_legacy_default_prompt=False,

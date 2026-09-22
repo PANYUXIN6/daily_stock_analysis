@@ -62,16 +62,16 @@ def test_unsupported_temperature_error_retries_once_and_caches_recovery() -> Non
 
     result = call_litellm_with_param_recovery(
         _call,
-        model="openai/custom-temp-locked",
+        model="deepseek/deepseek-custom-temp-locked",
         call_kwargs={
-            "model": "openai/custom-temp-locked",
+            "model": "deepseek/deepseek-custom-temp-locked",
             "messages": [],
             "temperature": 0.7,
         },
     )
     future_kwargs = apply_litellm_generation_params(
-        {"model": "openai/custom-temp-locked", "messages": []},
-        "openai/custom-temp-locked",
+        {"model": "deepseek/deepseek-custom-temp-locked", "messages": []},
+        "deepseek/deepseek-custom-temp-locked",
         0.7,
     )
 
@@ -93,22 +93,22 @@ def test_recovery_cache_is_scoped_to_api_base() -> None:
 
     result = call_litellm_with_param_recovery(
         _call,
-        model="openai/shared-model",
+        model="deepseek/deepseek-shared-model",
         call_kwargs={
-            "model": "openai/shared-model",
+            "model": "deepseek/deepseek-shared-model",
             "messages": [],
             "api_base": "https://strict.example/v1",
             "temperature": 0.7,
         },
     )
     strict_kwargs = apply_litellm_generation_params(
-        {"model": "openai/shared-model", "messages": [], "api_base": "https://strict.example/v1"},
-        "openai/shared-model",
+        {"model": "deepseek/deepseek-shared-model", "messages": [], "api_base": "https://strict.example/v1"},
+        "deepseek/deepseek-shared-model",
         0.7,
     )
     flexible_kwargs = apply_litellm_generation_params(
-        {"model": "openai/shared-model", "messages": [], "api_base": "https://flex.example/v1"},
-        "openai/shared-model",
+        {"model": "deepseek/deepseek-shared-model", "messages": [], "api_base": "https://flex.example/v1"},
+        "deepseek/deepseek-shared-model",
         0.7,
     )
 
@@ -121,16 +121,16 @@ def test_recovery_cache_skips_ambiguous_router_endpoints() -> None:
     clear_litellm_generation_param_recovery_cache()
     model_list = [
         {
-            "model_name": "openai/shared-model",
+            "model_name": "deepseek/deepseek-shared-model",
             "litellm_params": {
-                "model": "openai/shared-model",
+                "model": "deepseek/deepseek-shared-model",
                 "api_base": "https://strict.example/v1",
             },
         },
         {
-            "model_name": "openai/shared-model",
+            "model_name": "deepseek/deepseek-shared-model",
             "litellm_params": {
-                "model": "openai/shared-model",
+                "model": "deepseek/deepseek-shared-model",
                 "api_base": "https://flex.example/v1",
             },
         },
@@ -145,13 +145,13 @@ def test_recovery_cache_skips_ambiguous_router_endpoints() -> None:
 
     result = call_litellm_with_param_recovery(
         _call,
-        model="openai/shared-model",
-        call_kwargs={"model": "openai/shared-model", "messages": [], "temperature": 0.7},
+        model="deepseek/deepseek-shared-model",
+        call_kwargs={"model": "deepseek/deepseek-shared-model", "messages": [], "temperature": 0.7},
         model_list=model_list,
     )
     future_kwargs = apply_litellm_generation_params(
-        {"model": "openai/shared-model", "messages": []},
-        "openai/shared-model",
+        {"model": "deepseek/deepseek-shared-model", "messages": []},
+        "deepseek/deepseek-shared-model",
         0.7,
         model_list=model_list,
     )

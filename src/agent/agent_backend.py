@@ -14,46 +14,6 @@ from src.agent.stock_scope import StockScope
 from src.agent.tools.registry import ToolRegistry
 
 
-AGENT_BACKEND_ERROR_CODES = frozenset(
-    {
-        "command_not_found",
-        "login_required",
-        "capability_unsupported",
-        "unsupported_agent_arch",
-        "approval_required",
-        "timeout",
-        "cancelled",
-        "protocol_error",
-        "output_too_large",
-        "resource_limit_exceeded",
-        "tool_roundtrip_failed",
-        "resource_cleanup_failed",
-        "invalid_timeout",
-        "unknown_backend_error",
-    }
-)
-AGENT_BACKEND_IDS = frozenset({"auto", "litellm", "codex_app_server"})
-
-
-class AgentBackendConfigError(ValueError):
-    """Structured Agent backend selection error."""
-
-    def __init__(self, code: str, message: str) -> None:
-        super().__init__(message)
-        self.code = code
-
-
-def resolve_agent_backend_id(config: Any) -> str:
-    """Resolve Chat backend; ``auto`` deliberately remains LiteLLM."""
-    requested = str(getattr(config, "agent_backend", "auto") or "auto").strip().lower()
-    if requested not in AGENT_BACKEND_IDS:
-        raise AgentBackendConfigError(
-            "capability_unsupported",
-            f"Unsupported AGENT_BACKEND: {requested}",
-        )
-    return "litellm" if requested == "auto" else requested
-
-
 @dataclass(frozen=True)
 class AgentRunRequest:
     system_prompt: str
@@ -86,7 +46,6 @@ class AgentBackend(ABC):
     """One execution backend for Agent Chat."""
 
     backend_id: str
-    runtime_owns_loop: bool
 
     @abstractmethod
     def run(self, request: AgentRunRequest) -> AgentRunResult:
@@ -97,7 +56,6 @@ class LiteLLMAgentBackend(AgentBackend):
     """Thin wrapper around the existing DSA-owned ``run_agent_loop``."""
 
     backend_id = "litellm"
-    runtime_owns_loop = False
 
     def __init__(self, tool_registry: ToolRegistry, llm_adapter: LLMToolAdapter) -> None:
         self.tool_registry = tool_registry

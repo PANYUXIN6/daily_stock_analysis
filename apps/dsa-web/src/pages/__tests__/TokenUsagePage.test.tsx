@@ -37,7 +37,7 @@ const dashboardResponse = {
   ],
   by_model: [
     {
-      model: 'openai/gpt-test',
+      model: 'deepseek/deepseek-flash',
       calls: 2,
       prompt_tokens: 100,
       completion_tokens: 200,
@@ -58,7 +58,7 @@ const dashboardResponse = {
       id: 1,
       called_at: '2026-06-11T09:30:00',
       call_type: 'analysis',
-      model: 'openai/gpt-test',
+      model: 'deepseek/deepseek-flash',
       stock_code: '600519',
       prompt_tokens: 40,
       completion_tokens: 200,
@@ -103,9 +103,9 @@ describe('TokenUsagePage', () => {
   it('renders token summary, model breakdowns, and recent calls from the dashboard API shape', async () => {
     renderPage();
 
-    expect(await screen.findByRole('heading', { name: 'Token 用量监控' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'DeepSeek 用量监控' })).toBeInTheDocument();
     expect(await screen.findByText('400')).toBeInTheDocument();
-    expect(screen.getAllByText('openai/gpt-test')).toHaveLength(2);
+    expect(screen.getAllByText('deepseek/deepseek-flash')).toHaveLength(2);
     expect(screen.getAllByText('个股分析')).toHaveLength(2);
     expect(screen.getByText(/600519/)).toBeInTheDocument();
     expect(get).toHaveBeenCalledWith('/api/v1/usage/dashboard', {
@@ -118,11 +118,11 @@ describe('TokenUsagePage', () => {
 
     renderPage();
 
-    expect(await screen.findByRole('heading', { name: 'Token usage' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'DeepSeek usage' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Today' })).toBeInTheDocument();
     expect(screen.getAllByText('Stock analysis')).toHaveLength(2);
-    expect(screen.getByText('Latest 50 LLM token audit records.')).toBeInTheDocument();
-    expect(screen.queryByText('Token 用量监控')).not.toBeInTheDocument();
+    expect(screen.getByText('Latest 50 DeepSeek token audit records.')).toBeInTheDocument();
+    expect(screen.queryByText('DeepSeek 用量监控')).not.toBeInTheDocument();
   });
 
   it('keeps the newest period data when dashboard requests resolve out of order', async () => {
@@ -147,7 +147,7 @@ describe('TokenUsagePage', () => {
       ],
       by_model: [
         {
-          model: 'openai/gpt-test',
+          model: 'deepseek/deepseek-flash',
           calls: 9,
           prompt_tokens: 700,
           completion_tokens: 200,
@@ -204,7 +204,7 @@ describe('TokenUsagePage', () => {
   it('reloads dashboard when period changes', async () => {
     renderPage();
 
-    await screen.findByRole('heading', { name: 'Token 用量监控' });
+    await screen.findByRole('heading', { name: 'DeepSeek 用量监控' });
     fireEvent.click(screen.getByRole('button', { name: '今日' }));
 
     await waitFor(() => {

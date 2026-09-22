@@ -101,54 +101,20 @@ class TestAgentConfig(unittest.TestCase):
         config = Config._load_from_env()
         self.assertEqual(config.agent_skills, ['dragon_head', 'shrink_pullback'])
 
-    @patch.dict(os.environ, {'AGENT_LITELLM_MODEL': 'gpt-4o-mini'}, clear=True)
+    @patch.dict(os.environ, {'AGENT_LITELLM_MODEL': 'deepseek/deepseek-flash'}, clear=True)
     def test_agent_is_available_when_agent_primary_model_is_configured(self):
         """Agent availability auto-detection should use effective Agent primary model."""
         from src.config import Config
         Config._instance = None
         config = Config._load_from_env()
-        self.assertEqual(config.agent_litellm_model, 'openai/gpt-4o-mini')
+        self.assertEqual(config.agent_litellm_model, 'deepseek/deepseek-flash')
         self.assertTrue(config.is_agent_available())
 
-    def test_agent_models_to_try_inherit_legacy_provider_models(self):
-        """Legacy provider key/model envs should still produce a non-empty Agent model try list."""
+    def test_agent_models_to_try_inherit_deepseek_model(self):
         from src.config import Config, get_effective_agent_models_to_try
-
-        test_cases = [
-            (
-                {
-                    "GEMINI_API_KEY": "gemini-test-key",
-                    "GEMINI_MODEL": "gemini-2.5-flash",
-                    "AGENT_LITELLM_MODEL": "",
-                },
-                ["gemini/gemini-2.5-flash", "gemini/gemini-3-flash-preview"],
-            ),
-            (
-                {
-                    "OPENAI_API_KEY": "sk-test-value",
-                    "OPENAI_MODEL": "gpt-4o-mini",
-                    "AGENT_LITELLM_MODEL": "",
-                },
-                ["openai/gpt-4o-mini"],
-            ),
-            (
-                {
-                    "ANTHROPIC_API_KEY": "anthropic-test-key",
-                    "ANTHROPIC_MODEL": "claude-3-5-sonnet-20241022",
-                    "AGENT_LITELLM_MODEL": "",
-                },
-                ["anthropic/claude-3-5-sonnet-20241022"],
-            ),
-        ]
-
-        with patch("src.config.setup_env"), patch.object(Config, "_parse_litellm_yaml", return_value=[]):
-            for env, expected_models in test_cases:
-                with self.subTest(expected_models=expected_models), patch.dict(os.environ, env, clear=True):
-                    Config._instance = None
-                    config = Config._load_from_env()
-                    self.assertEqual(get_effective_agent_models_to_try(config), expected_models)
-
-        Config._instance = None
+        with patch("src.config.setup_env"), patch.dict(os.environ, {"DEEPSEEK_API_KEY": "sk-test-key"}, clear=True):
+            config = Config._load_from_env()
+        self.assertEqual(get_effective_agent_models_to_try(config), ["deepseek/deepseek-flash"])
 
     def test_build_agent_executor_does_not_mutate_llm_route_config(self) -> None:
         """Agent factory should not rewrite model/base_url/runtime routing fields."""
@@ -157,8 +123,8 @@ class TestAgentConfig(unittest.TestCase):
             agent_skills=["bull_trend"],
             agent_max_steps="10",
             agent_orchestrator_timeout_s="120",
-            litellm_model="openai/gpt-5",
-            agent_litellm_model="anthropic/claude-3-7-sonnet-20250219",
+            litellm_model="deepseek/deepseek-v4-pro",
+            agent_litellm_model="deepseek/deepseek-v4-pro",
             openai_base_url="https://api.openai.com/v1",
         )
         captured: Dict[str, Any] = {}
@@ -204,8 +170,8 @@ class TestAgentConfig(unittest.TestCase):
         self.assertIs(adapter_cfg, provided_config)
         self.assertEqual(provided_config.agent_max_steps, "10")
         self.assertEqual(provided_config.agent_orchestrator_timeout_s, "120")
-        self.assertEqual(provided_config.litellm_model, "openai/gpt-5")
-        self.assertEqual(provided_config.agent_litellm_model, "anthropic/claude-3-7-sonnet-20250219")
+        self.assertEqual(provided_config.litellm_model, "deepseek/deepseek-v4-pro")
+        self.assertEqual(provided_config.agent_litellm_model, "deepseek/deepseek-v4-pro")
         self.assertEqual(provided_config.openai_base_url, "https://api.openai.com/v1")
         fake_executor_cls.assert_called_once()
         kwargs = fake_executor_cls.call_args.kwargs
@@ -219,8 +185,8 @@ class TestAgentConfig(unittest.TestCase):
             agent_skills=["bull_trend"],
             agent_max_steps="10",
             agent_orchestrator_timeout_s="120",
-            litellm_model="openai/gpt-5",
-            agent_litellm_model="anthropic/claude-3-7-sonnet-20250219",
+            litellm_model="deepseek/deepseek-v4-pro",
+            agent_litellm_model="deepseek/deepseek-v4-pro",
             openai_base_url="https://api.openai.com/v1",
             agent_orchestrator_mode="standard",
         )
@@ -268,8 +234,8 @@ class TestAgentConfig(unittest.TestCase):
         self.assertIs(adapter_cfg, provided_config)
         self.assertEqual(provided_config.agent_max_steps, "10")
         self.assertEqual(provided_config.agent_orchestrator_timeout_s, "120")
-        self.assertEqual(provided_config.litellm_model, "openai/gpt-5")
-        self.assertEqual(provided_config.agent_litellm_model, "anthropic/claude-3-7-sonnet-20250219")
+        self.assertEqual(provided_config.litellm_model, "deepseek/deepseek-v4-pro")
+        self.assertEqual(provided_config.agent_litellm_model, "deepseek/deepseek-v4-pro")
         self.assertEqual(provided_config.openai_base_url, "https://api.openai.com/v1")
         fake_orchestrator_cls.assert_called_once()
         kwargs = fake_orchestrator_cls.call_args.kwargs
@@ -283,8 +249,8 @@ class TestAgentConfig(unittest.TestCase):
             agent_skills=["bull_trend"],
             agent_max_steps="invalid-steps",
             agent_orchestrator_timeout_s="invalid-timeout",
-            litellm_model="openai/gpt-5",
-            agent_litellm_model="anthropic/claude-3-7-sonnet-20250219",
+            litellm_model="deepseek/deepseek-v4-pro",
+            agent_litellm_model="deepseek/deepseek-v4-pro",
             openai_base_url="https://api.openai.com/v1",
         )
         captured: Dict[str, Any] = {}
@@ -329,8 +295,8 @@ class TestAgentConfig(unittest.TestCase):
 
         adapter_cfg = captured.get("cfg")
         self.assertIs(adapter_cfg, provided_config)
-        self.assertEqual(provided_config.litellm_model, "openai/gpt-5")
-        self.assertEqual(provided_config.agent_litellm_model, "anthropic/claude-3-7-sonnet-20250219")
+        self.assertEqual(provided_config.litellm_model, "deepseek/deepseek-v4-pro")
+        self.assertEqual(provided_config.agent_litellm_model, "deepseek/deepseek-v4-pro")
         self.assertEqual(provided_config.openai_base_url, "https://api.openai.com/v1")
 
         log_output = "\n".join(logs.output)
@@ -573,7 +539,7 @@ class TestAgentResultConversion(unittest.TestCase):
         with patch('src.core.pipeline.get_config') as mock_config, \
              patch('src.core.pipeline.get_db'), \
              patch('src.core.pipeline.DataFetcherManager'), \
-             patch('src.core.pipeline.GeminiAnalyzer'), \
+             patch('src.core.pipeline.DeepSeekAnalyzer'), \
              patch('src.core.pipeline.NotificationService'), \
              patch('src.core.pipeline.SearchService'):
 
@@ -585,13 +551,8 @@ class TestAgentResultConversion(unittest.TestCase):
             mock_cfg.agent_skills = []
             mock_cfg.bocha_api_keys = []
             mock_cfg.tavily_api_keys = []
-            mock_cfg.brave_api_keys = []
-            mock_cfg.serpapi_keys = []
-            mock_cfg.searxng_base_urls = []
-            mock_cfg.searxng_public_instances_enabled = False
             mock_cfg.news_max_age_days = 7
             mock_cfg.enable_realtime_quote = True
-            mock_cfg.enable_chip_distribution = True
             mock_cfg.realtime_source_priority = []
             mock_cfg.save_context_snapshot = False
             mock_config.return_value = mock_cfg
@@ -641,7 +602,7 @@ class TestAgentResultConversion(unittest.TestCase):
             tool_calls_log=[{"step": 1, "tool": "echo", "success": True}],
             total_steps=3,
             total_tokens=500,
-            provider="gemini",
+            provider="deepseek",
         )
 
         result = pipeline._agent_result_to_analysis_result(
@@ -655,7 +616,7 @@ class TestAgentResultConversion(unittest.TestCase):
         self.assertEqual(result.sentiment_score, 80)
         self.assertEqual(result.trend_prediction, "看多")
         self.assertEqual(result.decision_type, "hold")
-        self.assertIn("agent:gemini", result.data_sources)
+        self.assertIn("agent:deepseek", result.data_sources)
         self.assertIsNotNone(result.dashboard)
 
     def test_convert_preserves_top_level_phase_decision_with_nested_dashboard(self):
@@ -689,7 +650,7 @@ class TestAgentResultConversion(unittest.TestCase):
             success=True,
             content=json.dumps(dashboard),
             dashboard=dashboard,
-            provider="gemini",
+            provider="deepseek",
         )
 
         result = pipeline._agent_result_to_analysis_result(
@@ -741,7 +702,7 @@ class TestAgentResultConversion(unittest.TestCase):
                 "action": "watch",
                 "analysis_summary": "等待确认",
             },
-            provider="gemini",
+            provider="deepseek",
         )
 
         result = pipeline._agent_result_to_analysis_result(
@@ -774,7 +735,7 @@ class TestAgentResultConversion(unittest.TestCase):
                 "action": "watch",
                 "analysis_summary": "等待确认",
             },
-            provider="gemini",
+            provider="deepseek",
         )
 
         result = pipeline._agent_result_to_analysis_result(
@@ -813,7 +774,7 @@ class TestAgentResultConversion(unittest.TestCase):
                 "action": "buy",
                 "analysis_summary": "等待确认",
             },
-            provider="gemini",
+            provider="deepseek",
         )
 
         result = pipeline._agent_result_to_analysis_result(
@@ -889,7 +850,7 @@ class TestAgentResultConversion(unittest.TestCase):
             success=True,
             content="LLM returned text but no dashboard JSON",
             dashboard=None,
-            provider="ollama",
+            provider="deepseek",
         )
         trend_result = TrendAnalysisResult(
             code="600519",
@@ -928,7 +889,7 @@ class TestAgentResultConversion(unittest.TestCase):
             success=True,
             content="{}",
             dashboard={},
-            provider="gemini",
+            provider="deepseek",
         )
         trend_result = TrendAnalysisResult(
             code="600519",
@@ -975,7 +936,7 @@ class TestAgentResultConversion(unittest.TestCase):
                 "trend_prediction": "看多",
                 "sentiment_score": 74,
             },
-            provider="ollama",
+            provider="deepseek",
         )
 
         result = pipeline._agent_result_to_analysis_result(
@@ -1004,7 +965,7 @@ class TestAgentResultConversion(unittest.TestCase):
                 "operation_advice": "不跌破支撑位继续持有",
                 "sentiment_score": 72,
             },
-            provider="gemini",
+            provider="deepseek",
         )
         trend_result = TrendAnalysisResult(
             code="600519",
@@ -1043,7 +1004,7 @@ class TestAgentResultConversion(unittest.TestCase):
                     "sentiment_score": 42,
                 },
             },
-            provider="gemini",
+            provider="deepseek",
         )
 
         result = pipeline._agent_result_to_analysis_result(
@@ -1079,7 +1040,7 @@ class TestAgentResultConversion(unittest.TestCase):
                     "sentiment_score": 42,
                 },
             },
-            provider="gemini",
+            provider="deepseek",
         )
 
         result = pipeline._agent_result_to_analysis_result(
@@ -1113,7 +1074,7 @@ class TestAgentResultConversion(unittest.TestCase):
                     "sentiment_score": 73,
                 },
             },
-            provider="gemini",
+            provider="deepseek",
         )
 
         result = pipeline._agent_result_to_analysis_result(
@@ -1147,7 +1108,7 @@ class TestAgentResultConversion(unittest.TestCase):
                     "operation_advice": "持有",
                     "sentiment_score": 73,
                 },
-                provider="gemini",
+                provider="deepseek",
             )
 
             result = pipeline._agent_result_to_analysis_result(
@@ -1178,7 +1139,7 @@ class TestAgentResultConversion(unittest.TestCase):
                 "operation_advice": [],
                 "decision_type": {},
             },
-            provider="gemini",
+            provider="deepseek",
         )
         trend_result = TrendAnalysisResult(
             code="600519",
@@ -1216,7 +1177,7 @@ class TestAgentResultConversion(unittest.TestCase):
             success=True,
             content="{}",
             dashboard={},
-            provider="gemini",
+            provider="deepseek",
         )
         trend_result = TrendAnalysisResult(
             code="600519",
@@ -1264,7 +1225,7 @@ class TestAgentResultConversion(unittest.TestCase):
                 "trend_prediction": "看空",
                 "operation_advice": "减仓",
             },
-            provider="gemini",
+            provider="deepseek",
         )
         trend_result = TrendAnalysisResult(
             code="600519",
@@ -1304,7 +1265,7 @@ class TestAgentResultConversion(unittest.TestCase):
                     "battle_plan": {"sniper_points": {"take_profit": "120元"}},
                 },
             },
-            provider="gemini",
+            provider="deepseek",
         )
         trend_result = TrendAnalysisResult(
             code="600519",
@@ -1353,7 +1314,7 @@ class TestAgentResultConversion(unittest.TestCase):
                     "intelligence": {"risk_alerts": "待补充"},
                 },
             },
-            provider="gemini",
+            provider="deepseek",
         )
         trend_result = TrendAnalysisResult(
             code="600519",
@@ -1397,7 +1358,7 @@ class TestAgentResultConversion(unittest.TestCase):
                     "battle_plan": {"sniper_points": {"stop_loss": ""}},
                 },
             },
-            provider="gemini",
+            provider="deepseek",
         )
         trend_result = TrendAnalysisResult(
             code="600519",
@@ -1443,7 +1404,7 @@ class TestAgentResultConversion(unittest.TestCase):
                     success=True,
                     content="LLM returned text but no dashboard JSON",
                     dashboard=None,
-                    provider="ollama",
+                    provider="deepseek",
                 )
                 trend_result = TrendAnalysisResult(
                     code="600519",
@@ -1481,7 +1442,7 @@ class TestAgentResultConversion(unittest.TestCase):
                 "operation_advice": "持有",
                 "decision_type": "hold",
             },
-            provider="gemini",
+            provider="deepseek",
         )
 
         result = pipeline._agent_result_to_analysis_result(
@@ -1506,7 +1467,7 @@ class TestAgentResultConversion(unittest.TestCase):
                 "operation_advice": "持有",
                 "decision_type": "hold",
             },
-            provider="gemini",
+            provider="deepseek",
         )
 
         result = pipeline._agent_result_to_analysis_result(
@@ -1558,7 +1519,7 @@ class TestPipelineRouting(unittest.TestCase):
         with patch('src.core.pipeline.get_config') as mock_config, \
              patch('src.core.pipeline.get_db'), \
              patch('src.core.pipeline.DataFetcherManager'), \
-             patch('src.core.pipeline.GeminiAnalyzer'), \
+             patch('src.core.pipeline.DeepSeekAnalyzer'), \
              patch('src.core.pipeline.NotificationService'), \
              patch('src.core.pipeline.SearchService'):
 
@@ -1569,13 +1530,8 @@ class TestPipelineRouting(unittest.TestCase):
             mock_cfg.agent_skills = []
             mock_cfg.bocha_api_keys = []
             mock_cfg.tavily_api_keys = []
-            mock_cfg.brave_api_keys = []
-            mock_cfg.serpapi_keys = []
-            mock_cfg.searxng_base_urls = []
-            mock_cfg.searxng_public_instances_enabled = False
             mock_cfg.news_max_age_days = 7
             mock_cfg.enable_realtime_quote = True
-            mock_cfg.enable_chip_distribution = True
             mock_cfg.realtime_source_priority = []
             mock_cfg.save_context_snapshot = False
             mock_config.return_value = mock_cfg
@@ -1591,19 +1547,19 @@ class TestPipelineRouting(unittest.TestCase):
 
             pipeline._analyze_with_agent.assert_called_once()
             call_args = pipeline._analyze_with_agent.call_args
-            # Positional args: code, report_type, query_id, stock_name, realtime_quote, chip_data, fundamental_context, trend_result
+            # Positional args: code, report_type, query_id, stock_name, realtime_quote, fundamental_context, trend_result
             self.assertEqual(call_args[0][0], "600519")
             self.assertEqual(call_args[0][1], ReportType.SIMPLE)
             self.assertEqual(call_args[0][2], "q1")
-            # trend_result (8th arg) should be present (may be a TrendAnalysisResult or None)
-            self.assertEqual(len(call_args[0]), 8)
+            # trend_result (7th arg) should be present (may be a TrendAnalysisResult or None)
+            self.assertEqual(len(call_args[0]), 7)
 
     def test_legacy_mode_does_not_call_agent(self):
         """When agent_mode=False, analyze_stock should NOT call _analyze_with_agent."""
         with patch('src.core.pipeline.get_config') as mock_config, \
              patch('src.core.pipeline.get_db') as mock_db, \
              patch('src.core.pipeline.DataFetcherManager') as mock_fm, \
-             patch('src.core.pipeline.GeminiAnalyzer') as mock_analyzer, \
+             patch('src.core.pipeline.DeepSeekAnalyzer') as mock_analyzer, \
              patch('src.core.pipeline.NotificationService'), \
              patch('src.core.pipeline.SearchService') as mock_search:
 
@@ -1615,13 +1571,8 @@ class TestPipelineRouting(unittest.TestCase):
             mock_cfg.agent_skills = []
             mock_cfg.bocha_api_keys = []
             mock_cfg.tavily_api_keys = []
-            mock_cfg.brave_api_keys = []
-            mock_cfg.serpapi_keys = []
-            mock_cfg.searxng_base_urls = []
-            mock_cfg.searxng_public_instances_enabled = False
             mock_cfg.news_max_age_days = 7
             mock_cfg.enable_realtime_quote = True
-            mock_cfg.enable_chip_distribution = True
             mock_cfg.realtime_source_priority = []
             mock_cfg.save_context_snapshot = False
             mock_config.return_value = mock_cfg
@@ -1632,7 +1583,6 @@ class TestPipelineRouting(unittest.TestCase):
 
             # Mock the fetcher_manager to return None for realtime
             pipeline.fetcher_manager.get_realtime_quote.return_value = None
-            pipeline.fetcher_manager.get_chip_distribution.return_value = None
             # Mock search service
             pipeline.search_service.is_available = False
             # Mock DB context
@@ -1651,7 +1601,7 @@ class TestPipelineRouting(unittest.TestCase):
         with patch('src.core.pipeline.get_config') as mock_config, \
              patch('src.core.pipeline.get_db'), \
              patch('src.core.pipeline.DataFetcherManager'), \
-             patch('src.core.pipeline.GeminiAnalyzer'), \
+             patch('src.core.pipeline.DeepSeekAnalyzer'), \
              patch('src.core.pipeline.NotificationService'), \
              patch('src.core.pipeline.SearchService'):
 
@@ -1662,13 +1612,8 @@ class TestPipelineRouting(unittest.TestCase):
             mock_cfg.agent_skills = []
             mock_cfg.bocha_api_keys = []
             mock_cfg.tavily_api_keys = []
-            mock_cfg.brave_api_keys = []
-            mock_cfg.serpapi_keys = []
-            mock_cfg.searxng_base_urls = []
-            mock_cfg.searxng_public_instances_enabled = False
             mock_cfg.news_max_age_days = 7
             mock_cfg.enable_realtime_quote = True
-            mock_cfg.enable_chip_distribution = True
             mock_cfg.realtime_source_priority = []
             mock_cfg.save_context_snapshot = False
             mock_config.return_value = mock_cfg
@@ -1695,7 +1640,7 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
         with patch('src.core.pipeline.get_config') as mock_config, \
              patch('src.core.pipeline.get_db'), \
              patch('src.core.pipeline.DataFetcherManager'), \
-             patch('src.core.pipeline.GeminiAnalyzer'), \
+             patch('src.core.pipeline.DeepSeekAnalyzer'), \
              patch('src.core.pipeline.NotificationService'), \
              patch('src.core.pipeline.SearchService'), \
              patch('src.agent.factory.build_agent_executor') as mock_build_executor:
@@ -1707,13 +1652,8 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
             mock_cfg.agent_skills = []
             mock_cfg.bocha_api_keys = []
             mock_cfg.tavily_api_keys = []
-            mock_cfg.brave_api_keys = []
-            mock_cfg.serpapi_keys = []
-            mock_cfg.searxng_base_urls = []
-            mock_cfg.searxng_public_instances_enabled = False
             mock_cfg.news_max_age_days = 7
             mock_cfg.enable_realtime_quote = True
-            mock_cfg.enable_chip_distribution = True
             mock_cfg.realtime_source_priority = []
             mock_cfg.save_context_snapshot = False
             mock_cfg.report_language = "zh"
@@ -1743,7 +1683,7 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
                     "decision_type": "hold",
                     "analysis_summary": "高分但模型建议持有。",
                 },
-                provider="gemini",
+                provider="deepseek",
                 runtime_facts=AgentRuntimeFacts(
                     base_agent_opinions=(
                         BaseAgentOpinionFact(
@@ -1764,7 +1704,6 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
                 query_id="q-review-hold-to-buy",
                 stock_name="贵州茅台",
                 realtime_quote=None,
-                chip_data=None,
             )
 
             self.assertIsNotNone(result)
@@ -1807,7 +1746,7 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
         with patch('src.core.pipeline.get_config') as mock_config, \
              patch('src.core.pipeline.get_db'), \
              patch('src.core.pipeline.DataFetcherManager'), \
-             patch('src.core.pipeline.GeminiAnalyzer'), \
+             patch('src.core.pipeline.DeepSeekAnalyzer'), \
              patch('src.core.pipeline.NotificationService'), \
              patch('src.core.pipeline.SearchService'), \
              patch('src.agent.factory.build_agent_executor') as mock_build_executor:
@@ -1819,13 +1758,8 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
             mock_cfg.agent_skills = []
             mock_cfg.bocha_api_keys = []
             mock_cfg.tavily_api_keys = []
-            mock_cfg.brave_api_keys = []
-            mock_cfg.serpapi_keys = []
-            mock_cfg.searxng_base_urls = []
-            mock_cfg.searxng_public_instances_enabled = False
             mock_cfg.news_max_age_days = 7
             mock_cfg.enable_realtime_quote = True
-            mock_cfg.enable_chip_distribution = True
             mock_cfg.realtime_source_priority = []
             mock_cfg.save_context_snapshot = False
             mock_cfg.report_language = "zh"
@@ -1855,7 +1789,7 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
                     "decision_type": "buy",
                     "analysis_summary": "方向偏多，但操作建议仍需观察。",
                 },
-                provider="gemini",
+                provider="deepseek",
                 runtime_facts=AgentRuntimeFacts(
                     base_agent_opinions=(
                         BaseAgentOpinionFact(
@@ -1876,7 +1810,6 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
                 query_id="q-review-ambiguous-action",
                 stock_name="贵州茅台",
                 realtime_quote=None,
-                chip_data=None,
             )
 
             self.assertIsNotNone(result)
@@ -1909,7 +1842,7 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
         with patch('src.core.pipeline.get_config') as mock_config, \
              patch('src.core.pipeline.get_db'), \
              patch('src.core.pipeline.DataFetcherManager'), \
-             patch('src.core.pipeline.GeminiAnalyzer'), \
+             patch('src.core.pipeline.DeepSeekAnalyzer'), \
              patch('src.core.pipeline.NotificationService'), \
              patch('src.core.pipeline.SearchService'), \
              patch('src.agent.factory.build_agent_executor') as mock_build_executor, \
@@ -1922,13 +1855,8 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
             mock_cfg.agent_skills = []
             mock_cfg.bocha_api_keys = []
             mock_cfg.tavily_api_keys = []
-            mock_cfg.brave_api_keys = []
-            mock_cfg.serpapi_keys = []
-            mock_cfg.searxng_base_urls = []
-            mock_cfg.searxng_public_instances_enabled = False
             mock_cfg.news_max_age_days = 7
             mock_cfg.enable_realtime_quote = True
-            mock_cfg.enable_chip_distribution = True
             mock_cfg.realtime_source_priority = []
             mock_cfg.save_context_snapshot = False
             mock_config.return_value = mock_cfg
@@ -1948,7 +1876,7 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
                     "operation_advice": "持有",
                     "decision_type": "hold",
                 },
-                provider="gemini",
+                provider="deepseek",
             )
             mock_executor = MagicMock()
             mock_executor.run.return_value = agent_result
@@ -1968,7 +1896,6 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
                 query_id="q-news",
                 stock_name="股票588200",
                 realtime_quote=None,
-                chip_data=None
             )
 
             self.assertIsNotNone(result)
@@ -1987,7 +1914,7 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
         with patch('src.core.pipeline.get_config') as mock_config, \
              patch('src.core.pipeline.get_db'), \
              patch('src.core.pipeline.DataFetcherManager'), \
-             patch('src.core.pipeline.GeminiAnalyzer'), \
+             patch('src.core.pipeline.DeepSeekAnalyzer'), \
              patch('src.core.pipeline.NotificationService'), \
              patch('src.core.pipeline.SearchService'), \
              patch('src.agent.factory.build_agent_executor') as mock_build_executor:
@@ -1999,13 +1926,8 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
             mock_cfg.agent_skills = []
             mock_cfg.bocha_api_keys = []
             mock_cfg.tavily_api_keys = []
-            mock_cfg.brave_api_keys = []
-            mock_cfg.serpapi_keys = []
-            mock_cfg.searxng_base_urls = []
-            mock_cfg.searxng_public_instances_enabled = False
             mock_cfg.news_max_age_days = 7
             mock_cfg.enable_realtime_quote = True
-            mock_cfg.enable_chip_distribution = True
             mock_cfg.realtime_source_priority = []
             mock_cfg.save_context_snapshot = False
             mock_cfg.report_language = "zh"
@@ -2033,7 +1955,7 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
                         "core_conclusion": {"one_sentence": "初始结论"},
                     },
                 },
-                provider="gemini",
+                provider="deepseek",
                 runtime_facts=AgentRuntimeFacts(
                     base_agent_opinions=(
                         BaseAgentOpinionFact(
@@ -2083,7 +2005,6 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
                 query_id="q-agent-stability",
                 stock_name="恩捷股份",
                 realtime_quote={"price": 30.4, "change_pct": -2.1},
-                chip_data=None,
                 fundamental_context=fundamental_context,
                 trend_result=trend_result,
             )
@@ -2135,7 +2056,7 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
         with patch('src.core.pipeline.get_config') as mock_config, \
              patch('src.core.pipeline.get_db'), \
              patch('src.core.pipeline.DataFetcherManager'), \
-             patch('src.core.pipeline.GeminiAnalyzer'), \
+             patch('src.core.pipeline.DeepSeekAnalyzer'), \
              patch('src.core.pipeline.NotificationService'), \
              patch('src.core.pipeline.SearchService'), \
              patch('src.agent.factory.build_agent_executor') as mock_build_executor:
@@ -2147,13 +2068,8 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
             mock_cfg.agent_skills = []
             mock_cfg.bocha_api_keys = []
             mock_cfg.tavily_api_keys = []
-            mock_cfg.brave_api_keys = []
-            mock_cfg.serpapi_keys = []
-            mock_cfg.searxng_base_urls = []
-            mock_cfg.searxng_public_instances_enabled = False
             mock_cfg.news_max_age_days = 7
             mock_cfg.enable_realtime_quote = True
-            mock_cfg.enable_chip_distribution = True
             mock_cfg.realtime_source_priority = []
             mock_cfg.save_context_snapshot = False
             mock_cfg.report_language = "zh"
@@ -2194,7 +2110,7 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
                         "intelligence": {"risk_alerts": []},
                     },
                 },
-                provider="gemini",
+                provider="deepseek",
             )
             mock_executor = MagicMock()
             mock_executor.run.return_value = agent_result
@@ -2219,7 +2135,6 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
                 query_id="q-agent-phase-integrity",
                 stock_name="贵州茅台",
                 realtime_quote=None,
-                chip_data=None,
                 market_phase_context=phase_context,
                 market_phase_summary=phase_summary,
             )
@@ -2240,7 +2155,7 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
         with patch('src.core.pipeline.get_config') as mock_config, \
              patch('src.core.pipeline.get_db'), \
              patch('src.core.pipeline.DataFetcherManager'), \
-             patch('src.core.pipeline.GeminiAnalyzer'), \
+             patch('src.core.pipeline.DeepSeekAnalyzer'), \
              patch('src.core.pipeline.NotificationService'), \
              patch('src.core.pipeline.SearchService'), \
              patch('src.core.pipeline.stabilize_decision_with_structure'), \
@@ -2253,13 +2168,8 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
             mock_cfg.agent_skills = []
             mock_cfg.bocha_api_keys = []
             mock_cfg.tavily_api_keys = []
-            mock_cfg.brave_api_keys = []
-            mock_cfg.serpapi_keys = []
-            mock_cfg.searxng_base_urls = []
-            mock_cfg.searxng_public_instances_enabled = False
             mock_cfg.news_max_age_days = 7
             mock_cfg.enable_realtime_quote = True
-            mock_cfg.enable_chip_distribution = True
             mock_cfg.realtime_source_priority = []
             mock_cfg.save_context_snapshot = False
             mock_cfg.report_language = "en"
@@ -2306,7 +2216,7 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
                         },
                     },
                 },
-                provider="gemini",
+                provider="deepseek",
                 runtime_facts=AgentRuntimeFacts(
                     base_agent_opinions=(
                         BaseAgentOpinionFact(
@@ -2328,7 +2238,6 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
                 query_id="q-agent-daily-final",
                 stock_name="贵州茅台",
                 realtime_quote=None,
-                chip_data=None,
                 daily_market_context=DailyMarketContext(
                     region="cn",
                     trade_date=date(2026, 7, 19),
@@ -2374,12 +2283,12 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
             self.assertEqual(signal_payload["action"], explanation["final_action"])
             self.assertEqual(signal_payload["action"], result.action)
 
-    def test_analyze_with_agent_preserves_chip_structure_when_prefetch_missing(self):
-        """Agent tool chip metrics should not be cleared when prefetch chip_data is unavailable."""
+    def test_analyze_with_agent_discards_retired_chip_structure(self):
+        """New reports must not include retired chip metrics returned by a model."""
         with patch('src.core.pipeline.get_config') as mock_config, \
              patch('src.core.pipeline.get_db'), \
              patch('src.core.pipeline.DataFetcherManager'), \
-             patch('src.core.pipeline.GeminiAnalyzer'), \
+             patch('src.core.pipeline.DeepSeekAnalyzer'), \
              patch('src.core.pipeline.NotificationService'), \
              patch('src.core.pipeline.SearchService'), \
              patch('src.agent.factory.build_agent_executor') as mock_build_executor:
@@ -2391,13 +2300,8 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
             mock_cfg.agent_skills = []
             mock_cfg.bocha_api_keys = []
             mock_cfg.tavily_api_keys = []
-            mock_cfg.brave_api_keys = []
-            mock_cfg.serpapi_keys = []
-            mock_cfg.searxng_base_urls = []
-            mock_cfg.searxng_public_instances_enabled = False
             mock_cfg.news_max_age_days = 7
             mock_cfg.enable_realtime_quote = True
-            mock_cfg.enable_chip_distribution = True
             mock_cfg.realtime_source_priority = []
             mock_cfg.save_context_snapshot = False
             mock_cfg.report_language = "zh"
@@ -2430,7 +2334,7 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
                         }
                     },
                 },
-                provider="gemini",
+                provider="deepseek",
             )
             mock_executor = MagicMock()
             mock_executor.run.return_value = agent_result
@@ -2442,12 +2346,11 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
                 query_id="q-agent-chip",
                 stock_name="贵州茅台",
                 realtime_quote=None,
-                chip_data=None,
             )
 
             self.assertIsNotNone(result)
             dp = result.dashboard["data_perspective"]
-            self.assertEqual(dp["chip_structure"]["concentration"], "0.00%")
+            self.assertNotIn("chip_structure", dp)
             self.assertNotIn("chip_unavailable_reason", dp)
 
     def test_analyze_with_agent_history_context_includes_diagnostic_snapshot(self):
@@ -2455,7 +2358,7 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
         with patch('src.core.pipeline.get_config') as mock_config, \
              patch('src.core.pipeline.get_db'), \
              patch('src.core.pipeline.DataFetcherManager'), \
-             patch('src.core.pipeline.GeminiAnalyzer'), \
+             patch('src.core.pipeline.DeepSeekAnalyzer'), \
              patch('src.core.pipeline.NotificationService'), \
              patch('src.core.pipeline.SearchService'), \
              patch('src.core.pipeline.fill_price_position_if_needed'), \
@@ -2469,14 +2372,8 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
             mock_cfg.agent_skills = []
             mock_cfg.bocha_api_keys = []
             mock_cfg.tavily_api_keys = []
-            mock_cfg.anspire_api_keys = []
-            mock_cfg.brave_api_keys = []
-            mock_cfg.serpapi_keys = []
-            mock_cfg.searxng_base_urls = []
-            mock_cfg.searxng_public_instances_enabled = False
             mock_cfg.news_max_age_days = 7
             mock_cfg.enable_realtime_quote = True
-            mock_cfg.enable_chip_distribution = True
             mock_cfg.realtime_source_priority = []
             mock_cfg.save_context_snapshot = True
             mock_cfg.report_language = "zh"
@@ -2529,7 +2426,6 @@ class TestAnalyzeWithAgentStockName(unittest.TestCase):
                     query_id="q-1391",
                     stock_name="科创芯片ETF",
                     realtime_quote=None,
-                    chip_data=None,
                 )
 
             self.assertIsNotNone(result)
@@ -2564,11 +2460,7 @@ class TestAgentConstructionChain(unittest.TestCase):
     def test_llm_adapter_accepts_config(self):
         """LLMToolAdapter should accept an optional config parameter."""
         mock_cfg = MagicMock()
-        mock_cfg.gemini_api_key = ""
-        mock_cfg.anthropic_api_key = ""
-        mock_cfg.openai_api_key = ""
         mock_cfg.openai_base_url = ""
-        mock_cfg.openai_model = ""
 
         from src.agent.llm_adapter import LLMToolAdapter
         adapter = LLMToolAdapter(config=mock_cfg)
@@ -2578,11 +2470,7 @@ class TestAgentConstructionChain(unittest.TestCase):
         """LLMToolAdapter should also work with no arguments (uses get_config)."""
         with patch('src.agent.llm_adapter.get_config') as mock_get_config:
             mock_cfg = MagicMock()
-            mock_cfg.gemini_api_key = ""
-            mock_cfg.anthropic_api_key = ""
-            mock_cfg.openai_api_key = ""
             mock_cfg.openai_base_url = ""
-            mock_cfg.openai_model = ""
             mock_get_config.return_value = mock_cfg
 
             from src.agent.llm_adapter import LLMToolAdapter
@@ -2628,11 +2516,7 @@ class TestAgentConstructionChain(unittest.TestCase):
 
         # Build LLM adapter with mocked config (no real API keys)
         mock_cfg = MagicMock()
-        mock_cfg.gemini_api_key = ""
-        mock_cfg.anthropic_api_key = ""
-        mock_cfg.openai_api_key = ""
         mock_cfg.openai_base_url = ""
-        mock_cfg.openai_model = ""
         adapter = LLMToolAdapter(config=mock_cfg)
 
         # Build executor
@@ -2650,14 +2534,14 @@ class TestAgentConstructionChain(unittest.TestCase):
     def test_llm_adapter_call_completion_uses_effective_agent_models_order(self, _mock_router):
         """call_completion should use Agent effective model chain in order."""
         mock_cfg = MagicMock()
-        mock_cfg.agent_litellm_model = "gpt-4o-mini"
-        mock_cfg.litellm_model = "gemini/gemini-2.5-flash"
-        mock_cfg.litellm_fallback_models = ["openai/gpt-4o-mini", "anthropic/claude-3-5-sonnet-20241022"]
+        mock_cfg.agent_litellm_model = "deepseek/deepseek-flash"
+        mock_cfg.litellm_model = "deepseek/deepseek-flash"
+        mock_cfg.litellm_fallback_models = ["deepseek/deepseek-flash", "deepseek/deepseek-v4-pro"]
         mock_cfg.llm_model_list = []
         mock_cfg.llm_temperature = 0.7
-        mock_cfg.gemini_api_keys = []
-        mock_cfg.anthropic_api_keys = []
-        mock_cfg.openai_api_keys = []
+        mock_cfg.deepseek_api_keys = []
+        mock_cfg.deepseek_api_keys = []
+        mock_cfg.deepseek_api_keys = []
         mock_cfg.deepseek_api_keys = []
         mock_cfg.openai_base_url = None
 
@@ -2668,7 +2552,7 @@ class TestAgentConstructionChain(unittest.TestCase):
 
         def fake_call(_messages, _tools, model, **_kwargs):
             calls.append(model)
-            if model == "openai/gpt-4o-mini":
+            if model == "deepseek/deepseek-flash":
                 raise RuntimeError("primary failed")
             return MagicMock(content="ok")
 
@@ -2676,189 +2560,12 @@ class TestAgentConstructionChain(unittest.TestCase):
 
         result = adapter.call_completion(messages=[{"role": "user", "content": "hi"}], tools=[])
 
-        self.assertEqual(calls, ["openai/gpt-4o-mini", "anthropic/claude-3-5-sonnet-20241022"])
+        self.assertEqual(calls, ["deepseek/deepseek-flash", "deepseek/deepseek-v4-pro"])
         self.assertEqual(result.content, "ok")
 
-    @patch("src.agent.llm_adapter.Router")
-    def test_llm_adapter_normalizes_kimi_k26_temperature(self, _mock_router):
-        """Agent direct LiteLLM calls should not send unsupported temperatures to Kimi K2.6."""
-        mock_cfg = SimpleNamespace(
-            agent_litellm_model="",
-            litellm_model="openai/kimi-k2.6",
-            litellm_fallback_models=[],
-            llm_model_list=[],
-            llm_temperature=0.2,
-            gemini_api_keys=[],
-            anthropic_api_keys=[],
-            openai_api_keys=[],
-            deepseek_api_keys=[],
-            openai_base_url=None,
-        )
 
-        from src.agent.llm_adapter import LLMToolAdapter
-        adapter = LLMToolAdapter(config=mock_cfg)
-        adapter._router = None
-        response = SimpleNamespace(
-            choices=[
-                SimpleNamespace(
-                    message=SimpleNamespace(
-                        content="agent ok",
-                        tool_calls=[],
-                    )
-                )
-            ],
-            usage=SimpleNamespace(prompt_tokens=1, completion_tokens=2, total_tokens=3),
-        )
 
-        with patch("src.agent.llm_adapter.litellm.completion", return_value=response) as mock_completion:
-            result = adapter._call_litellm_model(
-                [{"role": "user", "content": "hi"}],
-                [],
-                "openai/kimi-k2.6",
-                temperature=0.2,
-            )
 
-        self.assertEqual(result.content, "agent ok")
-        self.assertEqual(mock_completion.call_args.kwargs["temperature"], 1.0)
-
-    @patch("src.agent.llm_adapter.Router")
-    def test_llm_adapter_normalizes_kimi_k26_temperature_for_yaml_alias(self, _mock_router):
-        """Agent direct LiteLLM calls should normalize through routed YAML aliases."""
-        mock_cfg = SimpleNamespace(
-            agent_litellm_model="",
-            litellm_model="kimi_router",
-            litellm_fallback_models=[],
-            llm_model_list=[
-                {
-                    "model_name": "kimi_router",
-                    "litellm_params": {"model": "openai/kimi-k2.6"},
-                }
-            ],
-            llm_temperature=0.2,
-            gemini_api_keys=[],
-            anthropic_api_keys=[],
-            openai_api_keys=[],
-            deepseek_api_keys=[],
-            openai_base_url=None,
-        )
-
-        from src.agent.llm_adapter import LLMToolAdapter
-        adapter = LLMToolAdapter(config=mock_cfg)
-        adapter._router = None
-        response = SimpleNamespace(
-            choices=[
-                SimpleNamespace(
-                    message=SimpleNamespace(
-                        content="agent ok",
-                        tool_calls=[],
-                    )
-                )
-            ],
-            usage=SimpleNamespace(prompt_tokens=1, completion_tokens=2, total_tokens=3),
-        )
-
-        with patch("src.agent.llm_adapter.litellm.completion", return_value=response) as mock_completion:
-            result = adapter._call_litellm_model(
-                [{"role": "user", "content": "hi"}],
-                [],
-                "kimi_router",
-                temperature=0.2,
-            )
-
-        self.assertEqual(result.content, "agent ok")
-        self.assertEqual(mock_completion.call_args.kwargs["temperature"], 1.0)
-
-    @patch("src.agent.llm_adapter.Router")
-    def test_llm_adapter_normalizes_kimi_k26_temperature_for_non_thinking_yaml_alias(self, _mock_router):
-        """Agent direct LiteLLM calls should honor non-thinking Kimi YAML overrides."""
-        mock_cfg = SimpleNamespace(
-            agent_litellm_model="",
-            litellm_model="kimi_router",
-            litellm_fallback_models=[],
-            llm_model_list=[
-                {
-                    "model_name": "kimi_router",
-                    "litellm_params": {
-                        "model": "openai/kimi-k2.6",
-                        "extra_body": {"thinking": {"type": "disabled"}},
-                    },
-                }
-            ],
-            llm_temperature=0.2,
-            gemini_api_keys=[],
-            anthropic_api_keys=[],
-            openai_api_keys=[],
-            deepseek_api_keys=[],
-            openai_base_url=None,
-        )
-
-        from src.agent.llm_adapter import LLMToolAdapter
-        adapter = LLMToolAdapter(config=mock_cfg)
-        adapter._router = None
-        response = SimpleNamespace(
-            choices=[
-                SimpleNamespace(
-                    message=SimpleNamespace(
-                        content="agent ok",
-                        tool_calls=[],
-                    )
-                )
-            ],
-            usage=SimpleNamespace(prompt_tokens=1, completion_tokens=2, total_tokens=3),
-        )
-
-        with patch("src.agent.llm_adapter.litellm.completion", return_value=response) as mock_completion:
-            result = adapter._call_litellm_model(
-                [{"role": "user", "content": "hi"}],
-                [],
-                "kimi_router",
-                temperature=0.2,
-            )
-
-        self.assertEqual(result.content, "agent ok")
-        self.assertEqual(mock_completion.call_args.kwargs["temperature"], 0.6)
-
-    @patch("src.agent.llm_adapter.Router")
-    def test_llm_adapter_omits_temperature_for_gpt5_family(self, _mock_router):
-        """Agent direct LiteLLM calls should omit temperature for strict default-temperature models."""
-        mock_cfg = SimpleNamespace(
-            agent_litellm_model="",
-            litellm_model="openai/gpt5.5-ferr",
-            litellm_fallback_models=[],
-            llm_model_list=[],
-            llm_temperature=0.2,
-            gemini_api_keys=[],
-            anthropic_api_keys=[],
-            openai_api_keys=[],
-            deepseek_api_keys=[],
-            openai_base_url=None,
-        )
-
-        from src.agent.llm_adapter import LLMToolAdapter
-        adapter = LLMToolAdapter(config=mock_cfg)
-        adapter._router = None
-        response = SimpleNamespace(
-            choices=[
-                SimpleNamespace(
-                    message=SimpleNamespace(
-                        content="agent ok",
-                        tool_calls=[],
-                    )
-                )
-            ],
-            usage=SimpleNamespace(prompt_tokens=1, completion_tokens=2, total_tokens=3),
-        )
-
-        with patch("src.agent.llm_adapter.litellm.completion", return_value=response) as mock_completion:
-            result = adapter._call_litellm_model(
-                [{"role": "user", "content": "hi"}],
-                [],
-                "openai/gpt5.5-ferr",
-                temperature=0.2,
-            )
-
-        self.assertEqual(result.content, "agent ok")
-        self.assertNotIn("temperature", mock_completion.call_args.kwargs)
 
     @patch("src.agent.llm_adapter.Router")
     def test_llm_adapter_recovers_from_unsupported_temperature(self, _mock_router):
@@ -2868,15 +2575,11 @@ class TestAgentConstructionChain(unittest.TestCase):
         clear_litellm_generation_param_recovery_cache()
         mock_cfg = SimpleNamespace(
             agent_litellm_model="",
-            litellm_model="openai/custom-temp-locked-agent",
+            litellm_model="deepseek/deepseek-custom-temp-locked-agent",
             litellm_fallback_models=[],
             llm_model_list=[],
             llm_temperature=0.2,
-            gemini_api_keys=[],
-            anthropic_api_keys=[],
-            openai_api_keys=[],
             deepseek_api_keys=[],
-            openai_base_url=None,
         )
 
         from src.agent.llm_adapter import LLMToolAdapter
@@ -2902,7 +2605,7 @@ class TestAgentConstructionChain(unittest.TestCase):
             result = adapter._call_litellm_model(
                 [{"role": "user", "content": "hi"}],
                 [],
-                "openai/custom-temp-locked-agent",
+                "deepseek/deepseek-custom-temp-locked-agent",
                 temperature=0.2,
             )
 
@@ -2910,142 +2613,20 @@ class TestAgentConstructionChain(unittest.TestCase):
         self.assertEqual(mock_completion.call_args_list[0].kwargs["temperature"], 0.2)
         self.assertNotIn("temperature", mock_completion.call_args_list[1].kwargs)
 
-    @patch("src.agent.llm_adapter.Router")
-    def test_llm_adapter_legacy_router_recovery_cache_is_scoped_to_endpoint(self, mock_router):
-        """Legacy multi-key Router recoveries should not leak across base URLs."""
-        from src.llm.generation_params import clear_litellm_generation_param_recovery_cache
 
-        clear_litellm_generation_param_recovery_cache()
-        response = SimpleNamespace(
-            choices=[
-                SimpleNamespace(
-                    message=SimpleNamespace(
-                        content="agent ok",
-                        tool_calls=[],
-                    )
-                )
-            ],
-            usage=SimpleNamespace(prompt_tokens=1, completion_tokens=2, total_tokens=3),
-        )
-        strict_router = MagicMock()
-        flex_router = MagicMock()
-        strict_router.completion.side_effect = [
-            RuntimeError("Unsupported parameter: temperature is not supported"),
-            response,
-        ]
-        flex_router.completion.return_value = response
-        mock_router.side_effect = [strict_router, flex_router]
-
-        strict_cfg = SimpleNamespace(
-            agent_litellm_model="",
-            litellm_model="openai/shared-model",
-            litellm_fallback_models=[],
-            llm_model_list=[],
-            llm_temperature=0.2,
-            gemini_api_keys=[],
-            anthropic_api_keys=[],
-            openai_api_keys=["sk-strict-key-1", "sk-strict-key-2"],
-            deepseek_api_keys=[],
-            openai_base_url="https://strict.example/v1",
-        )
-        flex_cfg = SimpleNamespace(
-            agent_litellm_model="",
-            litellm_model="openai/shared-model",
-            litellm_fallback_models=[],
-            llm_model_list=[],
-            llm_temperature=0.2,
-            gemini_api_keys=[],
-            anthropic_api_keys=[],
-            openai_api_keys=["sk-flex-key-1", "sk-flex-key-2"],
-            deepseek_api_keys=[],
-            openai_base_url="https://flex.example/v1",
-        )
-
-        from src.agent.llm_adapter import LLMToolAdapter
-
-        strict_adapter = LLMToolAdapter(config=strict_cfg)
-        strict_result = strict_adapter._call_litellm_model(
-            [{"role": "user", "content": "hi"}],
-            [],
-            "openai/shared-model",
-            temperature=0.2,
-        )
-        flex_adapter = LLMToolAdapter(config=flex_cfg)
-        flex_result = flex_adapter._call_litellm_model(
-            [{"role": "user", "content": "hi"}],
-            [],
-            "openai/shared-model",
-            temperature=0.2,
-        )
-
-        self.assertEqual(strict_result.content, "agent ok")
-        self.assertEqual(flex_result.content, "agent ok")
-        self.assertEqual(strict_router.completion.call_args_list[0].kwargs["temperature"], 0.2)
-        self.assertNotIn("temperature", strict_router.completion.call_args_list[1].kwargs)
-        self.assertEqual(flex_router.completion.call_args.kwargs["temperature"], 0.2)
-
-    @patch("src.agent.llm_adapter.Router")
-    def test_llm_adapter_fallback_does_not_leak_kimi_fixed_temperature(self, _mock_router):
-        """Non-Kimi fallbacks should keep the requested temperature after a Kimi failure."""
-        mock_cfg = SimpleNamespace(
-            agent_litellm_model="",
-            litellm_model="openai/kimi-k2.6",
-            litellm_fallback_models=["openai/gpt-4o-mini"],
-            llm_model_list=[],
-            llm_temperature=0.2,
-            gemini_api_keys=[],
-            anthropic_api_keys=[],
-            openai_api_keys=[],
-            deepseek_api_keys=[],
-            openai_base_url=None,
-        )
-
-        from src.agent.llm_adapter import LLMToolAdapter
-        adapter = LLMToolAdapter(config=mock_cfg)
-        response = SimpleNamespace(
-            choices=[
-                SimpleNamespace(
-                    message=SimpleNamespace(
-                        content="fallback ok",
-                        tool_calls=[],
-                    )
-                )
-            ],
-            usage=SimpleNamespace(prompt_tokens=1, completion_tokens=2, total_tokens=3),
-        )
-        temperatures = []
-
-        def fake_completion(**kwargs):
-            temperatures.append((kwargs["model"], kwargs["temperature"]))
-            if kwargs["model"] == "openai/kimi-k2.6":
-                raise RuntimeError("primary failed")
-            return response
-
-        with patch("src.agent.llm_adapter.litellm.completion", side_effect=fake_completion):
-            result = adapter.call_completion(
-                messages=[{"role": "user", "content": "hi"}],
-                tools=[],
-                temperature=0.2,
-            )
-
-        self.assertEqual(result.content, "fallback ok")
-        self.assertEqual(
-            temperatures,
-            [("openai/kimi-k2.6", 1.0), ("openai/gpt-4o-mini", 0.2)],
-        )
 
     @patch("src.agent.llm_adapter.Router")
     def test_llm_adapter_recomputes_timeout_for_each_fallback_attempt(self, _mock_router):
         """Each fallback model attempt should receive only the remaining timeout budget."""
         mock_cfg = MagicMock()
-        mock_cfg.agent_litellm_model = "gpt-4o-mini"
+        mock_cfg.agent_litellm_model = "deepseek/deepseek-flash"
         mock_cfg.litellm_model = None
-        mock_cfg.litellm_fallback_models = ["anthropic/claude-3-5-sonnet-20241022"]
+        mock_cfg.litellm_fallback_models = ["deepseek/deepseek-v4-pro"]
         mock_cfg.llm_model_list = []
         mock_cfg.llm_temperature = 0.7
-        mock_cfg.gemini_api_keys = []
-        mock_cfg.anthropic_api_keys = []
-        mock_cfg.openai_api_keys = []
+        mock_cfg.deepseek_api_keys = []
+        mock_cfg.deepseek_api_keys = []
+        mock_cfg.deepseek_api_keys = []
         mock_cfg.deepseek_api_keys = []
         mock_cfg.openai_base_url = None
 
@@ -3056,7 +2637,7 @@ class TestAgentConstructionChain(unittest.TestCase):
 
         def fake_call(_messages, _tools, model, **kwargs):
             timeouts.append((model, kwargs.get("timeout")))
-            if model == "openai/gpt-4o-mini":
+            if model == "deepseek/deepseek-flash":
                 raise RuntimeError("primary failed")
             return MagicMock(content="ok")
 
@@ -3070,21 +2651,21 @@ class TestAgentConstructionChain(unittest.TestCase):
             )
 
         self.assertEqual(result.content, "ok")
-        self.assertEqual(timeouts[0], ("openai/gpt-4o-mini", 10.0))
-        self.assertEqual(timeouts[1], ("anthropic/claude-3-5-sonnet-20241022", 3.0))
+        self.assertEqual(timeouts[0], ("deepseek/deepseek-flash", 10.0))
+        self.assertEqual(timeouts[1], ("deepseek/deepseek-v4-pro", 3.0))
 
     @patch("src.agent.llm_adapter.Router")
     def test_llm_adapter_rate_limit_backoff_is_bounded_by_remaining_timeout(self, _mock_router):
         """Rate-limit backoff should sleep, but never longer than the remaining timeout budget."""
         mock_cfg = MagicMock()
-        mock_cfg.agent_litellm_model = "gpt-4o-mini"
+        mock_cfg.agent_litellm_model = "deepseek/deepseek-flash"
         mock_cfg.litellm_model = None
-        mock_cfg.litellm_fallback_models = ["openai/gpt-4.1-mini"]
+        mock_cfg.litellm_fallback_models = ["deepseek/deepseek-v4-pro"]
         mock_cfg.llm_model_list = []
         mock_cfg.llm_temperature = 0.7
-        mock_cfg.gemini_api_keys = []
-        mock_cfg.anthropic_api_keys = []
-        mock_cfg.openai_api_keys = []
+        mock_cfg.deepseek_api_keys = []
+        mock_cfg.deepseek_api_keys = []
+        mock_cfg.deepseek_api_keys = []
         mock_cfg.deepseek_api_keys = []
         mock_cfg.openai_base_url = None
 
@@ -3107,7 +2688,7 @@ class TestAgentConstructionChain(unittest.TestCase):
 
         def fake_call(_messages, _tools, model, **kwargs):
             timeouts.append((model, kwargs.get("timeout")))
-            if model == "openai/gpt-4o-mini":
+            if model == "deepseek/deepseek-flash":
                 clock["value"] += 8.0
                 raise FakeRateLimitError("rate limited")
             return MagicMock(content="ok")
@@ -3125,8 +2706,8 @@ class TestAgentConstructionChain(unittest.TestCase):
             )
 
         self.assertEqual(result.content, "ok")
-        self.assertEqual(timeouts[0], ("openai/gpt-4o-mini", 10.0))
-        self.assertEqual(timeouts[1][0], "openai/gpt-4.1-mini")
+        self.assertEqual(timeouts[0], ("deepseek/deepseek-flash", 10.0))
+        self.assertEqual(timeouts[1][0], "deepseek/deepseek-v4-pro")
         expected_backoff = min(2.0, 8.0 * 0.1 + 0.5)
         expected_next_timeout = 10.0 - (8.0 + expected_backoff)
         self.assertAlmostEqual(timeouts[1][1], expected_next_timeout)
@@ -3139,14 +2720,14 @@ class TestAgentConstructionChain(unittest.TestCase):
     def test_llm_adapter_context_window_error_skips_sleep(self, _mock_router):
         """Context-window errors should continue fallback immediately without backoff."""
         mock_cfg = MagicMock()
-        mock_cfg.agent_litellm_model = "gpt-4o-mini"
+        mock_cfg.agent_litellm_model = "deepseek/deepseek-flash"
         mock_cfg.litellm_model = None
-        mock_cfg.litellm_fallback_models = ["anthropic/claude-3-5-sonnet-20241022"]
+        mock_cfg.litellm_fallback_models = ["deepseek/deepseek-v4-pro"]
         mock_cfg.llm_model_list = []
         mock_cfg.llm_temperature = 0.7
-        mock_cfg.gemini_api_keys = []
-        mock_cfg.anthropic_api_keys = []
-        mock_cfg.openai_api_keys = []
+        mock_cfg.deepseek_api_keys = []
+        mock_cfg.deepseek_api_keys = []
+        mock_cfg.deepseek_api_keys = []
         mock_cfg.deepseek_api_keys = []
         mock_cfg.openai_base_url = None
 
@@ -3157,7 +2738,7 @@ class TestAgentConstructionChain(unittest.TestCase):
             pass
 
         def fake_call(_messages, _tools, model, **_kwargs):
-            if model == "openai/gpt-4o-mini":
+            if model == "deepseek/deepseek-flash":
                 raise FakeContextWindowExceededError("window exceeded")
             return MagicMock(content="ok")
 
@@ -3176,14 +2757,14 @@ class TestAgentConstructionChain(unittest.TestCase):
     def test_llm_adapter_reports_rate_limit_suffix_when_any_fallback_hit_limit(self, _mock_router):
         """Final error should note earlier rate limiting even if the last error differs."""
         mock_cfg = MagicMock()
-        mock_cfg.agent_litellm_model = "gpt-4o-mini"
+        mock_cfg.agent_litellm_model = "deepseek/deepseek-flash"
         mock_cfg.litellm_model = None
-        mock_cfg.litellm_fallback_models = ["anthropic/claude-3-5-sonnet-20241022"]
+        mock_cfg.litellm_fallback_models = ["deepseek/deepseek-v4-pro"]
         mock_cfg.llm_model_list = []
         mock_cfg.llm_temperature = 0.7
-        mock_cfg.gemini_api_keys = []
-        mock_cfg.anthropic_api_keys = []
-        mock_cfg.openai_api_keys = []
+        mock_cfg.deepseek_api_keys = []
+        mock_cfg.deepseek_api_keys = []
+        mock_cfg.deepseek_api_keys = []
         mock_cfg.deepseek_api_keys = []
         mock_cfg.openai_base_url = None
 
@@ -3197,7 +2778,7 @@ class TestAgentConstructionChain(unittest.TestCase):
             pass
 
         def fake_call(_messages, _tools, model, **_kwargs):
-            if model == "openai/gpt-4o-mini":
+            if model == "deepseek/deepseek-flash":
                 raise FakeRateLimitError("rate limited")
             raise FakeContextWindowExceededError("window exceeded")
 
@@ -3214,7 +2795,7 @@ class TestAgentConstructionChain(unittest.TestCase):
         self.assertEqual(result.provider, "error")
         self.assertIn("All LLM models failed (rate-limit encountered during fallback).", result.content)
         self.assertIn("window exceeded", result.content)
-        mock_sleep.assert_not_called()
+        mock_sleep.assert_called_once()
 
     @patch("src.agent.llm_adapter.Router")
     def test_llm_adapter_reports_missing_configuration_without_generic_none_error(self, _mock_router):
@@ -3225,11 +2806,7 @@ class TestAgentConstructionChain(unittest.TestCase):
             litellm_fallback_models=[],
             llm_model_list=[],
             llm_temperature=0.7,
-            gemini_api_keys=[],
-            anthropic_api_keys=[],
-            openai_api_keys=[],
             deepseek_api_keys=[],
-            openai_base_url=None,
         )
 
         from src.agent.llm_adapter import LLMToolAdapter
@@ -3256,7 +2833,7 @@ class TestSafeInt(unittest.TestCase):
         with patch('src.core.pipeline.get_config') as mock_config, \
              patch('src.core.pipeline.get_db'), \
              patch('src.core.pipeline.DataFetcherManager'), \
-             patch('src.core.pipeline.GeminiAnalyzer'), \
+             patch('src.core.pipeline.DeepSeekAnalyzer'), \
              patch('src.core.pipeline.NotificationService'), \
              patch('src.core.pipeline.SearchService'):
 
@@ -3267,13 +2844,8 @@ class TestSafeInt(unittest.TestCase):
             mock_cfg.agent_skills = []
             mock_cfg.bocha_api_keys = []
             mock_cfg.tavily_api_keys = []
-            mock_cfg.brave_api_keys = []
-            mock_cfg.serpapi_keys = []
-            mock_cfg.searxng_base_urls = []
-            mock_cfg.searxng_public_instances_enabled = False
             mock_cfg.news_max_age_days = 7
             mock_cfg.enable_realtime_quote = True
-            mock_cfg.enable_chip_distribution = True
             mock_cfg.realtime_source_priority = []
             mock_cfg.save_context_snapshot = False
             mock_config.return_value = mock_cfg
@@ -3399,7 +2971,7 @@ class TestSkillActivation(unittest.TestCase):
         with patch('src.core.pipeline.get_config') as mock_config, \
              patch('src.core.pipeline.get_db'), \
              patch('src.core.pipeline.DataFetcherManager'), \
-             patch('src.core.pipeline.GeminiAnalyzer'), \
+             patch('src.core.pipeline.DeepSeekAnalyzer'), \
              patch('src.core.pipeline.NotificationService'), \
              patch('src.core.pipeline.SearchService'):
 
@@ -3410,13 +2982,8 @@ class TestSkillActivation(unittest.TestCase):
             mock_cfg.agent_skills = []
             mock_cfg.bocha_api_keys = []
             mock_cfg.tavily_api_keys = []
-            mock_cfg.brave_api_keys = []
-            mock_cfg.serpapi_keys = []
-            mock_cfg.searxng_base_urls = []
-            mock_cfg.searxng_public_instances_enabled = False
             mock_cfg.news_max_age_days = 7
             mock_cfg.enable_realtime_quote = True
-            mock_cfg.enable_chip_distribution = True
             mock_cfg.realtime_source_priority = []
             mock_cfg.save_context_snapshot = False
             mock_config.return_value = mock_cfg
@@ -3437,7 +3004,7 @@ class TestSkillActivation(unittest.TestCase):
                     "operation_advice": "买入",
                     "decision_type": "buy",
                 },
-                provider="gemini",
+                provider="deepseek",
             )
 
             result = pipeline._agent_result_to_analysis_result(

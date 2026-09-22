@@ -95,8 +95,8 @@ def test_run_agent_loop_emits_paired_stage_and_legacy_progress_events() -> None:
         content="Done.",
         tool_calls=[],
         usage={},
-        provider="openai",
-        model="openai/gpt-test",
+        provider="deepseek",
+        model="deepseek/deepseek-flash",
     )
     events = []
 
@@ -129,15 +129,15 @@ def test_orchestrator_real_agent_path_does_not_emit_nested_agent_loop_stage() ->
             content="Technical done.",
             tool_calls=[],
             usage={},
-            provider="openai",
-            model="openai/gpt-test",
+            provider="deepseek",
+            model="deepseek/deepseek-flash",
         ),
         LLMResponse(
             content="Decision done.",
             tool_calls=[],
             usage={},
-            provider="openai",
-            model="openai/gpt-test",
+            provider="deepseek",
+            model="deepseek/deepseek-flash",
         ),
     ]
     registry = _make_registry()

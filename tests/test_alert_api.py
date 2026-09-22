@@ -50,7 +50,7 @@ class AlertApiTestCase(unittest.TestCase):
             "\n".join(
                 [
                     "STOCK_LIST=600519",
-                    "GEMINI_API_KEY=test",
+                    "DEEPSEEK_API_KEY=test",
                     "ADMIN_AUTH_ENABLED=false",
                     'AGENT_EVENT_ALERT_RULES_JSON=[{"stock_code":"000001","alert_type":"price_cross","direction":"above","price":10}]',
                     f"DATABASE_PATH={self.db_path}",

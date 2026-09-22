@@ -7,14 +7,8 @@ import sys
 import unittest
 from datetime import datetime, timezone
 from types import ModuleType
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-# Mock newspaper before search_service import (optional dependency)
-if "newspaper" not in sys.modules:
-    mock_np = MagicMock()
-    mock_np.Article = MagicMock()
-    mock_np.Config = MagicMock()
-    sys.modules["newspaper"] = mock_np
 
 from src.search_service import SearchService, TavilySearchProvider
 
@@ -143,7 +137,6 @@ class TestTavilySearchProvider(unittest.TestCase):
                 ):
                     service = SearchService(
                         tavily_keys=["dummy_key"],
-                        searxng_public_instances_enabled=False,
                         news_max_age_days=3,
                         news_strategy_profile="short",
                     )
@@ -168,7 +161,7 @@ class TestTavilySearchProvider(unittest.TestCase):
         ):
             service = SearchService(
                 tavily_keys=["dummy_key"],
-                searxng_public_instances_enabled=False,
+
             )
             resp = service.search_stock_events("BABA", "阿里巴巴")
 
@@ -194,7 +187,6 @@ class TestTavilySearchProvider(unittest.TestCase):
         ):
             service = SearchService(
                 tavily_keys=["dummy_key"],
-                searxng_public_instances_enabled=False,
                 news_max_age_days=3,
                 news_strategy_profile="short",
             )
@@ -224,7 +216,6 @@ class TestTavilySearchProvider(unittest.TestCase):
         ):
             service = SearchService(
                 tavily_keys=["dummy_key"],
-                searxng_public_instances_enabled=False,
                 news_max_age_days=3,
                 news_strategy_profile="short",
             )
@@ -256,7 +247,6 @@ class TestTavilySearchProvider(unittest.TestCase):
         ):
             service = SearchService(
                 tavily_keys=["dummy_key"],
-                searxng_public_instances_enabled=False,
                 news_max_age_days=3,
                 news_strategy_profile="short",
             )

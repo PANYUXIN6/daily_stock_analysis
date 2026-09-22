@@ -14,16 +14,12 @@ def _make_config() -> SimpleNamespace:
         save_context_snapshot=False,
         bocha_api_keys=[],
         tavily_api_keys=[],
-        brave_api_keys=[],
-        serpapi_keys=[],
-        minimax_api_keys=[],
-        searxng_base_urls=[],
-        searxng_public_instances_enabled=False,
+
+
         news_max_age_days=7,
         news_strategy_profile="short",
         enable_realtime_quote=False,
         realtime_source_priority=[],
-        enable_chip_distribution=False,
     )
 
 
@@ -31,7 +27,7 @@ def _build_pipeline(config: SimpleNamespace) -> StockAnalysisPipeline:
     with patch("src.core.pipeline.get_db", return_value=MagicMock()), \
          patch("src.core.pipeline.DataFetcherManager", return_value=MagicMock()), \
          patch("src.core.pipeline.StockTrendAnalyzer", return_value=MagicMock()), \
-         patch("src.core.pipeline.GeminiAnalyzer", return_value=MagicMock()), \
+         patch("src.core.pipeline.DeepSeekAnalyzer", return_value=MagicMock()), \
          patch("src.core.pipeline.NotificationService", return_value=MagicMock()):
         return StockAnalysisPipeline(config=config)
 

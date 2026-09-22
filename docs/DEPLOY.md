@@ -212,7 +212,7 @@ journalctl -u stock-analyzer -f
 
 | 配置项 | 说明 | 获取方式 |
 |--------|------|----------|
-| `ANSPIRE_API_KEYS` / `AIHUBMIX_KEY` / `GEMINI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | AI 模型至少配置一个；推荐优先 Anspire 或 AIHubMix | 对应服务商控制台 |
+| `DEEPSEEK_API_KEY` | DeepSeek API Key | https://platform.deepseek.com/ |
 | `STOCK_LIST` | 自选股列表 | 逗号分隔的股票代码；已登记指数显式形态（如 `sh000016`、`930606.CSI`、`sz399365`）经一次性 `--stocks` 或 GitHub Actions 入口支持（本地 `.env`/Docker 无参数默认运行保持股票语义，指数需配 `--stocks`），规则见 [指数自选股配置](full-guide.md#指数自选股配置) |
 | 通知渠道 | 至少配置一个，如企业微信、飞书、Telegram 或邮件 | 对应通知平台 |
 
@@ -223,17 +223,13 @@ journalctl -u stock-analyzer -f
 | `SCHEDULE_ENABLED` | `false` | 是否启用定时任务 |
 | `SCHEDULE_TIME` | `18:00` | 每日执行时间 |
 | `MARKET_REVIEW_ENABLED` | `true` | 是否启用大盘复盘 |
-| `ANSPIRE_API_KEYS` | - | Anspire 大模型与新闻搜索（推荐） |
-| `AIHUBMIX_KEY` | - | AIHubMix 一 Key 多模型（推荐） |
-| `SERPAPI_API_KEYS` | - | SerpAPI 实时金融新闻搜索（推荐） |
 | `TAVILY_API_KEYS` | - | Tavily 新闻搜索（可选） |
-| `MINIMAX_API_KEYS` | - | MiniMax 搜索（可选） |
 
 ---
 
 ## 🌐 代理配置
 
-如果服务器在国内，访问 Gemini API 需要代理：
+如果服务器在国内，请确认服务器能够访问 DeepSeek API：
 
 ### Docker 方式
 
@@ -299,7 +295,7 @@ docker-compose -f ./docker/docker-compose.yml build --no-cache
 
 ### 2. API 访问超时
 
-检查代理配置，确保服务器能访问 Gemini API。
+检查代理配置，确保服务器能访问 DeepSeek API。
 
 ### 3. 数据库锁定
 
@@ -414,11 +410,6 @@ git push -u origin main
 
 | Secret 名称 | 说明 | 必填 |
 |------------|------|------|
-| `ANSPIRE_API_KEYS` | Anspire Open API Key（一 Key 启用大模型与搜索） | 推荐 |
-| `AIHUBMIX_KEY` | AIHubMix API Key（一 Key 多模型） | 推荐 |
-| `ANTHROPIC_API_KEY` | Anthropic API Key | 可选 |
-| `GEMINI_API_KEY` | Gemini AI API Key | 可选 |
-| `OPENAI_API_KEY` | OpenAI 兼容 API Key | 可选 |
 | `WECHAT_WEBHOOK_URL` | 企业微信机器人 Webhook | 可选* |
 | `FEISHU_WEBHOOK_URL` | 飞书机器人 Webhook | 可选* |
 | `TELEGRAM_BOT_TOKEN` | Telegram Bot Token | 可选* |
@@ -429,15 +420,9 @@ git push -u origin main
 | `SERVERCHAN3_SENDKEY` | Server酱³ Sendkey | 可选* |
 | `CUSTOM_WEBHOOK_URLS` | 自定义 Webhook（多个逗号分隔） | 可选* |
 | `STOCK_LIST` | 自选股列表，如 `600519,300750` | ✅ |
-| `SERPAPI_API_KEYS` | SerpAPI Key | 推荐 |
 | `TAVILY_API_KEYS` | Tavily 搜索 API Key | 可选 |
 | `BOCHA_API_KEYS` | 博查搜索 API Key | 可选 |
-| `BRAVE_API_KEYS` | Brave Search API Key | 可选 |
-| `MINIMAX_API_KEYS` | MiniMax Coding Plan Web Search | 可选 |
-| `SEARXNG_BASE_URLS` | SearXNG 自建实例（无配额兜底，需在 settings.yml 启用 format: json）；留空时仅在显式启用公共实例发现后使用 `searx.space` | 可选 |
-| `SEARXNG_PUBLIC_INSTANCES_ENABLED` | 是否在 `SEARXNG_BASE_URLS` 为空时自动从 `searx.space` 获取公共实例（默认 `false`） | 可选 |
 | `TUSHARE_TOKEN` | Tushare Token | 可选 |
-| `GEMINI_MODEL` | 模型名称（默认 gemini-2.0-flash） | 可选 |
 
 > *注：通知渠道至少配置一个，支持多渠道同时推送
 

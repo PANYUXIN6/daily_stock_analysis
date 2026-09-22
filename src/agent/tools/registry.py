@@ -95,7 +95,7 @@ class ToolDefinition:
     # ----- Multi-provider schema converters -----
 
     def _params_json_schema(self) -> dict:
-        """Convert parameters to JSON Schema (shared by OpenAI/Anthropic)."""
+        """Convert parameters to JSON Schema for tool calling."""
         properties: Dict[str, Any] = {}
         required: List[str] = []
         for p in self.parameters:

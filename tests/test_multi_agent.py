@@ -1719,7 +1719,6 @@ class TestOrchestratorExecution(unittest.TestCase):
         orch = self._make_orchestrator(config=SimpleNamespace(agent_orchestrator_timeout_s=1, agent_risk_override=True))
         ctx = AgentContext(query="test", stock_code="301308", stock_name="江波龙")
         ctx.set_data("realtime_quote", {"price": 326.17, "volume_ratio": 1.0, "turnover_rate": 6.77})
-        ctx.set_data("chip_distribution", {"profit_ratio": 68.8, "avg_cost": 307.67, "concentration_90": 15.28})
 
         technical = MagicMock(agent_name="technical")
         intel = MagicMock(agent_name="intel")
@@ -3019,7 +3018,7 @@ class TestResearchAgentFilteredRegistry(unittest.TestCase):
 
         llm_adapter = MagicMock()
         llm_adapter.call_text.return_value = SimpleNamespace(
-            provider="gemini",
+            provider="deepseek",
             content='{"questions":["Q1","Q2"]}',
             usage={"total_tokens": 42},
         )
@@ -3035,7 +3034,7 @@ class TestResearchAgentFilteredRegistry(unittest.TestCase):
 
         llm_adapter = MagicMock()
         llm_adapter.call_text.return_value = SimpleNamespace(
-            provider="gemini",
+            provider="deepseek",
             content="Final research report",
             usage={"total_tokens": 88},
         )

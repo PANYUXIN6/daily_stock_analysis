@@ -91,7 +91,7 @@ def provider_namespace(model: Any) -> str:
         return ""
     if "/" in normalized:
         return normalized.split("/", 1)[0]
-    return "openai"
+    return "deepseek"
 
 
 def resolved_provider_namespace(
@@ -198,8 +198,6 @@ def extract_provider_trace_turns(
     model = next(iter(models))
     if provider == "deepseek":
         must_roundtrip = contains_tool_calls and contains_reasoning
-    elif provider == "anthropic":
-        must_roundtrip = contains_tool_calls and contains_thinking_blocks
     else:
         must_roundtrip = contains_tool_calls and (
             contains_reasoning or contains_thinking_blocks or contains_provider_specific_fields
@@ -236,7 +234,7 @@ def strip_trace_metadata(message: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def message_contains_thinking_blocks(message: Dict[str, Any]) -> bool:
-    """Detect Claude/Gemini opaque thinking blocks in known message locations."""
+    """Detect opaque thinking blocks in historical traces in known message locations."""
     candidates: List[Any] = []
     for key in ("provider_blocks", "content", "thinking_blocks"):
         if key in message:

@@ -296,7 +296,7 @@ class NoSearchProviderDisclosureTestCase(unittest.TestCase):
     def test_no_registered_providers_discloses_missing_news_evidence(self):
         from src.search_service import SearchService
 
-        search_service = SearchService(searxng_public_instances_enabled=False)
+        search_service = SearchService()
         self.assertEqual([], search_service._providers)
         self.assertFalse(search_service.is_available)
 

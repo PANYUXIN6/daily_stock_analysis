@@ -58,7 +58,7 @@ GET /api/v1/analysis/tasks/stream
 
 运行诊断记录函数会在 provider、LLM、历史保存、通知记录成功写入内存诊断后 fail-open 触发 event sink。sink 失败只记录 warning，不改变分析、保存或通知的成功/失败判定。
 
-新闻情报搜索也纳入同一 provider 诊断语义：`SearchService.search_stock_news()` 会以 `data_type=news_search` 记录 Tavily、SearXNG、Bocha、Brave 等搜索 provider 的尝试、过滤后结果数、缓存命中和失败原因。多个搜索 provider 连续尝试时，Web 运行流主图默认聚合为一个“新闻舆情”节点，卡片展示 provider 链路与状态，节点详情展示成功/失败次数、fallback / retry 次数；需要排障时可展开该聚合节点查看单次 provider 尝试。
+新闻情报搜索也纳入同一 provider 诊断语义：`SearchService.search_stock_news()` 会以 `data_type=news_search` 记录 Bocha、Tavily 搜索 provider 的尝试、过滤后结果数、缓存命中和失败原因。多个搜索 provider 连续尝试时，Web 运行流主图默认聚合为一个“新闻舆情”节点，卡片展示 provider 链路与状态，节点详情展示成功/失败次数、fallback / retry 次数；需要排障时可展开该聚合节点查看单次 provider 尝试。
 
 运行流拓扑的数据来源泳道优先按节点开始时间排序；provider / LLM 节点若只有完成时间和耗时，会以 `ended_at - duration_ms` 推导 `started_at`，并在卡片上展示开始时间。无可用时间的节点保留原展示顺序作为兜底。主图表达“入口 -> 数据来源 -> ContextPack -> LLM -> 保存/通知”的流程结构；完整排障细节保留在事件流、节点详情和聚合节点展开态中。
 
@@ -155,7 +155,7 @@ Web 入口：
 
 本轮 review 的结构化检测命中了外部模型/API 兼容和运行时配置迁移风险；复核后结论如下：
 
-- 模型名/provider/Base URL：本轮不新增、不替换、不重排任何模型名、provider、Base URL、channel 或 fallback 默认值，也不改变 `LITELLM_MODEL`、`AGENT_LITELLM_MODEL`、`VISION_MODEL`、`LITELLM_FALLBACK_MODELS`、`OPENAI_*`、`GEMINI_*`、`ANTHROPIC_*`、`DEEPSEEK_*` 的解析优先级。
+- 模型名/provider/Base URL：本轮不新增、不替换、不重排任何模型名、provider、Base URL、channel 或 fallback 默认值，也不改变 `LITELLM_MODEL`、`AGENT_LITELLM_MODEL`、`VISION_MODEL`、`LITELLM_FALLBACK_MODELS`、`DEEPSEEK_*` 的解析优先级。
 - SDK/依赖默认值：本轮不修改 `requirements.txt`、`package.json` 依赖约束或 LiteLLM/OpenAI-compatible 调用默认参数；外部来源仍以 `docs/llm-providers.md` 和 `docs/LLM_CONFIG_GUIDE*.md` 中已记录的官方文档与当前锁定依赖说明为准。
 - 保存前清理/配置迁移：本轮不触发 `.env`、Web 设置页 channel、Docker 运行时配置文件或历史旧配置的迁移、清理、删除、回写策略变更。
 - 本轮实际运行时改动只把既有分析 trace、provider/LLM/通知结果和脱敏错误摘要写入 `context_snapshot.diagnostics`，并通过历史只读接口和 Web 默认折叠面板展示；诊断记录失败按 fail-open 处理，不改变分析或通知的成功/失败判定。

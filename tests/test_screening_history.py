@@ -24,7 +24,7 @@ class ScreeningHistoryTestCase(unittest.TestCase):
     def test_completed_screen_run_is_persisted_and_loaded(self) -> None:
         raw_result = {
             "run_id": "screen-run-1",
-            "strategy": "dual_low",
+            "strategy": "balanced_alpha",
             "market": "cn",
             "snapshot_source": "sina",
             "snapshot_count": 5000,
@@ -67,7 +67,7 @@ class ScreeningHistoryTestCase(unittest.TestCase):
                 ),
             ),
         ):
-            response = service.screen(strategy="dual_low", market="cn", max_results=3)
+            response = service.screen(strategy="balanced_alpha", market="cn", max_results=3)
 
         self.assertEqual(response["run_id"], "screen-run-1")
         stored = self.db.get_screening_run("screen-run-1")
@@ -76,14 +76,14 @@ class ScreeningHistoryTestCase(unittest.TestCase):
         self.assertEqual(stored["candidate_count"], 1)
         self.assertEqual(stored["result"]["candidates"][0]["code"], "600519")
 
-        history = service.history(limit=10, strategy="dual_low", market="cn")
+        history = service.history(limit=10, strategy="balanced_alpha", market="cn")
         self.assertEqual(history["run_count"], 1)
         self.assertNotIn("result", history["runs"][0])
 
     def test_screen_maps_pipeline_degradation_into_warning_contract(self) -> None:
         raw_result = {
             "run_id": "screen-run-degradation",
-            "strategy": "dual_low",
+            "strategy": "balanced_alpha",
             "market": "cn",
             "snapshot_source": "sina",
             "snapshot_count": 5000,
@@ -129,7 +129,7 @@ class ScreeningHistoryTestCase(unittest.TestCase):
                 ),
             ),
         ):
-            response = service.screen(strategy="dual_low", market="cn", max_results=3)
+            response = service.screen(strategy="balanced_alpha", market="cn", max_results=3)
 
         self.assertEqual(
             response["warnings"],
@@ -152,7 +152,7 @@ class ScreeningHistoryTestCase(unittest.TestCase):
         self.assertEqual(stored["result"]["warnings"], response["warnings"])
         self.assertEqual(stored["result"]["degradation"], response["degradation"])
 
-        history = service.history(limit=10, strategy="dual_low", market="cn")
+        history = service.history(limit=10, strategy="balanced_alpha", market="cn")
         self.assertEqual(history["runs"][0]["warnings"], response["warnings"])
 
         source_history = service.source_history(limit=10)

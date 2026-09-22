@@ -225,7 +225,7 @@ class TestRecordLLMUsage(unittest.TestCase):
     def test_record_single_row(self):
         self.db.record_llm_usage(
             call_type="analysis",
-            model="gemini/gemini-2.5-flash",
+            model="deepseek/deepseek-flash",
             prompt_tokens=100,
             completion_tokens=200,
             total_tokens=300,
@@ -236,7 +236,7 @@ class TestRecordLLMUsage(unittest.TestCase):
             self.assertEqual(len(rows), 1)
             row = rows[0]
             self.assertEqual(row.call_type, "analysis")
-            self.assertEqual(row.model, "gemini/gemini-2.5-flash")
+            self.assertEqual(row.model, "deepseek/deepseek-flash")
             self.assertEqual(row.stock_code, "600519")
             self.assertEqual(row.prompt_tokens, 100)
             self.assertEqual(row.completion_tokens, 200)
@@ -245,7 +245,7 @@ class TestRecordLLMUsage(unittest.TestCase):
     def test_record_without_stock_code(self):
         self.db.record_llm_usage(
             call_type="market_review",
-            model="openai/gpt-4o",
+            model="deepseek/deepseek-v4-pro",
             prompt_tokens=50,
             completion_tokens=150,
             total_tokens=200,
@@ -259,7 +259,7 @@ class TestRecordLLMUsage(unittest.TestCase):
         for i in range(5):
             self.db.record_llm_usage(
                 call_type="agent",
-                model="gemini/gemini-2.5-flash",
+                model="deepseek/deepseek-flash",
                 prompt_tokens=10 * i,
                 completion_tokens=20 * i,
                 total_tokens=30 * i,
@@ -270,44 +270,7 @@ class TestRecordLLMUsage(unittest.TestCase):
 
 
 class TestLLMUsageNormalizer(unittest.TestCase):
-    def test_openai_cached_tokens(self):
-        usage = normalize_litellm_usage(
-            {
-                "prompt_tokens": 2000,
-                "completion_tokens": 100,
-                "total_tokens": 2100,
-                "prompt_tokens_details": {"cached_tokens": 500},
-            },
-            model="openai/gpt-4o",
-        )
 
-        self.assertEqual(usage["prompt_tokens"], 2000)
-        self.assertEqual(usage["normalized_cache_read_tokens"], 500)
-        self.assertEqual(usage["provider_reported_cached_tokens"], 500)
-        self.assertEqual(usage["provider_min_cache_tokens"], 1024)
-        self.assertEqual(usage["cache_eligibility"], "eligible")
-        self.assertEqual(usage["cache_observation"], "partial_hit")
-        self.assertEqual(usage["normalized_cache_hit_ratio"], 0.25)
-
-    def test_openai_impossible_cache_counts_are_marked_invalid(self):
-        usage = normalize_litellm_usage(
-            {
-                "prompt_tokens": 2000,
-                "completion_tokens": 10,
-                "total_tokens": 2010,
-                "prompt_tokens_details": {"cached_tokens": 5000},
-            },
-            model="openai/gpt-4o",
-        )
-
-        self.assertEqual(usage["provider_reported_prompt_tokens"], 2000)
-        self.assertEqual(usage["provider_reported_cached_tokens"], 5000)
-        self.assertEqual(usage["cache_capability"], "supported")
-        self.assertEqual(usage["cache_observation"], "invalid_provider_usage")
-        self.assertEqual(usage["eligibility_confidence"], "invalid")
-        self.assertIsNone(usage["normalized_cache_read_tokens"])
-        self.assertIsNone(usage["normalized_uncached_input_tokens"])
-        self.assertIsNone(usage["normalized_cache_hit_ratio"])
 
     def test_invalid_token_counts_are_marked_invalid(self):
         cases = [
@@ -321,7 +284,7 @@ class TestLLMUsageNormalizer(unittest.TestCase):
 
         for payload in cases:
             with self.subTest(payload=payload):
-                usage = normalize_litellm_usage(payload, model="openai/gpt-4o")
+                usage = normalize_litellm_usage(payload, model="deepseek/deepseek-v4-pro")
 
                 self.assertEqual(usage["prompt_tokens"], 0)
                 self.assertEqual(usage["completion_tokens"], 0)
@@ -335,7 +298,7 @@ class TestLLMUsageNormalizer(unittest.TestCase):
     def test_impossible_total_tokens_are_marked_invalid(self):
         usage = normalize_litellm_usage(
             {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 5},
-            model="openai/gpt-4o",
+            model="deepseek/deepseek-v4-pro",
         )
 
         self.assertEqual(usage["prompt_tokens"], 0)
@@ -348,7 +311,7 @@ class TestLLMUsageNormalizer(unittest.TestCase):
     def test_extra_total_tokens_are_not_marked_invalid(self):
         usage = normalize_litellm_usage(
             {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 35},
-            model="openai/gpt-4o",
+            model="deepseek/deepseek-v4-pro",
         )
 
         self.assertEqual(usage["prompt_tokens"], 10)
@@ -356,291 +319,6 @@ class TestLLMUsageNormalizer(unittest.TestCase):
         self.assertEqual(usage["total_tokens"], 35)
         self.assertNotEqual(usage["cache_observation"], "invalid_provider_usage")
 
-    def test_openai_below_threshold_does_not_fake_zero_hit(self):
-        usage = normalize_litellm_usage(
-            {
-                "prompt_tokens": 100,
-                "completion_tokens": 10,
-                "total_tokens": 110,
-                "prompt_tokens_details": {"cached_tokens": 0},
-            },
-            model="openai/gpt-4o",
-        )
-
-        self.assertEqual(usage["cache_eligibility"], "below_threshold")
-        self.assertIsNone(usage["normalized_cache_eligible_input_tokens"])
-        self.assertEqual(usage["cache_observation"], "unknown")
-
-    def test_openai_compatible_model_without_cache_field_keeps_cache_unknown(self):
-        usage = normalize_litellm_usage(
-            {
-                "prompt_tokens": 1500,
-                "completion_tokens": 1,
-                "total_tokens": 1501,
-            },
-            model="openai/Qwen/Qwen3-235B-A22B-Thinking-2507",
-            provider="openai",
-        )
-
-        self.assertEqual(usage["prompt_tokens"], 1500)
-        self.assertEqual(usage["cache_capability"], "unknown")
-        self.assertEqual(usage["cache_eligibility"], "unknown")
-        self.assertEqual(usage["cache_observation"], "unknown")
-        self.assertIsNone(usage["provider_min_cache_tokens"])
-        self.assertIsNone(usage["normalized_cache_eligible_input_tokens"])
-        self.assertIsNone(usage["normalized_cache_read_tokens"])
-
-    def test_openai_compatible_cached_tokens_do_not_use_native_openai_threshold(self):
-        usage = normalize_litellm_usage(
-            {
-                "prompt_tokens": 1500,
-                "completion_tokens": 1,
-                "total_tokens": 1501,
-                "prompt_tokens_details": {"cached_tokens": 1500},
-            },
-            model="openai/Qwen/Qwen3-235B-A22B-Thinking-2507",
-            provider="openai",
-        )
-
-        self.assertEqual(usage["normalized_cache_read_tokens"], 1500)
-        self.assertEqual(usage["cache_capability"], "supported")
-        self.assertEqual(usage["cache_eligibility"], "eligible")
-        self.assertEqual(usage["cache_observation"], "full_hit")
-        self.assertIsNone(usage["provider_min_cache_tokens"])
-        self.assertEqual(usage["normalized_cache_eligible_input_tokens"], 1500)
-
-    def test_glm_cached_tokens_use_openai_shape(self):
-        usage = normalize_litellm_usage(
-            {
-                "prompt_tokens": 1200,
-                "completion_tokens": 80,
-                "total_tokens": 1280,
-                "prompt_tokens_details": {"cached_tokens": 1200},
-            },
-            model="zhipu/glm-4.5",
-        )
-
-        self.assertEqual(usage["normalized_cache_read_tokens"], 1200)
-        self.assertEqual(usage["cache_capability"], "supported")
-        self.assertEqual(usage["cache_observation"], "full_hit")
-
-    def test_zhipu_provider_alias_uses_glm_cache_shape(self):
-        usage = normalize_litellm_usage(
-            {
-                "prompt_tokens": 1200,
-                "completion_tokens": 80,
-                "total_tokens": 1280,
-                "prompt_tokens_details": {"cached_tokens": 1200},
-            },
-            model="zhipu/glm-4.5",
-            provider="zhipu",
-        )
-
-        self.assertEqual(usage["normalized_cache_read_tokens"], 1200)
-        self.assertEqual(usage["cache_capability"], "supported")
-        self.assertEqual(usage["cache_observation"], "full_hit")
-        self.assertIsNone(usage["provider_min_cache_tokens"])
-
-    def test_qwen_wrapped_openai_model_uses_openai_compatible_cache_shape(self):
-        usage = normalize_litellm_usage(
-            {
-                "prompt_tokens": 1500,
-                "completion_tokens": 200,
-                "total_tokens": 1700,
-                "prompt_tokens_details": {"cached_tokens": 1200},
-            },
-            model="openai/qwen-max",
-        )
-
-        self.assertEqual(usage["normalized_cache_read_tokens"], 1200)
-        self.assertEqual(usage["cache_capability"], "supported")
-        self.assertEqual(usage["cache_observation"], "partial_hit")
-
-    def test_kimi_wrapped_openai_model_uses_top_level_cached_tokens(self):
-        usage = normalize_litellm_usage(
-            {
-                "prompt_tokens": 1500,
-                "completion_tokens": 200,
-                "total_tokens": 1700,
-                "cached_tokens": 300,
-            },
-            model="openai/kimi-k2",
-        )
-
-        self.assertEqual(usage["normalized_cache_read_tokens"], 300)
-        self.assertEqual(usage["cache_capability"], "supported")
-
-    def test_openrouter_cache_read_write_tokens(self):
-        usage = normalize_litellm_usage(
-            {
-                "prompt_tokens": 1500,
-                "completion_tokens": 200,
-                "total_tokens": 1700,
-                "cache_read_tokens": 300,
-                "cache_write_tokens": 100,
-            },
-            model="openai/~anthropic/claude-sonnet",
-        )
-
-        self.assertEqual(usage["normalized_cache_read_tokens"], 300)
-        self.assertEqual(usage["normalized_cache_write_tokens"], 100)
-        self.assertEqual(usage["cache_capability"], "supported")
-
-    def test_anthropic_official_cache_breakdown_sums_total_input(self):
-        usage = normalize_litellm_usage(
-            {
-                "input_tokens": 100,
-                "output_tokens": 30,
-                "cache_read_input_tokens": 10,
-                "cache_creation_input_tokens": 20,
-            },
-            model="anthropic/claude-3-5-sonnet",
-        )
-
-        # Anthropic defines total input as input + cache read + cache creation tokens.
-        self.assertEqual(usage["prompt_tokens"], 130)
-        self.assertEqual(usage["completion_tokens"], 30)
-        self.assertEqual(usage["total_tokens"], 160)
-        self.assertEqual(usage["normalized_cache_read_tokens"], 10)
-        self.assertEqual(usage["normalized_cache_write_tokens"], 20)
-        self.assertEqual(usage["normalized_uncached_input_tokens"], 100)
-        self.assertEqual(usage["cache_observation"], "read_and_write")
-
-    def test_anthropic_litellm_normalized_usage_keeps_prompt_tokens_without_input_tokens(self):
-        usage = normalize_litellm_usage(
-            {
-                "prompt_tokens": 100,
-                "completion_tokens": 20,
-                "total_tokens": 120,
-                "cache_read_input_tokens": 0,
-                "cache_creation_input_tokens": 0,
-            },
-            model="anthropic/claude-3-5-sonnet",
-        )
-
-        self.assertEqual(usage["prompt_tokens"], 100)
-        self.assertEqual(usage["completion_tokens"], 20)
-        self.assertEqual(usage["total_tokens"], 120)
-        self.assertEqual(usage["normalized_prompt_tokens"], 100)
-        self.assertEqual(usage["normalized_cache_read_tokens"], 0)
-        self.assertEqual(usage["normalized_cache_write_tokens"], 0)
-        self.assertEqual(usage["normalized_uncached_input_tokens"], 100)
-        self.assertEqual(usage["cache_observation"], "zero_hit")
-
-    def test_anthropic_litellm_normalized_usage_derives_uncached_tokens_without_input_tokens(self):
-        usage = normalize_litellm_usage(
-            {
-                "prompt_tokens": 115,
-                "completion_tokens": 20,
-                "total_tokens": 135,
-                "cache_read_input_tokens": 10,
-                "cache_creation_input_tokens": 5,
-            },
-            model="anthropic/claude-3-5-sonnet",
-        )
-
-        self.assertEqual(usage["prompt_tokens"], 115)
-        self.assertEqual(usage["completion_tokens"], 20)
-        self.assertEqual(usage["total_tokens"], 135)
-        self.assertEqual(usage["normalized_prompt_tokens"], 115)
-        self.assertEqual(usage["normalized_cache_read_tokens"], 10)
-        self.assertEqual(usage["normalized_cache_write_tokens"], 5)
-        self.assertEqual(usage["normalized_uncached_input_tokens"], 100)
-        self.assertEqual(usage["cache_observation"], "read_and_write")
-
-    def test_gemini_usage_metadata(self):
-        payload = {
-            "usage_metadata": {
-                "prompt_token_count": 1000,
-                "candidates_token_count": 50,
-                "total_token_count": 1050,
-                "cached_content_token_count": 32,
-            }
-        }
-
-        usage = normalize_litellm_usage(
-            extract_usage_payload(payload),
-            model="gemini/gemini-2.5-flash",
-        )
-
-        self.assertEqual(usage["prompt_tokens"], 1000)
-        self.assertEqual(usage["completion_tokens"], 50)
-        self.assertEqual(usage["total_tokens"], 1050)
-        self.assertEqual(usage["normalized_cache_read_tokens"], 32)
-        self.assertEqual(usage["cache_observation"], "partial_hit")
-
-    def test_gemini_litellm_usage_cache_read_input_tokens(self):
-        usage = normalize_litellm_usage(
-            Usage(
-                prompt_tokens=1000,
-                completion_tokens=50,
-                total_tokens=1050,
-                cache_read_input_tokens=32,
-            ),
-            model="gemini/gemini-2.5-flash",
-        )
-
-        self.assertEqual(usage["prompt_tokens"], 1000)
-        self.assertEqual(usage["completion_tokens"], 50)
-        self.assertEqual(usage["total_tokens"], 1050)
-        self.assertEqual(usage["normalized_cache_read_tokens"], 32)
-        self.assertEqual(usage["provider_reported_cached_tokens"], 32)
-        self.assertEqual(usage["cache_capability"], "supported")
-        self.assertEqual(usage["cache_observation"], "partial_hit")
-        raw = json.loads(usage["provider_usage_json"])
-        self.assertTrue(
-            raw.get("cache_read_input_tokens") == 32
-            or raw.get("prompt_tokens_details", {}).get("cached_tokens") == 32
-        )
-
-    def test_vertex_ai_gemini_usage_uses_gemini_cache_shape(self):
-        usage = normalize_litellm_usage(
-            Usage(
-                prompt_tokens=1000,
-                completion_tokens=50,
-                total_tokens=1050,
-                cache_read_input_tokens=32,
-            ),
-            model="vertex_ai/gemini-2.5-flash",
-            provider="vertex_ai",
-        )
-
-        self.assertEqual(usage["normalized_cache_read_tokens"], 32)
-        self.assertEqual(usage["provider_reported_cached_tokens"], 32)
-        self.assertEqual(usage["cache_capability"], "supported")
-        self.assertEqual(usage["cache_observation"], "partial_hit")
-
-    def test_gemini_litellm_usage_zero_cache_hit(self):
-        usage = normalize_litellm_usage(
-            Usage(
-                prompt_tokens=1000,
-                completion_tokens=50,
-                total_tokens=1050,
-                cache_read_input_tokens=0,
-            ),
-            model="gemini/gemini-2.5-flash",
-        )
-
-        self.assertEqual(usage["normalized_cache_read_tokens"], 0)
-        self.assertEqual(usage["provider_reported_cached_tokens"], 0)
-        self.assertEqual(usage["cache_capability"], "supported")
-        self.assertEqual(usage["cache_observation"], "zero_hit")
-
-    def test_gemini_prompt_tokens_details_cached_tokens_fallback(self):
-        usage = normalize_litellm_usage(
-            {
-                "prompt_tokens": 1000,
-                "completion_tokens": 50,
-                "total_tokens": 1050,
-                "prompt_tokens_details": {"cached_tokens": 32},
-            },
-            model="gemini/gemini-2.5-flash",
-        )
-
-        self.assertEqual(usage["normalized_cache_read_tokens"], 32)
-        self.assertEqual(usage["provider_reported_cached_tokens"], 32)
-        self.assertEqual(usage["cache_capability"], "supported")
-        self.assertEqual(usage["cache_observation"], "partial_hit")
 
     def test_deepseek_hit_miss_tokens(self):
         usage = normalize_litellm_usage(
@@ -658,22 +336,6 @@ class TestLLMUsageNormalizer(unittest.TestCase):
         self.assertEqual(usage["normalized_cache_miss_tokens"], 60)
         self.assertEqual(usage["normalized_uncached_input_tokens"], 60)
 
-    def test_openai_deepseek_hit_miss_tokens_use_payload_shape(self):
-        usage = normalize_litellm_usage(
-            {
-                "completion_tokens": 10,
-                "prompt_cache_hit_tokens": 40,
-                "prompt_cache_miss_tokens": 60,
-            },
-            model="openai/deepseek-chat",
-        )
-
-        self.assertEqual(usage["prompt_tokens"], 100)
-        self.assertEqual(usage["total_tokens"], 110)
-        self.assertEqual(usage["normalized_cache_read_tokens"], 40)
-        self.assertEqual(usage["normalized_cache_miss_tokens"], 60)
-        self.assertEqual(usage["normalized_uncached_input_tokens"], 60)
-        self.assertEqual(usage["cache_capability"], "supported")
 
     def test_deepseek_hit_miss_does_not_override_provider_prompt_tokens(self):
         usage = normalize_litellm_usage(
@@ -684,7 +346,7 @@ class TestLLMUsageNormalizer(unittest.TestCase):
                 "prompt_cache_hit_tokens": 40,
                 "prompt_cache_miss_tokens": 60,
             },
-            model="openai/deepseek-chat",
+            model="deepseek/deepseek-chat",
         )
 
         self.assertEqual(usage["cache_observation"], "invalid_provider_usage")
@@ -695,36 +357,6 @@ class TestLLMUsageNormalizer(unittest.TestCase):
         self.assertEqual(usage["provider_reported_prompt_tokens"], 50)
         self.assertEqual(usage["provider_reported_cached_tokens"], 40)
 
-    def test_stepfun_top_level_cached_tokens(self):
-        usage = normalize_litellm_usage(
-            {
-                "prompt_tokens": 900,
-                "completion_tokens": 100,
-                "total_tokens": 1000,
-                "cached_tokens": 300,
-            },
-            model="stepfun/step-2",
-        )
-
-        self.assertEqual(usage["normalized_cache_read_tokens"], 300)
-        self.assertEqual(usage["cache_capability"], "supported")
-
-    def test_unknown_provider_keeps_cache_unknown(self):
-        usage = normalize_litellm_usage(
-            {
-                "prompt_tokens": 1000,
-                "completion_tokens": 100,
-                "total_tokens": 1100,
-            },
-            model="gateway/custom-model",
-            provider="gateway",
-        )
-
-        self.assertEqual(usage["prompt_tokens"], 1000)
-        self.assertIsNone(usage["normalized_cache_read_tokens"])
-        self.assertIsNone(usage["normalized_cache_miss_tokens"])
-        self.assertEqual(usage["cache_capability"], "unknown")
-        self.assertEqual(usage["cache_observation"], "unknown")
 
     def test_has_provider_usage_payload_detects_real_usage_signals(self):
         self.assertTrue(has_provider_usage_payload({"total_tokens": 5}))
@@ -791,25 +423,25 @@ class TestLLMUsageNormalizer(unittest.TestCase):
     def test_has_provider_usage_payload_ignores_normalized_metadata_only_usage(self):
         usage = normalize_litellm_usage(
             {"estimated_prefix_tokens": 123},
-            model="openai/gpt-4o",
+            model="deepseek/deepseek-v4-pro",
         )
 
         self.assertEqual(json.loads(usage["provider_usage_json"]), {"estimated_prefix_tokens": 123})
         self.assertFalse(has_provider_usage_payload(usage))
 
     def test_has_provider_usage_payload_ignores_normalized_no_usage_shape(self):
-        usage = normalize_litellm_usage(None, model="openai/gpt-4o")
+        usage = normalize_litellm_usage(None, model="deepseek/deepseek-v4-pro")
 
         self.assertEqual(usage["cache_observation"], "no_usage")
         self.assertEqual(usage["total_tokens"], 0)
         self.assertFalse(has_provider_usage_payload(usage))
 
     def test_should_persist_usage_telemetry_keeps_invalid_diagnostics_only(self):
-        invalid_usage = normalize_litellm_usage({"prompt_tokens": -1}, model="openai/gpt-4o")
-        no_usage = normalize_litellm_usage(None, model="openai/gpt-4o")
+        invalid_usage = normalize_litellm_usage({"prompt_tokens": -1}, model="deepseek/deepseek-v4-pro")
+        no_usage = normalize_litellm_usage(None, model="deepseek/deepseek-v4-pro")
         metadata_only = normalize_litellm_usage(
             {"estimated_prefix_tokens": 123},
-            model="openai/gpt-4o",
+            model="deepseek/deepseek-v4-pro",
         )
 
         self.assertFalse(has_provider_usage_payload(invalid_usage))
@@ -820,77 +452,10 @@ class TestLLMUsageNormalizer(unittest.TestCase):
     def test_provider_usage_json_preserves_allowlisted_usage_cache_shapes(self):
         cases = [
             (
-                "openai",
-                {
-                    "prompt_tokens": 2000,
-                    "completion_tokens": 100,
-                    "total_tokens": 2100,
-                    "prompt_tokens_details": {"cached_tokens": 500},
-                },
-                "openai/gpt-4o",
-                {"prompt_tokens": 2000, "prompt_tokens_details": {"cached_tokens": 500}},
-            ),
-            (
-                "anthropic",
-                {
-                    "input_tokens": 100,
-                    "output_tokens": 30,
-                    "cache_read_input_tokens": 10,
-                    "cache_creation_input_tokens": 20,
-                },
-                "anthropic/claude-3-5-sonnet",
-                {
-                    "input_tokens": 100,
-                    "output_tokens": 30,
-                    "cache_read_input_tokens": 10,
-                    "cache_creation_input_tokens": 20,
-                },
-            ),
-            (
-                "gemini",
-                {
-                    "prompt_token_count": 1000,
-                    "candidates_token_count": 50,
-                    "total_token_count": 1050,
-                    "cached_content_token_count": 32,
-                },
-                "gemini/gemini-2.5-flash",
-                {
-                    "prompt_token_count": 1000,
-                    "candidates_token_count": 50,
-                    "total_token_count": 1050,
-                    "cached_content_token_count": 32,
-                },
-            ),
-            (
                 "deepseek",
-                {
-                    "completion_tokens": 10,
-                    "prompt_cache_hit_tokens": 40,
-                    "prompt_cache_miss_tokens": 60,
-                },
-                "deepseek/deepseek-chat",
-                {
-                    "completion_tokens": 10,
-                    "prompt_cache_hit_tokens": 40,
-                    "prompt_cache_miss_tokens": 60,
-                },
-            ),
-            (
-                "stepfun",
-                {
-                    "prompt_tokens": 900,
-                    "completion_tokens": 100,
-                    "total_tokens": 1000,
-                    "cached_tokens": 300,
-                },
-                "stepfun/step-2",
-                {
-                    "prompt_tokens": 900,
-                    "completion_tokens": 100,
-                    "total_tokens": 1000,
-                    "cached_tokens": 300,
-                },
+                {"completion_tokens": 10, "prompt_cache_hit_tokens": 40, "prompt_cache_miss_tokens": 60},
+                "deepseek/deepseek-flash",
+                {"completion_tokens": 10, "prompt_cache_hit_tokens": 40, "prompt_cache_miss_tokens": 60},
             ),
         ]
 
@@ -1117,7 +682,7 @@ class TestLLMUsageHMAC(unittest.TestCase):
             {
                 "role": "assistant",
                 "content": "same",
-                "_trace_provider": "anthropic",
+                "_trace_provider": "deepseek",
                 "tool_calls": [
                     {
                         "id": "call_a",
@@ -1133,7 +698,7 @@ class TestLLMUsageHMAC(unittest.TestCase):
             {
                 "role": "assistant",
                 "content": "same",
-                "_trace_provider": "anthropic",
+                "_trace_provider": "deepseek",
                 "tool_calls": [
                     {
                         "id": "call_b",
@@ -1159,8 +724,8 @@ class TestLLMUsageHMAC(unittest.TestCase):
             {
                 "role": "assistant",
                 "content": "same",
-                "_trace_provider": "anthropic",
-                "_trace_model": "anthropic/claude-test",
+                "_trace_provider": "deepseek",
+                "_trace_model": "deepseek/deepseek-flash",
             }
         ]
         with patch.dict(os.environ, {"LLM_USAGE_HMAC_SECRET": "trace-secret"}, clear=False):
@@ -1268,7 +833,7 @@ class TestLegacyMessageStabilityAudit(unittest.TestCase):
                 "default_skill_policy": "Default skill policy raw text",
                 "use_legacy_default_prompt": False,
             },
-            "provider": "gemini",
+            "provider": "deepseek",
             "transport": "litellm",
             "dynamic_markers": [
                 {"marker_name": "stock_code", "message_role": "user", "text": "600519"},
@@ -1292,7 +857,7 @@ class TestLegacyMessageStabilityAudit(unittest.TestCase):
         self.assertEqual(usage["analysis_mode"], "stock_analysis")
         self.assertEqual(usage["legacy_prompt_mode"], "skill_aware")
         self.assertEqual(len(usage["skill_config_hmac"]), 64)
-        self.assertEqual(usage["provider"], "gemini")
+        self.assertEqual(usage["provider"], "deepseek")
         self.assertEqual(usage["transport"], "litellm")
         self.assertEqual(usage["message_count"], 2)
         self.assertGreater(usage["estimated_total_prompt_tokens"], 0)
@@ -1380,12 +945,12 @@ class TestLegacyMessageStabilityAudit(unittest.TestCase):
     def test_preserves_exact_and_invalid_provider_usage_confidence(self):
         messages = self._messages()
         exact = attach_legacy_message_stability_audit(
-            normalize_litellm_usage({"prompt_tokens": 9}, model="openai/gpt-4o"),
+            normalize_litellm_usage({"prompt_tokens": 9}, model="deepseek/deepseek-v4-pro"),
             messages,
             self._audit_context(),
         )
         invalid = attach_legacy_message_stability_audit(
-            normalize_litellm_usage({"prompt_tokens": -1}, model="openai/gpt-4o"),
+            normalize_litellm_usage({"prompt_tokens": -1}, model="deepseek/deepseek-v4-pro"),
             messages,
             self._audit_context(),
         )
@@ -1400,7 +965,7 @@ class TestLegacyMessageStabilityAudit(unittest.TestCase):
             self._audit_context(),
         )
         db = _fresh_db()
-        persist_llm_usage(usage, "gemini/gemini-test", call_type="analysis", stock_code="600519")
+        persist_llm_usage(usage, "deepseek/deepseek-flash", call_type="analysis", stock_code="600519")
 
         with db.session_scope() as session:
             row = session.query(LLMUsage).one()
@@ -1421,7 +986,7 @@ class TestLegacyMessageStabilityAudit(unittest.TestCase):
         self.assertEqual(persisted["analysis_mode"], "stock_analysis")
         self.assertEqual(persisted["legacy_prompt_mode"], "skill_aware")
         self.assertEqual(len(persisted["skill_config_hmac"]), 64)
-        self.assertEqual(persisted["provider"], "gemini")
+        self.assertEqual(persisted["provider"], "deepseek")
         self.assertEqual(persisted["transport"], "litellm")
         self.assertEqual(persisted["message_count"], 2)
         self.assertIsInstance(persisted["known_dynamic_marker_positions"], str)
@@ -1455,7 +1020,7 @@ class TestGetLLMUsageSummary(unittest.TestCase):
         for _ in range(3):
             row = LLMUsage(
                 call_type="analysis",
-                model="gemini/gemini-2.5-flash",
+                model="deepseek/deepseek-flash",
                 prompt_tokens=100,
                 completion_tokens=200,
                 total_tokens=300,
@@ -1468,7 +1033,7 @@ class TestGetLLMUsageSummary(unittest.TestCase):
         for _ in range(2):
             row = LLMUsage(
                 call_type="agent",
-                model="openai/gpt-4o",
+                model="deepseek/deepseek-v4-pro",
                 prompt_tokens=50,
                 completion_tokens=100,
                 total_tokens=150,
@@ -1480,7 +1045,7 @@ class TestGetLLMUsageSummary(unittest.TestCase):
         # 1 old call that should be excluded
         old_row = LLMUsage(
             call_type="analysis",
-            model="gemini/gemini-2.5-flash",
+            model="deepseek/deepseek-flash",
             prompt_tokens=999,
             completion_tokens=999,
             total_tokens=999,
@@ -1518,8 +1083,8 @@ class TestGetLLMUsageSummary(unittest.TestCase):
         from_dt, to_dt = self._today_range()
         result = self.db.get_llm_usage_summary(from_dt, to_dt)
         by_model = {r["model"]: r for r in result["by_model"]}
-        self.assertEqual(by_model["gemini/gemini-2.5-flash"]["calls"], 3)
-        self.assertEqual(by_model["openai/gpt-4o"]["calls"], 2)
+        self.assertEqual(by_model["deepseek/deepseek-flash"]["calls"], 3)
+        self.assertEqual(by_model["deepseek/deepseek-v4-pro"]["calls"], 2)
 
 
     def test_token_totals_include_prompt_completion_and_model_peak(self):
@@ -1528,9 +1093,9 @@ class TestGetLLMUsageSummary(unittest.TestCase):
         self.assertEqual(result["total_prompt_tokens"], 400)
         self.assertEqual(result["total_completion_tokens"], 800)
         by_model = {r["model"]: r for r in result["by_model"]}
-        self.assertEqual(by_model["gemini/gemini-2.5-flash"]["prompt_tokens"], 300)
-        self.assertEqual(by_model["gemini/gemini-2.5-flash"]["completion_tokens"], 600)
-        self.assertEqual(by_model["gemini/gemini-2.5-flash"]["max_total_tokens"], 300)
+        self.assertEqual(by_model["deepseek/deepseek-flash"]["prompt_tokens"], 300)
+        self.assertEqual(by_model["deepseek/deepseek-flash"]["completion_tokens"], 600)
+        self.assertEqual(by_model["deepseek/deepseek-flash"]["max_total_tokens"], 300)
 
     def test_get_llm_usage_records_returns_recent_rows_with_limit(self):
         from_dt, to_dt = self._today_range()
@@ -1540,6 +1105,39 @@ class TestGetLLMUsageSummary(unittest.TestCase):
         self.assertIn(rows[0]["call_type"], {"analysis", "agent"})
         self.assertIn("prompt_tokens", rows[0])
         self.assertIn("completion_tokens", rows[0])
+
+    def test_deepseek_scope_applies_before_aggregation_and_recent_limit(self):
+        now = datetime.now()
+        # Provider identity handles route aliases; old rows can lack provider.
+        cases = [
+            ("analysis-route", "DeepSeek", True),
+            ("deepseek", None, True),
+            ("deepseek/deepseek-v4-pro", "", True),
+            ("openai/gpt-test", "openai", False),
+            ("unknown-route", None, False),
+            ("deepseek/deepseek-flash", "other", False),
+        ]
+        with self.db.session_scope() as session:
+            for model, provider, _included in cases:
+                session.add(LLMUsage(
+                    call_type="market_review", model=model, provider=provider,
+                    prompt_tokens=7, completion_tokens=3, total_tokens=10,
+                    called_at=now,
+                ))
+        from_dt, to_dt = self._today_range()
+        summary = self.db.get_llm_usage_summary(from_dt, to_dt)
+        self.assertEqual(summary["total_calls"], 8)
+        self.assertEqual(summary["total_tokens"], 1230)
+        self.assertEqual(summary["total_prompt_tokens"], 421)
+        self.assertEqual(summary["total_completion_tokens"], 809)
+        review = next(row for row in summary["by_call_type"] if row["call_type"] == "market_review")
+        self.assertEqual(review["calls"], 3)
+        self.assertEqual(sum(row["total_tokens"] for row in summary["by_model"]), 1230)
+        self.assertNotIn("openai/gpt-test", {row["model"] for row in summary["by_model"]})
+        recent = self.db.get_llm_usage_records(from_dt, to_dt, limit=2)
+        self.assertEqual([row["model"] for row in recent], ["deepseek/deepseek-v4-pro", "deepseek"])
+        with self.db.session_scope() as session:
+            self.assertEqual(session.query(LLMUsage).count(), 12)
 
     def test_empty_range_returns_zeros(self):
         future = datetime(2099, 1, 1)
@@ -1562,7 +1160,7 @@ class TestPersistUsageHelper(unittest.TestCase):
     def test_persist_usage_writes_row(self):
         persist_llm_usage(
             {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
-            "gemini/gemini-2.5-flash",
+            "deepseek/deepseek-flash",
             call_type="analysis",
             stock_code="000001",
         )
@@ -1593,7 +1191,7 @@ class TestPersistUsageHelper(unittest.TestCase):
                 "normalized_total_tokens": "3.5",
                 "cache_observation": "invalid_provider_usage",
             },
-            "openai/gpt-4o",
+            "deepseek/deepseek-v4-pro",
             call_type="analysis",
         )
 
@@ -1613,9 +1211,9 @@ class TestPersistUsageHelper(unittest.TestCase):
                 "prompt_tokens": 2000,
                 "completion_tokens": 100,
                 "total_tokens": 2100,
-                "prompt_tokens_details": {"cached_tokens": 500},
+                "prompt_cache_hit_tokens": 500, "prompt_cache_miss_tokens": 1500,
             },
-            model="openai/gpt-4o",
+            model="deepseek/deepseek-flash",
         )
         with patch.dict(
             os.environ,
@@ -1635,7 +1233,7 @@ class TestPersistUsageHelper(unittest.TestCase):
 
         persist_llm_usage(
             usage,
-            "openai/gpt-4o",
+            "deepseek/deepseek-flash",
             call_type="analysis",
             stock_code="000001",
         )
@@ -1661,7 +1259,7 @@ class TestPersistUsageHelper(unittest.TestCase):
                 "total_tokens": 2100,
                 "prompt_tokens_details": {"cached_tokens": 500},
             },
-            model="openai/gpt-4o",
+            model="deepseek/deepseek-v4-pro",
         )
         filtered = filter_prompt_cache_telemetry(
             usage,
@@ -1670,7 +1268,7 @@ class TestPersistUsageHelper(unittest.TestCase):
 
         persist_llm_usage(
             filtered,
-            "openai/gpt-4o",
+            "deepseek/deepseek-v4-pro",
             call_type="analysis",
             stock_code="000001",
         )
@@ -1693,7 +1291,7 @@ class TestPersistUsageHelper(unittest.TestCase):
 
         persist_llm_usage(
             filtered,
-            "openai/gpt-4o",
+            "deepseek/deepseek-v4-pro",
             call_type="analysis",
             stock_code="000001",
         )

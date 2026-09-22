@@ -62,10 +62,10 @@ class TestSignalAttributionE2E:
         1. 输入贡献度为字符串 "30%" → 归一化后变为 int 30
         2. 输入贡献度之和不为 100 → 归一化后变为之和=100
         """
-        from src.analyzer import GeminiAnalyzer
+        from src.analyzer import DeepSeekAnalyzer
 
         # 创建 analyzer 实例
-        analyzer = GeminiAnalyzer.__new__(GeminiAnalyzer)
+        analyzer = DeepSeekAnalyzer.__new__(DeepSeekAnalyzer)
 
         # 模拟 LLM 返回的 JSON（贡献度为字符串，总和≠100）
         response_text = json.dumps({
@@ -259,7 +259,7 @@ class TestSignalAttributionE2E:
 
     def test_non_finite_signal_attribution_is_hidden_across_real_paths(self):
         """NaN/Infinity weights are missing values, not confident attribution."""
-        from src.analyzer import GeminiAnalyzer
+        from src.analyzer import DeepSeekAnalyzer
         from src.notification import NotificationService
         from src.services.history_service import HistoryService
 
@@ -287,7 +287,7 @@ class TestSignalAttributionE2E:
             },
         })
 
-        analyzer = GeminiAnalyzer.__new__(GeminiAnalyzer)
+        analyzer = DeepSeekAnalyzer.__new__(DeepSeekAnalyzer)
         result = analyzer._parse_response(response_text, "600519", "测试")
         dashboard = result.dashboard
         signal_attr = dashboard["signal_attribution"]

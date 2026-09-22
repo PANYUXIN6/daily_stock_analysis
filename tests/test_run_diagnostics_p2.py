@@ -418,7 +418,7 @@ class RunDiagnosticsP2TestCase(unittest.TestCase):
                 "success": False,
                 "error_type": "ProxyError",
                 "error_message_sanitized": (
-                    "OPENAI_API_KEY=sk-env-secret "
+                    "DEEPSEEK_API_KEY=sk-env-secret "
                     "\"api_key\": \"sk-json-secret\" "
                     "proxy http://proxy_user:proxy_pass@proxy.example.com"
                 ),
@@ -442,7 +442,7 @@ class RunDiagnosticsP2TestCase(unittest.TestCase):
         )
 
         copy_text = summary["copy_text"]
-        self.assertIn("OPENAI_API_KEY=<redacted>", copy_text)
+        self.assertIn("DEEPSEEK_API_KEY=<redacted>", copy_text)
         self.assertIn("\"api_key\": \"<redacted>\"", copy_text)
         self.assertIn("http://<redacted>:<redacted>@proxy.example.com", copy_text)
         for leaked in (
@@ -455,7 +455,7 @@ class RunDiagnosticsP2TestCase(unittest.TestCase):
 
     def test_sanitize_diagnostic_text_redacts_common_secret_shapes(self) -> None:
         text = (
-            "OPENAI_API_KEY=sk-env-secret "
+            "DEEPSEEK_API_KEY=sk-env-secret "
             "\"api_key\": \"sk-json-secret\" "
             "'access_token': 'raw-token-secret' "
             "http://proxy_user:proxy_pass@proxy.example.com "
@@ -465,7 +465,7 @@ class RunDiagnosticsP2TestCase(unittest.TestCase):
         sanitized = sanitize_diagnostic_text(text)
 
         self.assertIsNotNone(sanitized)
-        self.assertIn("OPENAI_API_KEY=<redacted>", sanitized)
+        self.assertIn("DEEPSEEK_API_KEY=<redacted>", sanitized)
         self.assertIn("\"api_key\": \"<redacted>\"", sanitized)
         self.assertIn("'access_token': '<redacted>'", sanitized)
         self.assertIn("http://<redacted>:<redacted>@proxy.example.com", sanitized)

@@ -10,7 +10,7 @@ from datetime import date
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from src.analyzer import GeminiAnalyzer
+from src.analyzer import DeepSeekAnalyzer
 from src.core.pipeline import StockAnalysisPipeline
 from src.enums import ReportType
 from src.services.daily_market_context import DailyMarketContext
@@ -22,17 +22,12 @@ def _pipeline_config(*, daily_market_context_enabled: bool) -> SimpleNamespace:
         save_context_snapshot=False,
         bocha_api_keys=[],
         tavily_api_keys=[],
-        anspire_api_keys=[],
-        brave_api_keys=[],
-        serpapi_keys=[],
-        minimax_api_keys=[],
-        searxng_base_urls=[],
-        searxng_public_instances_enabled=False,
+
+
         news_max_age_days=3,
         news_strategy_profile="short",
         enable_realtime_quote=False,
         realtime_source_priority=[],
-        enable_chip_distribution=False,
         daily_market_context_enabled=daily_market_context_enabled,
     )
 
@@ -46,7 +41,7 @@ def _build_initialized_pipeline(
     with patch("src.core.pipeline.get_db", return_value=MagicMock()), \
          patch("src.core.pipeline.DataFetcherManager", return_value=MagicMock()), \
          patch("src.core.pipeline.StockTrendAnalyzer", return_value=MagicMock()), \
-         patch("src.core.pipeline.GeminiAnalyzer", return_value=MagicMock()), \
+         patch("src.core.pipeline.DeepSeekAnalyzer", return_value=MagicMock()), \
          patch("src.core.pipeline.NotificationService", return_value=MagicMock()), \
          patch("src.core.pipeline.SearchService", return_value=search_service):
         return StockAnalysisPipeline(config=config, **kwargs)
@@ -259,7 +254,6 @@ def test_pipeline_uses_market_phase_effective_date_for_daily_market_context() ->
     )
     pipeline.config = SimpleNamespace(
         enable_realtime_quote=False,
-        enable_chip_distribution=False,
         market_review_enabled=True,
         report_language="zh",
         agent_mode=False,
@@ -271,7 +265,6 @@ def test_pipeline_uses_market_phase_effective_date_for_daily_market_context() ->
     pipeline.analysis_phase = "auto"
     pipeline.fetcher_manager = MagicMock()
     pipeline.fetcher_manager.get_stock_name.return_value = "贵州茅台"
-    pipeline.fetcher_manager.get_chip_distribution.return_value = None
     pipeline.fetcher_manager.get_fundamental_context.return_value = {}
     pipeline.fetcher_manager.build_failed_fundamental_context.return_value = {}
     pipeline.db = MagicMock()
@@ -320,7 +313,7 @@ def test_pipeline_attaches_low_sensitive_market_context_to_enhanced_context() ->
 
 
 def test_analyzer_prompt_renders_daily_market_context_before_technical_data() -> None:
-    analyzer = GeminiAnalyzer.__new__(GeminiAnalyzer)
+    analyzer = DeepSeekAnalyzer.__new__(DeepSeekAnalyzer)
     analyzer._get_skill_prompt_sections = lambda: ("", "", False)
     context = {
         "code": "600519",

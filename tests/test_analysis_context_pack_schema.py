@@ -244,8 +244,8 @@ def test_data_quality_serializes_p5_scoring_fields_and_legacy_fields() -> None:
 def test_redact_sensitive_mapping_recurses_dicts_and_lists_by_key() -> None:
     payload = {
         "API_KEY": "ak-secret",
-        "OPENAI_API_KEY": "openai-secret",
-        "GEMINI_API_KEY": "gemini-secret",
+        "DEEPSEEK_API_KEY": "openai-secret",
+        "DEEPSEEK_API_KEY": "deepseek/deepseek-flash",
         "openai_api_key_value": "openai-secret-value",
         "vendorsecretkey": "vendor-secret-key",
         "apitoken": "api-token-secret",
@@ -280,8 +280,8 @@ def test_redact_sensitive_mapping_recurses_dicts_and_lists_by_key() -> None:
     redacted = redact_sensitive_mapping(payload)
 
     assert redacted["API_KEY"] == "[REDACTED]"
-    assert redacted["OPENAI_API_KEY"] == "[REDACTED]"
-    assert redacted["GEMINI_API_KEY"] == "[REDACTED]"
+    assert redacted["DEEPSEEK_API_KEY"] == "[REDACTED]"
+    assert redacted["DEEPSEEK_API_KEY"] == "[REDACTED]"
     assert redacted["openai_api_key_value"] == "[REDACTED]"
     assert redacted["vendorsecretkey"] == "[REDACTED]"
     assert redacted["apitoken"] == "[REDACTED]"

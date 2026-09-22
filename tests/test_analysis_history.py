@@ -552,7 +552,7 @@ class AnalysisHistoryTestCase(unittest.TestCase):
     def test_save_analysis_history_persists_model_used(self) -> None:
         """model_used should be persisted in raw_result for history detail."""
         result = self._build_result()
-        result.model_used = "gemini/gemini-2.0-flash"
+        result.model_used = "deepseek/deepseek-flash"
 
         saved = self.db.save_analysis_history(
             result=result,
@@ -570,7 +570,7 @@ class AnalysisHistoryTestCase(unittest.TestCase):
                 self.fail("未找到保存的历史记录")
             self.assertEqual(row.id, saved)
             payload = json.loads(row.raw_result or "{}")
-            self.assertEqual(payload.get("model_used"), "gemini/gemini-2.0-flash")
+            self.assertEqual(payload.get("model_used"), "deepseek/deepseek-flash")
 
     def test_update_analysis_history_diagnostics_preserves_snapshot_fields(self) -> None:
         """通知发送后补写 diagnostics 时，不应覆盖已有上下文字段。"""
@@ -648,7 +648,7 @@ class AnalysisHistoryTestCase(unittest.TestCase):
     def test_history_list_includes_timeline_summary_fields(self) -> None:
         """History list items expose the fields needed by the same-stock timeline drawer."""
         result = self._build_result()
-        result.model_used = "gemini/gemini-2.5-pro"
+        result.model_used = "deepseek/deepseek-v4-pro"
         context_snapshot = {
             "enhanced_context": {
                 "realtime": {
@@ -682,7 +682,7 @@ class AnalysisHistoryTestCase(unittest.TestCase):
         self.assertEqual(item["operation_advice"], "持有")
         self.assertEqual(item["action"], "buy")
         self.assertEqual(item["action_label"], "买入")
-        self.assertEqual(item["model_used"], "gemini/gemini-2.5-pro")
+        self.assertEqual(item["model_used"], "deepseek/deepseek-v4-pro")
         self.assertEqual(item["current_price"], 51.5)
         self.assertEqual(item["change_pct"], -4.61)
         self.assertEqual(item["volume_ratio"], 1.17)
@@ -1226,7 +1226,7 @@ class AnalysisHistoryTestCase(unittest.TestCase):
     def test_history_detail_accepts_dict_raw_result(self) -> None:
         """_record_to_detail_dict should handle dict raw_result without json.loads errors."""
         result = self._build_result()
-        result.model_used = "gemini/gemini-2.0-flash"
+        result.model_used = "deepseek/deepseek-flash"
         saved = self.db.save_analysis_history(
             result=result,
             query_id="query_005",
@@ -1311,7 +1311,7 @@ class AnalysisHistoryTestCase(unittest.TestCase):
             row.secondary_buy = 120.0
             row.stop_loss = 110.0
             row.take_profit = 150.0
-            row.raw_result = json.dumps({"model_used": "gemini/gemini-2.0-flash"})
+            row.raw_result = json.dumps({"model_used": "deepseek/deepseek-flash"})
             session.commit()
             self.assertEqual(row.id, saved)
             record_id = row.id

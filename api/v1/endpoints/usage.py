@@ -67,8 +67,8 @@ def _build_summary_payload(period: str, from_dt: datetime, to_dt: datetime, data
 @router.get(
     "/summary",
     response_model=UsageSummaryResponse,
-    summary="LLM token usage summary",
-    description="Aggregate token consumption by period, call type, and model.",
+    summary="DeepSeek token usage summary",
+    description="Aggregate DeepSeek token consumption by period, call type, and model.",
 )
 def get_usage_summary(
     period: str = Query("month", description="'today' | 'month' | 'all'"),
@@ -83,8 +83,8 @@ def get_usage_summary(
 @router.get(
     "/dashboard",
     response_model=UsageDashboardResponse,
-    summary="LLM token usage monitoring dashboard",
-    description="Return token totals, model breakdowns, and recent LLM call records.",
+    summary="DeepSeek token usage monitoring dashboard",
+    description="Return token totals, model breakdowns, and recent DeepSeek call records.",
 )
 def get_usage_dashboard(
     period: str = Query("month", description="'today' | 'month' | 'all'"),

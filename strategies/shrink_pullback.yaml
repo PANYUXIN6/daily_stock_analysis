@@ -36,7 +36,6 @@ instructions: |
 
   4. **确认条件**（关联理念5：风险排查）：
      - `search_stock_news` 无利空消息。
-     - 筹码分布健康（获利比例 50-80%）。
 
   评分调整：
   - 缩量回踩 MA5：sentiment_score +10

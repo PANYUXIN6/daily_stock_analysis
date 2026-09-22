@@ -120,7 +120,7 @@ def _diagnostics(*, with_fallback: bool = False, unsafe: bool = False) -> dict:
                 "success": False,
                 "error_type": "RuntimeError",
                 "error_message_sanitized": (
-                    "OPENAI_API_KEY=sk-secret "
+                    "DEEPSEEK_API_KEY=sk-secret "
                     "https://hooks.example.com/webhook?key=secret "
                     "prompt=full-user-prompt"
                 ),
@@ -855,7 +855,7 @@ class RunFlowTestCase(unittest.TestCase):
                     {
                         "trace_id": "trace-news",
                         "data_type": "news_search",
-                        "provider": "SearXNG",
+                        "provider": "Bocha",
                         "operation": "search_stock_news",
                         "success": True,
                         "latency_ms": 700,
@@ -874,9 +874,9 @@ class RunFlowTestCase(unittest.TestCase):
         edge_payload = [edge.model_dump(by_alias=True) for edge in snapshot.edges]
 
         self.assertIn("新闻舆情 · Tavily", node_labels)
-        self.assertIn("新闻舆情 · SearXNG", node_labels)
+        self.assertIn("新闻舆情 · Bocha", node_labels)
         self.assertTrue(any(edge["kind"] == "fallback" for edge in edge_payload))
-        self.assertTrue(any(event.type == "provider_run" and event.node_id.endswith("searxng_2") for event in snapshot.events))
+        self.assertTrue(any(event.type == "provider_run" and event.node_id.endswith("bocha_2") for event in snapshot.events))
 
     def test_degraded_context_blocks_do_not_increment_fallback_count(self) -> None:
         diagnostics = _diagnostics()

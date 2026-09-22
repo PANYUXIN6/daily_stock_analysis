@@ -13,41 +13,41 @@ from src.agent.provider_trace import (  # noqa: E402
 )
 
 
-def test_trace_model_matches_slashless_openai_namespace_without_widening_model_match() -> None:
-    assert provider_namespace("gpt-4o-mini") == "openai"
-    assert trace_model_matches("openai", "gpt-4o-mini", "gpt-4o-mini") is True
-    assert trace_model_matches("anthropic", "gpt-4o-mini", "gpt-4o-mini") is False
-    assert trace_model_matches("openai", "gpt-4o-mini", "openai/gpt-4o-mini") is False
+def test_trace_model_matches_slashless_deepseek_namespace_without_widening_model_match() -> None:
+    assert provider_namespace("deepseek-flash") == "deepseek"
+    assert trace_model_matches("deepseek", "deepseek-flash", "deepseek-flash") is True
+    assert trace_model_matches("other", "deepseek-flash", "deepseek-flash") is False
+    assert trace_model_matches("deepseek", "deepseek-flash", "deepseek/deepseek-flash") is False
     assert trace_model_matches(
-        "anthropic",
-        "claude-router",
-        "claude-router",
-        current_provider="anthropic",
+        "deepseek",
+        "analysis-route",
+        "analysis-route",
+        current_provider="deepseek",
     ) is True
 
 
 def test_resolved_provider_namespace_uses_router_alias_before_slashless_default() -> None:
     model_list = [
         {
-            "model_name": "claude-router",
-            "litellm_params": {"model": "anthropic/claude-sonnet-test"},
+            "model_name": "analysis-route",
+            "litellm_params": {"model": "deepseek/deepseek-v4-pro"},
         }
     ]
 
-    assert resolved_provider_namespace("claude-router", model_list) == "anthropic"
-    assert resolved_provider_namespace("gpt-4o-mini", model_list) == "openai"
+    assert resolved_provider_namespace("analysis-route", model_list) == "deepseek"
+    assert resolved_provider_namespace("deepseek-flash", model_list) == "deepseek"
 
 
 def test_resolved_model_provider_identity_returns_wire_model_and_provider() -> None:
     model_list = [
         {
             "model_name": "fast",
-            "litellm_params": {"model": "openai/gpt-4o"},
+            "litellm_params": {"model": "deepseek/deepseek-v4-pro"},
         }
     ]
 
-    assert resolved_model_provider_identity("fast", model_list) == ("openai/gpt-4o", "openai")
-    assert resolved_model_provider_identity("gpt-4o-mini", model_list) == ("gpt-4o-mini", "openai")
+    assert resolved_model_provider_identity("fast", model_list) == ("deepseek/deepseek-v4-pro", "deepseek")
+    assert resolved_model_provider_identity("deepseek-flash", model_list) == ("deepseek-flash", "deepseek")
 
 
 def test_extract_trace_scans_only_current_run_and_keeps_multi_step_tool_loop() -> None:

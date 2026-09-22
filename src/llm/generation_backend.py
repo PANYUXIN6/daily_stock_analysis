@@ -11,25 +11,13 @@ from typing import Any, Callable, Dict, Optional, Protocol
 class GenerationErrorCode(str, Enum):
     """Structured generation backend error codes.
 
-    Shared across LiteLLM and local CLI generation backends.
+    Used by cloud model generation and route validation.
     """
 
-    BACKEND_NOT_CONFIGURED = "backend_not_configured"
-    COMMAND_NOT_FOUND = "command_not_found"
-    COMMAND_NOT_EXECUTABLE = "command_not_executable"
-    TIMEOUT = "timeout"
-    NON_ZERO_EXIT = "non_zero_exit"
-    EMPTY_OUTPUT = "empty_output"
-    OUTPUT_TOO_LARGE = "output_too_large"
     INVALID_JSON = "invalid_json"
     SCHEMA_VALIDATION_FAILED = "schema_validation_failed"
     UNSUPPORTED_TOOL_CALLING = "unsupported_tool_calling"
-    INTERACTIVE_PROMPT_REQUIRED = "interactive_prompt_required"
-    APPROVAL_REQUIRED = "approval_required"
-    LOGIN_REQUIRED = "login_required"
-    CAPABILITY_UNSUPPORTED = "capability_unsupported"
     UNSAFE_CONFIG = "unsafe_config"
-    UNKNOWN_BACKEND_ERROR = "unknown_backend_error"
 
 
 @dataclass(frozen=True)

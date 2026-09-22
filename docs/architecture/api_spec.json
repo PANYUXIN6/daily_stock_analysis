@@ -238,7 +238,7 @@
           "Agent"
         ],
         "summary": "Agent Chat",
-        "description": "Chat with the AI Agent without progress events.\n\nCodex Agent callers must use ``/chat/stream``, which provides progress\nevents and request cancellation. The default LiteLLM Agent keeps this\nendpoint's existing behavior.",
+        "description": "Chat with the AI Agent without progress events.",
         "operationId": "agent_chat_api_v1_agent_chat_post",
         "requestBody": {
           "content": {
@@ -526,47 +526,6 @@
           },
           "required": true
         },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/agent/chat/stream/{request_id}/cancel": {
-      "post": {
-        "tags": [
-          "Agent"
-        ],
-        "summary": "Cancel Agent Chat Stream",
-        "description": "Signal cancellation while the original Codex SSE remains open.",
-        "operationId": "cancel_agent_chat_stream_api_v1_agent_chat_stream__request_id__cancel_post",
-        "parameters": [
-          {
-            "name": "request_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Request Id"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -2970,226 +2929,6 @@
         }
       }
     },
-    "/api/v1/system/config/generation-backends/status": {
-      "get": {
-        "tags": [
-          "SystemConfig"
-        ],
-        "summary": "Get generation backend status",
-        "description": "Read a side-effect-free generation backend cheap-check status from saved and runtime configuration. This endpoint does not run a model request.",
-        "operationId": "get_generation_backend_status_api_v1_system_config_generation_backends_status_get",
-        "responses": {
-          "200": {
-            "description": "Generation backend status loaded",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GenerationBackendStatusResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/system/config/generation-backends/status/preview": {
-      "post": {
-        "tags": [
-          "SystemConfig"
-        ],
-        "summary": "Preview generation backend status",
-        "description": "Run a side-effect-free cheap check against unsaved settings draft values.",
-        "operationId": "preview_generation_backend_status_api_v1_system_config_generation_backends_status_preview_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GenerationBackendStatusPreviewRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Generation backend status preview loaded",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GenerationBackendStatusResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Validation failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SystemConfigValidationErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/system/config/generation-backends/smoke-test": {
-      "post": {
-        "tags": [
-          "SystemConfig"
-        ],
-        "summary": "Smoke test generation backend",
-        "description": "Run an explicit fixed-prompt generation backend smoke test without persisting config.",
-        "operationId": "test_generation_backend_api_v1_system_config_generation_backends_smoke_test_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TestGenerationBackendRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Generation backend smoke test completed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TestGenerationBackendResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Validation failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SystemConfigValidationErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Invalid smoke test request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/system/config/agent-backends/status": {
-      "get": {
-        "tags": [
-          "SystemConfig"
-        ],
-        "summary": "Get Agent Chat backend status",
-        "description": "Read selected Agent Chat backend configuration and command capability without a model request.",
-        "operationId": "get_agent_backend_status_api_v1_system_config_agent_backends_status_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentBackendStatusResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/system/config/agent-backends/status/preview": {
-      "post": {
-        "tags": [
-          "SystemConfig"
-        ],
-        "summary": "Preview Agent Chat backend status",
-        "description": "Run a side-effect-free cheap check against unsaved Agent settings.",
-        "operationId": "preview_agent_backend_status_api_v1_system_config_agent_backends_status_preview_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AgentBackendStatusPreviewRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AgentBackendStatusResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/system/config/export": {
       "get": {
         "tags": [
@@ -3586,8 +3325,8 @@
         "tags": [
           "Usage"
         ],
-        "summary": "LLM token usage summary",
-        "description": "Aggregate token consumption by period, call type, and model.",
+        "summary": "DeepSeek token usage summary",
+        "description": "Aggregate DeepSeek token consumption by period, call type, and model.",
         "operationId": "get_usage_summary_api_v1_usage_summary_get",
         "parameters": [
           {
@@ -3632,8 +3371,8 @@
         "tags": [
           "Usage"
         ],
-        "summary": "LLM token usage monitoring dashboard",
-        "description": "Return token totals, model breakdowns, and recent LLM call records.",
+        "summary": "DeepSeek token usage monitoring dashboard",
+        "description": "Return token totals, model breakdowns, and recent DeepSeek call records.",
         "operationId": "get_usage_dashboard_api_v1_usage_dashboard_get",
         "parameters": [
           {
@@ -7301,25 +7040,6 @@
   },
   "components": {
     "schemas": {
-      "AgentBackendStatusPreviewRequest": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/SystemConfigUpdateItem"
-            },
-            "type": "array",
-            "title": "Items"
-          },
-          "mask_token": {
-            "type": "string",
-            "title": "Mask Token",
-            "default": "******"
-          }
-        },
-        "type": "object",
-        "title": "AgentBackendStatusPreviewRequest",
-        "description": "Unsaved-draft preview request for Agent Chat backend status."
-      },
       "AgentBackendStatusResponse": {
         "properties": {
           "backend": {
@@ -12329,7 +12049,7 @@
           "protocol": {
             "type": "string",
             "title": "Protocol",
-            "default": "openai"
+            "default": "deepseek"
           },
           "base_url": {
             "type": "string",
@@ -12352,11 +12072,6 @@
             "type": "number",
             "title": "Timeout Seconds",
             "default": 20.0
-          },
-          "use_saved_secret": {
-            "type": "boolean",
-            "title": "Use Saved Secret",
-            "default": false
           }
         },
         "type": "object",
@@ -12640,183 +12355,6 @@
         "type": "object",
         "title": "ExtractItem",
         "description": "单条提取结果（代码、名称、置信度）"
-      },
-      "GenerationBackendStatus": {
-        "properties": {
-          "backend_id": {
-            "type": "string",
-            "title": "Backend Id"
-          },
-          "backend_type": {
-            "type": "string",
-            "enum": [
-              "litellm",
-              "local_cli"
-            ],
-            "title": "Backend Type"
-          },
-          "provider_id": {
-            "type": "string",
-            "title": "Provider Id"
-          },
-          "available": {
-            "type": "boolean",
-            "title": "Available"
-          },
-          "health_status": {
-            "type": "string",
-            "enum": [
-              "not_tested",
-              "passed",
-              "failed",
-              "skipped"
-            ],
-            "title": "Health Status",
-            "default": "not_tested"
-          },
-          "supports_json": {
-            "type": "boolean",
-            "title": "Supports Json"
-          },
-          "supports_tools": {
-            "type": "boolean",
-            "title": "Supports Tools"
-          },
-          "supports_stream": {
-            "type": "boolean",
-            "title": "Supports Stream"
-          },
-          "supports_vision": {
-            "type": "boolean",
-            "title": "Supports Vision"
-          },
-          "is_primary": {
-            "type": "boolean",
-            "title": "Is Primary"
-          },
-          "fallback_target": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Fallback Target"
-          },
-          "max_concurrency": {
-            "type": "integer",
-            "title": "Max Concurrency"
-          },
-          "usage_available": {
-            "type": "boolean",
-            "title": "Usage Available"
-          },
-          "last_error_code": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Error Code"
-          },
-          "last_error_message": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Last Error Message"
-          }
-        },
-        "type": "object",
-        "required": [
-          "backend_id",
-          "backend_type",
-          "provider_id",
-          "available",
-          "supports_json",
-          "supports_tools",
-          "supports_stream",
-          "supports_vision",
-          "is_primary",
-          "max_concurrency",
-          "usage_available"
-        ],
-        "title": "GenerationBackendStatus",
-        "description": "Cheap status for one generation backend.\n\n``health_status`` and ``last_error_*`` describe the current status request\nor the explicit smoke-test request only; they are not persisted history."
-      },
-      "GenerationBackendStatusPreviewRequest": {
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/SystemConfigUpdateItem"
-            },
-            "type": "array",
-            "title": "Items"
-          },
-          "mask_token": {
-            "type": "string",
-            "title": "Mask Token",
-            "default": "******"
-          }
-        },
-        "type": "object",
-        "title": "GenerationBackendStatusPreviewRequest",
-        "description": "Unsaved-draft preview request for generation backend status."
-      },
-      "GenerationBackendStatusResponse": {
-        "properties": {
-          "primary_backend_id": {
-            "type": "string",
-            "title": "Primary Backend Id"
-          },
-          "fallback_backend_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Fallback Backend Id"
-          },
-          "primary": {
-            "$ref": "#/components/schemas/GenerationBackendStatus"
-          },
-          "fallback": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/GenerationBackendStatus"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "backends": {
-            "items": {
-              "$ref": "#/components/schemas/GenerationBackendStatus"
-            },
-            "type": "array",
-            "title": "Backends"
-          }
-        },
-        "type": "object",
-        "required": [
-          "primary_backend_id",
-          "primary"
-        ],
-        "title": "GenerationBackendStatusResponse",
-        "description": "Generation backend status payload."
       },
       "HTTPValidationError": {
         "properties": {
@@ -16615,7 +16153,7 @@
             "maxLength": 64,
             "minLength": 1,
             "title": "Strategy",
-            "default": "dual_low"
+            "default": "balanced_alpha"
           },
           "max_results": {
             "type": "integer",
@@ -17153,7 +16691,7 @@
           "analysis_count": 18,
           "id": 1234,
           "last_analysis_time": "2024-01-01T12:00:00",
-          "model_used": "Gemini 2.5 Pro",
+          "model_used": "DeepSeek Flash",
           "operation_advice": "持有",
           "report_type": "detailed",
           "sentiment_score": 75,
@@ -18637,90 +18175,6 @@
         "title": "TaskStatusEnum",
         "description": "任务状态枚举"
       },
-      "TestGenerationBackendRequest": {
-        "properties": {
-          "backend_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Backend Id"
-          },
-          "mode": {
-            "type": "string",
-            "enum": [
-              "text",
-              "json"
-            ],
-            "title": "Mode",
-            "default": "json"
-          },
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/SystemConfigUpdateItem"
-            },
-            "type": "array",
-            "title": "Items"
-          },
-          "mask_token": {
-            "type": "string",
-            "title": "Mask Token",
-            "default": "******"
-          },
-          "timeout_seconds": {
-            "anyOf": [
-              {
-                "type": "number",
-                "maximum": 3600.0,
-                "minimum": 1.0
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Timeout Seconds"
-          }
-        },
-        "type": "object",
-        "title": "TestGenerationBackendRequest",
-        "description": "Explicit generation backend smoke-test request."
-      },
-      "TestGenerationBackendResponse": {
-        "properties": {
-          "success": {
-            "type": "boolean",
-            "title": "Success"
-          },
-          "mode": {
-            "type": "string",
-            "enum": [
-              "text",
-              "json"
-            ],
-            "title": "Mode"
-          },
-          "message": {
-            "type": "string",
-            "title": "Message"
-          },
-          "status": {
-            "$ref": "#/components/schemas/GenerationBackendStatus"
-          }
-        },
-        "type": "object",
-        "required": [
-          "success",
-          "mode",
-          "message",
-          "status"
-        ],
-        "title": "TestGenerationBackendResponse",
-        "description": "Generation backend smoke-test result."
-      },
       "TestLLMChannelRequest": {
         "properties": {
           "name": {
@@ -18731,7 +18185,7 @@
           "protocol": {
             "type": "string",
             "title": "Protocol",
-            "default": "openai"
+            "default": "deepseek"
           },
           "api_surface": {
             "type": "string",
@@ -18781,11 +18235,6 @@
             },
             "type": "array",
             "title": "Capability Checks"
-          },
-          "use_saved_secret": {
-            "type": "boolean",
-            "title": "Use Saved Secret",
-            "default": false
           }
         },
         "type": "object",

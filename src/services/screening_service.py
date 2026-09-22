@@ -40,7 +40,7 @@ from src.storage import DatabaseManager
 
 logger = logging.getLogger(__name__)
 
-SCREENING_MANAGED_LITELLM_PROVIDERS = frozenset({"gemini", "vertex_ai", "anthropic", "openai", "deepseek"})
+SCREENING_MANAGED_LITELLM_PROVIDERS = frozenset({"deepseek"})
 SCREENING_CONTRACT_VERSION = "1"
 _SCREENING_RUNTIME_ENV_LOCK = threading.RLock()
 DSA_ENRICHMENT_MAX_CANDIDATES = 3
@@ -1905,29 +1905,13 @@ def _build_screening_runtime_env(config: Config, *, max_results: Optional[int] =
                     json.dumps(channel.get("extra_headers"), ensure_ascii=False),
                 )
 
-    gemini_keys = _dedupe_strings([
-        *(config.gemini_api_keys or []),
-        *_channel_keys_for_provider(channels, {"gemini", "vertex_ai"}),
-    ])
-    anthropic_keys = _dedupe_strings([
-        *(config.anthropic_api_keys or []),
-        *_channel_keys_for_provider(channels, {"anthropic"}),
-    ])
-    openai_keys = _dedupe_strings([
-        *(config.openai_api_keys or []),
-        *_channel_keys_for_provider(channels, {"openai"}),
-    ])
     deepseek_keys = _dedupe_strings([
         *(config.deepseek_api_keys or []),
         *_channel_keys_for_provider(channels, {"deepseek"}),
     ])
 
-    _put_provider_keys(env, "GEMINI", gemini_keys)
-    _put_provider_keys(env, "ANTHROPIC", anthropic_keys)
-    _put_provider_keys(env, "OPENAI", openai_keys)
     _put_provider_keys(env, "DEEPSEEK", deepseek_keys)
 
-    put("OPENAI_BASE_URL", config.openai_base_url or _first_channel_base_url(channels, {"openai"}))
     put_default("DAILY_SOURCE", "auto")
     put_default("DAILY_FETCH_RETRIES", str(DSA_SCREENING_DAILY_FETCH_RETRIES))
     put_default("DAILY_FETCH_MAX_WORKERS", "1")
@@ -3165,7 +3149,7 @@ def _is_managed_litellm_model(model: str) -> bool:
     text = _env_text(model)
     if not text:
         return False
-    provider = text.split("/", 1)[0].lower() if "/" in text else "openai"
+    provider = text.split("/", 1)[0].lower() if "/" in text else "deepseek"
     return provider in SCREENING_MANAGED_LITELLM_PROVIDERS
 
 

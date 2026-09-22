@@ -26,11 +26,6 @@ export interface ChatStreamRequest extends ChatRequest {
   context?: unknown;
 }
 
-export interface CancelChatStreamResponse {
-  accepted: boolean;
-  request_id: string;
-}
-
 export interface ChatResponse {
   success: boolean;
   content: string;
@@ -164,11 +159,5 @@ export const agentApi = {
       const parsed = parseApiError(error);
       throw createApiError(parsed, { cause: error });
     }
-  },
-  async cancelChatStream(requestId: string): Promise<CancelChatStreamResponse> {
-    const response = await apiClient.post<CancelChatStreamResponse>(
-      `/api/v1/agent/chat/stream/${encodeURIComponent(requestId)}/cancel`,
-    );
-    return response.data;
   },
 };

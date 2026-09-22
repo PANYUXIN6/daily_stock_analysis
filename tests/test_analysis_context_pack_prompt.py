@@ -146,7 +146,6 @@ def _builder_artifacts(*, fundamental_context: dict) -> PipelineAnalysisArtifact
         enhanced_context={},
         realtime_quote={"price": 1880.0, "source": "mock_quote"},
         trend_result={"trend_status": "available"},
-        chip_data={"source": "mock_chip", "date": "2026-03-26"},
         fundamental_context=fundamental_context,
         news_context="新闻摘要",
         news_result_count=1,

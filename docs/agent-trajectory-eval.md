@@ -8,7 +8,7 @@
 - 入口(`run_eval.py`)通过 `build_agent_executor()` 构建真实执行器,与 `src/core/pipeline.py` 使用同一个执行捕获钩子,消费真实产物。
 - 入口只支持**单 agent 运行**(`AGENT_ARCH=single`,默认):`AGENT_ARCH=multi` 时 factory 返回 orchestrator,其轨迹是各 stage 局部步号的拼接、`total_steps` 为 stage 数,与单 runner 指标契约不兼容——入口在构建前明确报错并退出(退出码 1)。
 - 入口用真实工具注册表校验 golden:`expected_tools` 拼错或过期会被判为无效样例(退出码 1),而不是静默按低命中继续评分。
-- 本次冻结**最小指标契约**,股票 guard、Codex `arguments_summary` 等扩展语义明确留给后续 PR(见文末「不在范围」)。
+- 本次冻结**最小指标契约**,股票 guard 等扩展语义明确留给后续 PR(见文末「不在范围」)。
 
 ## 快速开始
 
@@ -78,5 +78,4 @@ python evals/agent_trajectory/run_eval.py --all --json-out eval_report.json
 ## 不在范围(后续 PR)
 
 - 股票维度命中判定与 guard 拦截语义(`guarded` / 越界调用违规)
-- Codex App Server 的 `arguments_summary` 方言识别
 - 任何 `.env` / 运行时配置与 CI 门禁(本 PR 零 `src/` 改动,不影响现有分析流程)

@@ -299,11 +299,10 @@ class PipelineMarketDatePropagationTestCase(unittest.TestCase):
 class PipelineCapabilityMatrixTestCase(unittest.TestCase):
     """V5/V6 — INDEX_SKIP_MODULES zero bottom-layer calls for index targets."""
 
-    def test_index_skip_modules_contains_all_six(self) -> None:
+    def test_index_skip_modules_contains_stock_only_modules(self) -> None:
         self.assertEqual(
             INDEX_SKIP_MODULES,
             frozenset({
-                "chip_distribution",
                 "fundamental",
                 "belong_boards",
                 "capital_flow",
@@ -368,7 +367,6 @@ class PipelineCapabilityMatrixTestCase(unittest.TestCase):
         self.assertIn("get_realtime_quote", names)
         self.assertIn("get_daily_history", names)
         self.assertIn("get_analysis_context", names)
-        self.assertNotIn("get_chip_distribution", names)
         self.assertNotIn("get_stock_info", names)
         self.assertNotIn("get_capital_flow", names)
 
@@ -405,7 +403,6 @@ class PipelineCapabilityMatrixTestCase(unittest.TestCase):
             query_id="q-agent-index",
             stock_name="红利低波100",
             realtime_quote=None,
-            chip_data=None,
             analysis_target=target,
         )
 
@@ -484,7 +481,6 @@ class PipelineDailySourceAttributionTestCase(unittest.TestCase):
             query_id="q-daily-agent",
             stock_name="红利低波100",
             realtime_quote=None,
-            chip_data=None,
             analysis_target=_index_target("930955.CSI"),
         )
 
@@ -621,7 +617,7 @@ class PipelineSearchSemanticsTestCase(unittest.TestCase):
 
     def test_v7_provider_queries_contain_only_chinese_index_name(self) -> None:
         service = SearchService(
-            searxng_public_instances_enabled=False,
+
             news_max_age_days=3,
             news_strategy_profile="short",
         )

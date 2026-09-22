@@ -12,9 +12,6 @@ import pytest
 from unittest.mock import patch
 
 from src.config import Config, ConfigIssue
-from src.llm.backend_registry import LOCAL_CLI_GENERATION_BACKEND_IDS
-
-LOCAL_CLI_BACKENDS = sorted(LOCAL_CLI_GENERATION_BACKEND_IDS)
 
 
 # ---------------------------------------------------------------------------
@@ -31,18 +28,13 @@ def _make_config(**kwargs) -> Config:
         stock_list=["600519"],
         tushare_token=None,
         # Populate llm_model_list as the three-tier signal
-        llm_model_list=[{"model_name": "gemini/gemini-2.0-flash", "litellm_params": {"model": "gemini/gemini-2.0-flash", "api_key": "sk-test"}}],
-        litellm_model="gemini/gemini-2.0-flash",
-        gemini_api_keys=[],
-        anthropic_api_keys=[],
-        openai_api_keys=[],
+        llm_model_list=[{"model_name": "deepseek/deepseek-flash", "litellm_params": {"model": "deepseek/deepseek-flash", "api_key": "sk-test"}}],
+        litellm_model="deepseek/deepseek-flash",
         deepseek_api_keys=[],
         bocha_api_keys=[],
         tavily_api_keys=[],
-        brave_api_keys=[],
-        serpapi_keys=[],
-        searxng_base_urls=[],
-        searxng_public_instances_enabled=True,
+
+
         wechat_webhook_url="https://example.com/webhook",
         feishu_webhook_url=None,
         telegram_bot_token=None,
@@ -60,11 +52,6 @@ def _make_config(**kwargs) -> Config:
         discord_interactions_public_key=None,
         llm_channels=[],
         litellm_config_path=None,
-        gemini_api_key=None,
-        anthropic_api_key=None,
-        openai_api_key=None,
-        openai_base_url=None,
-        openai_vision_model=None,
     )
     defaults.update(kwargs)
     return Config(**defaults)
@@ -188,150 +175,26 @@ class TestValidateStructuredStockList:
 # ---------------------------------------------------------------------------
 
 class TestValidateStructuredLLM:
-    def test_codex_agent_backend_requires_single_agent_architecture(self):
-        cfg = _make_config(agent_backend="codex_app_server", agent_arch="multi")
 
-        issues = cfg.validate_structured()
-
-        error = next(i for i in issues if i.code == "unsupported_agent_arch")
-        assert error.severity == "error"
-        assert error.field == "AGENT_ARCH"
-        assert "single" in error.message
-
-    def test_unknown_agent_backend_is_structured_config_error(self):
-        cfg = _make_config(agent_backend="unknown")
-
-        issues = cfg.validate_structured()
-
-        error = next(i for i in issues if i.field == "AGENT_BACKEND")
-        assert error.severity == "error"
-        assert error.code == "capability_unsupported"
-
-    def test_unknown_generation_backend_is_structured_config_error(self):
-        cfg = _make_config(generation_backend="codex")
-
-        issues = cfg.validate_structured()
-
-        error = next(i for i in issues if i.field == "GENERATION_BACKEND")
-        assert error.severity == "error"
-        assert "claude_code_cli" in error.message
-        assert "codex_cli" in error.message
-        assert "codex" in error.message
-
-    def test_opencode_cli_generation_backend_accepts_default_opencode_model(self):
-        cfg = _make_config(
-            generation_backend="opencode_cli",
-            llm_model_list=[],
-            litellm_model="",
-            gemini_api_keys=[],
-            anthropic_api_keys=[],
-            openai_api_keys=[],
-            deepseek_api_keys=[],
-        )
-
-        issues = cfg.validate_structured()
-
-        assert not [i for i in issues if i.severity == "error"]
-
-    def test_opencode_cli_generation_backend_accepts_safe_model_without_litellm_keys(self):
-        cfg = _make_config(
-            generation_backend="opencode_cli",
-            opencode_cli_model="any-provider/model-name",
-            llm_model_list=[],
-            litellm_model="",
-            gemini_api_keys=[],
-            anthropic_api_keys=[],
-            openai_api_keys=[],
-            deepseek_api_keys=[],
-        )
-
-        issues = cfg.validate_structured()
-
-        assert not [i for i in issues if i.severity == "error"]
-
-    def test_opencode_cli_generation_backend_rejects_unsafe_model_token(self):
-        for model in ("deepseek/model;rm", "provider/$MODEL"):
-            cfg = _make_config(
-                generation_backend="opencode_cli",
-                opencode_cli_model=model,
-            )
-
-            issues = cfg.validate_structured()
-
-            error = next(i for i in issues if i.field == "OPENCODE_CLI_MODEL")
-            assert error.severity == "error"
-
-    def test_unknown_generation_fallback_backend_is_structured_config_error(self):
-        cfg = _make_config(generation_fallback_backend="claude_code")
-
-        issues = cfg.validate_structured()
-
-        error = next(i for i in issues if i.field == "GENERATION_FALLBACK_BACKEND")
-        assert error.severity == "error"
-        assert "GENERATION_FALLBACK_BACKEND" in error.message
-        assert "claude_code" in error.message
-
-    def test_unknown_agent_generation_backend_is_structured_config_error(self):
-        cfg = _make_config(agent_generation_backend="hermes")
-
-        issues = cfg.validate_structured()
-
-        error = next(i for i in issues if i.field == "AGENT_GENERATION_BACKEND")
-        assert error.severity == "error"
-        assert "auto、litellm" in error.message
-        assert "不支持 Agent 工具调用" in error.message
-        assert "hermes" in error.message
-
-    @pytest.mark.parametrize("generation_backend", LOCAL_CLI_BACKENDS)
-    def test_local_cli_without_litellm_keys_is_not_llm_config_error(self, generation_backend):
-        cfg = _make_config(
-            generation_backend=generation_backend,
-            opencode_cli_model="provider/model" if generation_backend == "opencode_cli" else "",
-            litellm_model="",
-            llm_model_list=[],
-            gemini_api_keys=[],
-            anthropic_api_keys=[],
-            openai_api_keys=[],
-            deepseek_api_keys=[],
-        )
-
-        issues = cfg.validate_structured()
-
-        assert not any(i.field == "LITELLM_CONFIG" and i.severity == "error" for i in issues)
-
-    @pytest.mark.parametrize("local_backend", LOCAL_CLI_BACKENDS)
-    def test_litellm_model_cannot_pretend_to_be_local_cli_provider(self, local_backend):
-        cfg = _make_config(litellm_model=f"{local_backend}/gpt-5")
-
-        issues = cfg.validate_structured()
-
-        error = next(i for i in issues if i.field == "LITELLM_MODEL")
-        assert error.severity == "error"
-        assert "不是 LiteLLM provider" in error.message
-        assert local_backend in error.message
 
     def test_no_llm_is_error(self):
         """Empty llm_model_list must produce an error regardless of legacy keys."""
         cfg = _make_config(llm_model_list=[])
         issues = cfg.validate_structured()
-        assert any(i.severity == "error" and "AI 模型" in i.message for i in issues)
+        assert any(i.severity == "error" and "DeepSeek API" in i.message for i in issues)
 
     def test_validate_missing_all_llm_keys_reports_error(self):
         cfg = _make_config(
             llm_model_list=[],
             litellm_model="",
-            gemini_api_keys=[],
-            anthropic_api_keys=[],
-            openai_api_keys=[],
             deepseek_api_keys=[],
-            anspire_api_keys=[],
+
         )
 
         issues = cfg.validate_structured()
 
         error = next(i for i in issues if i.severity == "error" and i.field == "LITELLM_CONFIG")
-        assert "未配置任何可用的 AI 模型接入" in error.message
-        assert "ANSPIRE_API_KEYS" in error.message
+        assert "未配置 DeepSeek API" in error.message
         assert "DEEPSEEK_API_KEY" in error.message
 
     @patch("src.config.setup_env")
@@ -365,43 +228,38 @@ class TestValidateStructuredLLM:
         LLM_CHANNELS (no legacy *_API_KEY) should not see 'AI 功能不可用'.
         """
         channel_model_list = [
-            {"model_name": "openai/gpt-4o-mini", "litellm_params": {"api_key": "sk-chan", "api_base": "https://aihubmix.com/v1"}},
+            {"model_name": "deepseek/deepseek-flash", "litellm_params": {"api_key": "sk-chan", "api_base": "https://aihubmix.com/v1"}},
         ]
         cfg = _make_config(
             llm_model_list=channel_model_list,
-            litellm_model="openai/gpt-4o-mini",
-            gemini_api_keys=[],
-            anthropic_api_keys=[],
-            openai_api_keys=[],
+            litellm_model="deepseek/deepseek-flash",
             deepseek_api_keys=[],
         )
         issues = cfg.validate_structured()
-        assert not any(i.severity == "error" and "LLM" in i.message for i in issues)
+        assert not any(i.severity == "error" and "DeepSeek" in i.message for i in issues)
 
     def test_yaml_config_only_no_error(self):
         """LITELLM_CONFIG (YAML) path: populated llm_model_list = no error."""
         yaml_model_list = [
-            {"model_name": "gemini/gemini-2.5-flash", "litellm_params": {"api_key": "sk-yaml"}},
+            {"model_name": "deepseek/deepseek-flash", "litellm_params": {"api_key": "sk-yaml"}},
         ]
         cfg = _make_config(
             llm_model_list=yaml_model_list,
-            litellm_model="gemini/gemini-2.5-flash",
+            litellm_model="deepseek/deepseek-flash",
             litellm_config_path="/tmp/litellm.yaml",
-            gemini_api_keys=[],
-            anthropic_api_keys=[],
-            openai_api_keys=[],
+            deepseek_api_keys=[],
         )
         issues = cfg.validate_structured()
-        assert not any(i.severity == "error" and "LLM" in i.message for i in issues)
+        assert not any(i.severity == "error" and "DeepSeek" in i.message for i in issues)
 
     def test_legacy_gemini_key_no_error(self):
-        """Legacy GEMINI_API_KEY path: llm_model_list populated = no error."""
+        """Legacy DEEPSEEK_API_KEY path: llm_model_list populated = no error."""
         model_list = [
-            {"model_name": "__legacy_gemini__", "litellm_params": {"model": "__legacy_gemini__", "api_key": "sk-gem"}},
+            {"model_name": "__legacy_deepseek__", "litellm_params": {"model": "__legacy_deepseek__", "api_key": "sk-gem"}},
         ]
-        cfg = _make_config(llm_model_list=model_list, gemini_api_keys=["sk-gem"])
+        cfg = _make_config(llm_model_list=model_list, deepseek_api_keys=["sk-gem"])
         issues = cfg.validate_structured()
-        assert not any(i.severity == "error" and "LLM" in i.message for i in issues)
+        assert not any(i.severity == "error" and "DeepSeek" in i.message for i in issues)
 
     def test_deepseek_only_no_error(self):
         """DEEPSEEK_API_KEY path (was missing in old validate()): no error."""
@@ -411,12 +269,9 @@ class TestValidateStructuredLLM:
         cfg = _make_config(
             llm_model_list=model_list,
             deepseek_api_keys=["sk-ds"],
-            gemini_api_keys=[],
-            anthropic_api_keys=[],
-            openai_api_keys=[],
         )
         issues = cfg.validate_structured()
-        assert not any(i.severity == "error" and "LLM" in i.message for i in issues)
+        assert not any(i.severity == "error" and "DeepSeek" in i.message for i in issues)
 
     def test_missing_litellm_model_is_info_not_error(self):
         """llm_model_list present but litellm_model unset = info, not error."""
@@ -428,34 +283,14 @@ class TestValidateStructuredLLM:
         assert all("LITELLM_MODEL" not in i.message for i in llm_issues)
         assert any("主模型" in i.message for i in llm_issues)
 
-    def test_codex_cli_without_litellm_model_does_not_emit_primary_model_hint(self):
-        cfg = _make_config(
-            generation_backend="codex_cli",
-            generation_fallback_backend="",
-            litellm_model="",
-            llm_model_list=[],
-        )
 
-        issues = cfg.validate_structured()
-
-        assert not any(i.field == "LITELLM_MODEL" and "主模型" in i.message for i in issues)
-        assert not any(i.severity == "error" and "AI 模型" in i.message for i in issues)
-
-    def test_direct_env_provider_model_without_model_list_no_error(self):
-        """Direct LiteLLM env providers should count as configured for runtime."""
-        cfg = _make_config(
-            llm_model_list=[],
-            litellm_model="cohere/command-r-plus",
-        )
-        issues = cfg.validate_structured()
-        assert not any(i.severity == "error" and "LLM" in i.message for i in issues)
 
     def test_configured_primary_model_missing_from_channels_is_error(self):
         cfg = _make_config(
             llm_model_list=[
-                {"model_name": "openai/gpt-4o-mini", "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"}},
+                {"model_name": "deepseek/deepseek-flash", "litellm_params": {"model": "deepseek/deepseek-flash", "api_key": "sk-test"}},
             ],
-            litellm_model="openai/gpt-4o",
+            litellm_model="deepseek/deepseek-v4-pro",
         )
         issues = cfg.validate_structured()
         matching_issues = [i for i in issues if i.severity == "error" and i.field == "LITELLM_MODEL"]
@@ -466,9 +301,9 @@ class TestValidateStructuredLLM:
     def test_configured_agent_primary_model_missing_from_channels_is_error(self):
         cfg = _make_config(
             llm_model_list=[
-                {"model_name": "openai/gpt-4o-mini", "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"}},
+                {"model_name": "deepseek/deepseek-flash", "litellm_params": {"model": "deepseek/deepseek-flash", "api_key": "sk-test"}},
             ],
-            agent_litellm_model="openai/gpt-4o",
+            agent_litellm_model="deepseek/deepseek-v4-pro",
         )
         issues = cfg.validate_structured()
         assert any(i.severity == "error" and i.field == "AGENT_LITELLM_MODEL" for i in issues)
@@ -476,9 +311,9 @@ class TestValidateStructuredLLM:
     def test_configured_agent_primary_model_without_runtime_source_is_error(self):
         cfg = _make_config(
             llm_model_list=[],
-            litellm_model="cohere/command-r-plus",
-            agent_litellm_model="openai/gpt-4o-mini",
-            openai_api_keys=[],
+            litellm_model="deepseek/deepseek-v4-pro",
+            agent_litellm_model="deepseek/deepseek-flash",
+            deepseek_api_keys=[],
         )
         issues = cfg.validate_structured()
         assert any(i.severity == "error" and i.field == "AGENT_LITELLM_MODEL" for i in issues)
@@ -486,7 +321,7 @@ class TestValidateStructuredLLM:
     def test_configured_agent_primary_model_matching_yaml_alias_is_allowed(self):
         cfg = _make_config(
             llm_model_list=[
-                {"model_name": "gpt4o", "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"}},
+                {"model_name": "gpt4o", "litellm_params": {"model": "deepseek/deepseek-flash", "api_key": "sk-test"}},
             ],
             agent_litellm_model="gpt4o",
         )
@@ -496,9 +331,9 @@ class TestValidateStructuredLLM:
     def test_configured_vision_model_missing_from_channels_is_warning(self):
         cfg = _make_config(
             llm_model_list=[
-                {"model_name": "openai/gpt-4o-mini", "litellm_params": {"model": "openai/gpt-4o-mini", "api_key": "sk-test"}},
+                {"model_name": "deepseek/deepseek-flash", "litellm_params": {"model": "deepseek/deepseek-flash", "api_key": "sk-test"}},
             ],
-            vision_model="openai/gpt-4o",
+            vision_model="deepseek/deepseek-v4-pro",
         )
         issues = cfg.validate_structured()
         assert any(i.severity == "warning" and i.field == "VISION_MODEL" for i in issues)
@@ -708,23 +543,23 @@ class TestValidateStructuredNotification:
         )
 
     def test_no_search_engine_is_info(self):
-        cfg = _make_config(searxng_public_instances_enabled=False)
+        cfg = _make_config()
         issues = cfg.validate_structured()
         info = [i for i in issues if i.severity == "info"]
         assert any("搜索引擎" in i.message for i in info)
         search_issue = next(i for i in info if "搜索引擎" in i.message)
         assert search_issue.field == "BOCHA_API_KEYS"
 
-    def test_searxng_configured_no_search_info(self):
-        """When searxng_base_urls is configured, no 'unconfigured search engine' info."""
-        cfg = _make_config(searxng_base_urls=["https://searx.example.org"])
+    def test_bocha_configured_no_search_info(self):
+        """When Bocha is configured, no 'unconfigured search engine' info."""
+        cfg = _make_config(bocha_api_keys=["bocha-test-key"])
         issues = cfg.validate_structured()
         info = [i for i in issues if i.severity == "info"]
         assert not any("搜索引擎" in i.message and "未配置" in i.message for i in info)
 
-    def test_public_searxng_enabled_no_search_info(self):
-        """Public SearXNG mode also counts as search capability."""
-        cfg = _make_config(searxng_public_instances_enabled=True)
+    def test_tavily_configured_no_search_info(self):
+        """Tavily also counts as search capability."""
+        cfg = _make_config(tavily_api_keys=["tavily-test-key"])
         issues = cfg.validate_structured()
         info = [i for i in issues if i.severity == "info"]
         assert not any("搜索引擎" in i.message and "未配置" in i.message for i in info)
@@ -735,15 +570,6 @@ class TestValidateStructuredNotification:
 # ---------------------------------------------------------------------------
 
 class TestDeprecatedFieldHints:
-    def test_openai_vision_model_deprecation_when_env_set(self):
-        """When OPENAI_VISION_MODEL is in env, validate_structured reports deprecation hint."""
-        cfg = _make_config()
-        with patch.dict("os.environ", {"OPENAI_VISION_MODEL": "openai/gpt-4o"}, clear=False):
-            issues = cfg.validate_structured()
-        deprec = [i for i in issues if i.field == "OPENAI_VISION_MODEL"]
-        assert deprec, "Expected deprecation hint when OPENAI_VISION_MODEL is set"
-        assert deprec[0].severity == "info"
-        assert "VISION_MODEL" in deprec[0].message
 
     def test_no_deprecation_when_openai_vision_model_not_in_env(self):
         """When OPENAI_VISION_MODEL is not in env, no deprecation hint."""
@@ -769,10 +595,8 @@ class TestDeprecatedFieldHints:
 class TestVisionKeyValidation:
     def test_vision_model_set_no_key_is_warning(self):
         cfg = _make_config(
-            vision_model="gemini/gemini-2.0-flash",
-            gemini_api_keys=[],
-            anthropic_api_keys=[],
-            openai_api_keys=[],
+            vision_model="deepseek/deepseek-flash",
+            llm_model_list=[],
             deepseek_api_keys=[],
         )
         issues = cfg.validate_structured()
@@ -781,8 +605,9 @@ class TestVisionKeyValidation:
 
     def test_vision_model_set_with_key_no_warning(self):
         cfg = _make_config(
-            vision_model="gemini/gemini-2.0-flash",
-            gemini_api_keys=["sk-gemini-testkey-1234"],
+            vision_model="deepseek/deepseek-flash",
+            llm_model_list=[],
+            deepseek_api_keys=["sk-deepseek/deepseek-flash"],
         )
         issues = cfg.validate_structured()
         assert not any(
@@ -792,37 +617,18 @@ class TestVisionKeyValidation:
     def test_vision_model_set_with_short_key_still_warns(self):
         """Short keys (len < 8) are filtered at runtime; validation should warn."""
         cfg = _make_config(
-            vision_model="gemini/gemini-2.0-flash",
-            gemini_api_keys=["x"],
-            anthropic_api_keys=[],
-            openai_api_keys=[],
-            deepseek_api_keys=[],
+            vision_model="deepseek/deepseek-flash",
+            llm_model_list=[],
+            deepseek_api_keys=["x"],
         )
         issues = cfg.validate_structured()
         warn = [i for i in issues if i.field == "VISION_MODEL"]
         assert warn and warn[0].severity == "warning"
 
-    def test_primary_provider_key_sufficient_even_if_not_in_priority(self):
-        """Primary model's provider key is checked even when absent from VISION_PROVIDER_PRIORITY."""
-        cfg = _make_config(
-            llm_model_list=[
-                {"model_name": "openai/gpt-4o", "litellm_params": {"model": "openai/gpt-4o", "api_key": "sk-test"}},
-            ],
-            litellm_model="openai/gpt-4o",
-            vision_model="openai/gpt-4o",
-            vision_provider_priority="gemini,anthropic",  # openai excluded from priority
-            openai_api_keys=["sk-openai-validkey-xyz"],
-            gemini_api_keys=[],
-            anthropic_api_keys=[],
-            deepseek_api_keys=[],
-        )
-        issues = cfg.validate_structured()
-        # Should NOT warn: primary model (openai) has a valid key
-        assert not any(i.field == "VISION_MODEL" and i.severity == "warning" for i in issues)
 
     def test_no_vision_model_no_warning(self):
         """When VISION_MODEL is not set, no Vision key warning is raised."""
-        cfg = _make_config(vision_model="", gemini_api_keys=[])
+        cfg = _make_config(vision_model="", deepseek_api_keys=[])
         issues = cfg.validate_structured()
         assert not any(i.field == "VISION_MODEL" for i in issues)
 
@@ -905,7 +711,7 @@ class TestValidateBackwardCompat:
     def test_empty_llm_model_list_message_in_validate(self):
         cfg = _make_config(llm_model_list=[])
         messages = cfg.validate()
-        assert any("AI 模型" in m for m in messages)
+        assert any("DeepSeek API" in m for m in messages)
 
     def test_messages_match_validate_structured(self):
         """validate() strings must be the message field of each ConfigIssue."""

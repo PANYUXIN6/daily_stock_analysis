@@ -26,7 +26,7 @@ const {
       traceId: 'screen-task-1',
       status: 'pending',
       message: 'Screening 选股任务已提交',
-      strategy: 'dual_low',
+      strategy: 'balanced_alpha',
       market: 'cn',
       maxResults: 3,
     };
@@ -87,10 +87,10 @@ const mockStrategiesResponse = {
   enabled: true,
   strategies: [
     {
-      id: 'dual_low',
-      name: 'Dual Low',
-      title: 'Dual Low',
-      description: 'Low valuation strategy',
+      id: 'balanced_alpha',
+      name: 'Balanced Alpha',
+      title: 'Balanced Alpha',
+      description: 'Balanced multi-factor strategy',
       category: 'value',
       tag: 'value',
       tags: ['value'],
@@ -965,7 +965,7 @@ describe('StockScreeningPage', () => {
       strategies: [
         { id: 'balanced_alpha', name: '平衡选股', description: 'desc', category: '框架' },
         { id: 'capital_heat', name: '资金热度', description: 'desc', category: '动量' },
-        { id: 'dual_low', name: '双低', description: 'desc', category: '价值' },
+        { id: 'momentum_quality', name: '趋势质量', description: 'desc', category: '趋势' },
         { id: 'oversold_reversal', name: '超跌', description: 'desc', category: '反转' },
         { id: 'shrink_pullback', name: '缩量回踩', description: 'desc', category: '趋势' },
       ],
@@ -992,7 +992,7 @@ describe('StockScreeningPage', () => {
     expect(Array.from(strategySelect.options).map((option) => option.textContent)).toEqual([
       '平衡选股',
       '资金热度',
-      '双低',
+      '趋势质量',
       '超跌',
       '缩量回踩',
       '自定义策略…',
@@ -1016,7 +1016,7 @@ describe('StockScreeningPage', () => {
     getStrategies.mockResolvedValueOnce({
       enabled: true,
       strategies: [
-        { id: 'dual_low', name: '双低选股', description: 'desc', category: '价值' },
+        { id: 'balanced_alpha', name: '均衡多因子', description: 'desc', category: '价值' },
         { id: 'capital_heat', name: '资金热度', description: 'desc', category: '动量' },
       ],
       strategyCount: 2,
@@ -1060,8 +1060,8 @@ describe('StockScreeningPage', () => {
       enabled: true,
       strategies: [
         {
-          id: 'dual_low',
-          name: '双低选股',
+          id: 'balanced_alpha',
+          name: '均衡多因子',
           description: 'desc',
           category: '价值',
           analysisSkills: ['growth_quality'],
@@ -1185,7 +1185,7 @@ describe('StockScreeningPage', () => {
     window.sessionStorage.setItem('dsa.screening.activeScreenTask.v1', JSON.stringify({
       taskId: 'screen-task-1',
       market: 'cn',
-      strategy: 'dual_low',
+      strategy: 'balanced_alpha',
       maxResults: 3,
     }));
     getScreenTask.mockRejectedValueOnce(Object.assign(new Error('timeout of 30000ms exceeded'), {
@@ -1209,7 +1209,7 @@ describe('StockScreeningPage', () => {
     window.sessionStorage.setItem('dsa.screening.activeScreenTask.v1', JSON.stringify({
       taskId: 'screen-task-1',
       market: 'cn',
-      strategy: 'dual_low',
+      strategy: 'balanced_alpha',
       maxResults: 3,
     }));
     getScreenTask.mockRejectedValueOnce(Object.assign(new Error('选股任务不可恢复'), {
@@ -1278,7 +1278,7 @@ describe('StockScreeningPage', () => {
       runs: [
         {
           runId: 'run-1',
-          strategy: 'dual_low',
+          strategy: 'balanced_alpha',
           market: 'cn',
           candidateCount: 3,
           snapshotCount: 50,
@@ -1293,7 +1293,7 @@ describe('StockScreeningPage', () => {
 
     // 历史条目展示筛选条件：策略中文名 + 市场标签 + 返回数量（该次 run 实际候选数）
     expect(await screen.findByText(/返回 3 只/)).toBeInTheDocument();
-    expect(screen.getAllByText('Dual Low').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Balanced Alpha').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('A 股').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/快照 50/)).toBeInTheDocument();
     expect(screen.getByText(/智能重排/)).toBeInTheDocument();
@@ -1348,7 +1348,7 @@ describe('StockScreeningPage', () => {
 
     render(<StockScreeningPage />);
 
-    // 点击历史记录中的 run 条目（策略 capital_heat，与当前表单默认 dual_low 不同）
+    // 点击历史记录中的 run 条目（策略 capital_heat，与当前表单默认 balanced_alpha 不同）
     fireEvent.click(await screen.findByText('capital_heat'));
 
     // 结果区上下文同步为该历史 run 的策略与市场
@@ -1373,7 +1373,7 @@ describe('StockScreeningPage', () => {
         },
         {
           runId: 'run-b',
-          strategy: 'dual_low',
+          strategy: 'balanced_alpha',
           market: 'cn',
           candidateCount: 1,
           createdAt: '2026-08-06T10:00:00Z',
@@ -1395,16 +1395,16 @@ describe('StockScreeningPage', () => {
 
     render(<StockScreeningPage />);
 
-    // 先点 run-a（capital_heat，请求挂起），再点 run-b（dual_low）
+    // 先点 run-a（capital_heat，请求挂起），再点 run-b（balanced_alpha）
     fireEvent.click(await screen.findByText('capital_heat'));
-    fireEvent.click(screen.getByRole('button', { name: /Dual Low/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Balanced Alpha/ }));
     await waitFor(() => expect(getRun).toHaveBeenLastCalledWith('run-b'));
 
-    // run-b 先返回：结果区展示 dual_low 上下文
+    // run-b 先返回：结果区展示 balanced_alpha 上下文
     await act(async () => {
       runBDetail.resolve({
         runId: 'run-b',
-        strategy: 'dual_low',
+        strategy: 'balanced_alpha',
         market: 'cn',
         candidateCount: 1,
         enabled: true,
@@ -1416,7 +1416,7 @@ describe('StockScreeningPage', () => {
               code: '000001',
               name: '平安银行',
               score: 88.5,
-              reason: '双低策略',
+              reason: '均衡多因子策略',
               amount: 1042000000,
               factorScores: { value: 92 },
               raw: {},
@@ -1429,7 +1429,7 @@ describe('StockScreeningPage', () => {
         },
       });
     });
-    expect(await screen.findByText(/Dual Low · A 股/)).toBeInTheDocument();
+    expect(await screen.findByText(/Balanced Alpha · A 股/)).toBeInTheDocument();
 
     // run-a 迟到返回：不得覆盖 run-b 的结果与上下文
     await act(async () => {
@@ -1460,7 +1460,7 @@ describe('StockScreeningPage', () => {
         },
       });
     });
-    expect(screen.getByText(/Dual Low · A 股/)).toBeInTheDocument();
+    expect(screen.getByText(/Balanced Alpha · A 股/)).toBeInTheDocument();
     expect(screen.queryByText(/自定义策略 \(capital_heat\)/)).not.toBeInTheDocument();
     expect(screen.queryByText('腾讯控股')).not.toBeInTheDocument();
   });
@@ -1483,7 +1483,7 @@ describe('StockScreeningPage', () => {
       runs: [
         {
           runId: 'run-b',
-          strategy: 'dual_low',
+          strategy: 'balanced_alpha',
           market: 'cn',
           candidateCount: 1,
           createdAt: '2026-08-05T10:00:00Z',
@@ -1499,7 +1499,7 @@ describe('StockScreeningPage', () => {
       }
       return Promise.resolve({
         runId: 'run-b',
-        strategy: 'dual_low',
+        strategy: 'balanced_alpha',
         market: 'cn',
         candidateCount: 1,
         enabled: true,
@@ -1527,9 +1527,9 @@ describe('StockScreeningPage', () => {
 
     render(<StockScreeningPage />);
 
-    // 自动恢复 run-a 还在挂起时，用户手动点开历史里的 run-b（策略 dual_low → 显示 Dual Low）
+    // 自动恢复 run-a 还在挂起时，用户手动点开历史里的 run-b（策略 balanced_alpha → 显示 Balanced Alpha）
     fireEvent.click(await screen.findByText(/返回 1 只/));
-    expect(await screen.findByText(/Dual Low · A 股/)).toBeInTheDocument();
+    expect(await screen.findByText(/Balanced Alpha · A 股/)).toBeInTheDocument();
     expect(screen.getByText('浦发银行')).toBeInTheDocument();
 
     // run-a 较晚返回：不得覆盖用户手动选择的 run-b
@@ -1561,7 +1561,7 @@ describe('StockScreeningPage', () => {
         },
       });
     });
-    expect(screen.getByText(/Dual Low · A 股/)).toBeInTheDocument();
+    expect(screen.getByText(/Balanced Alpha · A 股/)).toBeInTheDocument();
     expect(screen.getByText('浦发银行')).toBeInTheDocument();
     expect(screen.queryByText(/自定义策略 \(capital_heat\)/)).not.toBeInTheDocument();
     expect(screen.queryByText('腾讯控股')).not.toBeInTheDocument();
@@ -1687,7 +1687,7 @@ describe('StockScreeningPage', () => {
       rankingMode: 'factor',
       llmFailureReason: 'invalid_response',
       llmParseErrors: ['no_json_found'],
-      warnings: ['LLM ranking failed, falling back to screen_score: Missing gemini_api_key'],
+      warnings: ['LLM ranking failed, falling back to screen_score: Missing deepseek_api_key'],
     });
 
     render(<StockScreeningPage />);
@@ -1697,11 +1697,30 @@ describe('StockScreeningPage', () => {
 
     expect(await screen.findByText('当前使用因子排序')).toBeInTheDocument();
     expect(screen.getByText(/缺少可用 LLM API Key/)).toBeInTheDocument();
-    expect(screen.queryByText(/Missing gemini_api_key/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Missing deepseek_api_key/)).not.toBeInTheDocument();
     expect(screen.getByText(/排序：确定性因子/)).toBeInTheDocument();
     expect(screen.getByText('因子排序')).toBeInTheDocument();
     expect(screen.getByText(/主要优势：流动性 93、估值 87/)).toBeInTheDocument();
     expect(screen.queryByText(/LLM 已降级/)).not.toBeInTheDocument();
+  });
+
+  it('keeps verified profit gap evidence visible above generic factor and LLM prose', async () => {
+    getScreeningStatus.mockResolvedValueOnce({ enabled: true, available: true });
+    const summary = '净利润断层｜净利润同比 +50.0%；缺口未回补；第三阶段：趋于稳定。';
+    screenStocks.mockResolvedValueOnce({
+      enabled: true,
+      candidates: [{
+        rank: 1, code: '002000', name: '策略测试企业', score: 88,
+        reason: '通用 LLM 排序结论', llmScore: 88, factorScores: { value: 90 },
+        postAnalysisSummaries: { netProfitGap: summary }, raw: {},
+      }],
+      candidateCount: 1, llmRanked: true,
+    });
+    render(<StockScreeningPage />);
+    expect(await screen.findByText('选股已开启')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /运行选股/ }));
+    expect(await screen.findByText(summary)).toBeInTheDocument();
+    expect(screen.queryByText('通用 LLM 排序结论')).not.toBeInTheDocument();
   });
 
   it('deduplicates Screening snapshot fallback warnings and source errors', async () => {
@@ -1856,7 +1875,7 @@ describe('StockScreeningPage', () => {
       runs: [
         {
           runId: 'run-b',
-          strategy: 'dual_low',
+          strategy: 'balanced_alpha',
           market: 'cn',
           candidateCount: 1,
           createdAt: '2026-08-05T10:00:00Z',
@@ -1867,7 +1886,7 @@ describe('StockScreeningPage', () => {
     render(<StockScreeningPage />);
     expect(await screen.findByText('选股已开启')).toBeInTheDocument();
     // 自动恢复 run-a 仍在飞行时，用户点开历史里的 run-b
-    fireEvent.click(await screen.findByRole('button', { name: /Dual Low/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Balanced Alpha/ }));
     // 先让过期的自动恢复 run-a 结束（其响应已被 request-id 判定为过期）
     resolveRunA({
       runId: 'run-a',
@@ -1897,12 +1916,12 @@ describe('StockScreeningPage', () => {
     // 过期 finally 不清共享 loading：表单仍处于禁用态（按钮在 loading 时渲染为 spinner，
     // 故用市场下拉框断言），页面也未切到任何历史结果
     expect(screen.getByLabelText('市场')).toBeDisabled();
-    expect(screen.queryByText(/Dual Low · A 股/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Balanced Alpha · A 股/)).not.toBeInTheDocument();
     expect(screen.queryByText(/自定义策略 \(capital_heat\)/)).not.toBeInTheDocument();
     // 随后 run-b 正常返回：结果恢复，loading 由本次请求自己收口
     resolveRunB({
       runId: 'run-b',
-      strategy: 'dual_low',
+      strategy: 'balanced_alpha',
       market: 'cn',
       candidateCount: 1,
       enabled: true,
@@ -1924,7 +1943,7 @@ describe('StockScreeningPage', () => {
         llmRanked: true,
       },
     });
-    expect(await screen.findByText(/Dual Low · A 股/)).toBeInTheDocument();
+    expect(await screen.findByText(/Balanced Alpha · A 股/)).toBeInTheDocument();
     await waitFor(() => expect(screen.getByLabelText('市场')).toBeEnabled());
   });
   it('polls a newly submitted task immediately while a stale auto-restore request is still pending', async () => {
@@ -1948,7 +1967,7 @@ describe('StockScreeningPage', () => {
       }
       return Promise.resolve({
         runId: 'run-b',
-        strategy: 'dual_low',
+        strategy: 'balanced_alpha',
         market: 'cn',
         candidateCount: 1,
         enabled: true,
@@ -1976,7 +1995,7 @@ describe('StockScreeningPage', () => {
       runs: [
         {
           runId: 'run-b',
-          strategy: 'dual_low',
+          strategy: 'balanced_alpha',
           market: 'cn',
           candidateCount: 1,
           createdAt: '2026-08-05T10:00:00Z',
@@ -2001,8 +2020,8 @@ describe('StockScreeningPage', () => {
     render(<StockScreeningPage />);
     expect(await screen.findByText('选股已开启')).toBeInTheDocument();
     // 自动恢复挂起时，用户先打开历史 run-b（正常返回并由该请求自身收口 loading）
-    fireEvent.click(await screen.findByRole('button', { name: /Dual Low/ }));
-    expect(await screen.findByText(/Dual Low · A 股/)).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole('button', { name: /Balanced Alpha/ }));
+    expect(await screen.findByText(/Balanced Alpha · A 股/)).toBeInTheDocument();
     // 随即发起新任务：轮询必须立即启动，不被仍挂起的自动恢复门闩阻塞
     fireEvent.click(screen.getByRole('button', { name: /运行选股/ }));
     await waitFor(() => expect(getScreenTask).toHaveBeenCalledTimes(1));
@@ -2060,7 +2079,7 @@ describe('StockScreeningPage', () => {
     resolveStrategies({
       enabled: true,
       strategies: [
-        { id: 'dual_low', name: '双低', description: 'desc', category: '价值' },
+        { id: 'balanced_alpha', name: '均衡多因子', description: 'desc', category: '价值' },
       ],
       strategyCount: 1,
     });
@@ -2079,7 +2098,7 @@ describe('StockScreeningPage', () => {
     });
     window.sessionStorage.setItem('dsa.screening.activeScreenTask.v1', JSON.stringify({
       taskId: 'task-a',
-      strategy: 'dual_low',
+      strategy: 'balanced_alpha',
       market: 'cn',
       maxResults: 3,
     }));

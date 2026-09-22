@@ -15,12 +15,11 @@ from src.config import (
     normalize_llm_channel_model,
     resolve_llm_channel_protocol,
 )
-from src.llm.hermes import is_reserved_hermes_name
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 _PACKAGE_DIR = Path(__file__).resolve().parent
 DEFAULT_POST_ANALYZERS = ["scorecard"]
-DEFAULT_LLM_MODEL = "gemini/gemini-2.5-flash"
+DEFAULT_LLM_MODEL = "deepseek/deepseek-flash"
 DEFAULT_SNAPSHOT_SOURCE_PRIORITY = ["sina", "efinance", "akshare_em", "em_datacenter"]
 TUSHARE_FIRST_SOURCE_PRIORITY = ["tushare", "sina", "efinance", "akshare_em", "em_datacenter"]
 _ENV_FILE_CACHE: dict[Path, tuple[tuple[int, int], dict[str, str]]] = {}
@@ -257,10 +256,8 @@ class Config:
         """Return whether any supported LiteLLM configuration is present."""
         return any([
             bool(self.llm_api_key),
-            bool(self.llm_base_url and self.llm_model.startswith("ollama/")),
             bool(self.llm_config_path),
             bool(self.llm_channels),
-            self.llm_model.startswith("ollama/"),
         ])
 
     @classmethod
@@ -436,10 +433,8 @@ def _parse_llm_channels_env() -> list[dict[str, object]]:
         )
         if not is_supported_llm_channel_api_surface_value(api_surface_raw):
             continue
-        effective_protocol = resolved_protocol or "openai"
-        if api_surface == "responses" and effective_protocol != "openai":
-            continue
-        if is_reserved_hermes_name(name) and api_surface == "responses":
+        effective_protocol = resolved_protocol
+        if not effective_protocol:
             continue
         if find_incompatible_llm_channel_models(models, effective_protocol, api_surface, base_url):
             continue
@@ -480,61 +475,20 @@ def _resolve_llm_model(channels: list[dict[str, object]]) -> str:
     for channel in channels:
         models = channel.get("models", [])
         if isinstance(models, list) and models:
-            return _normalize_litellm_model(str(models[0]), str(channel.get("protocol", "openai")))
+            return _normalize_litellm_model(str(models[0]), str(channel.get("protocol", "deepseek")))
 
-    if os.getenv("OLLAMA_API_BASE"):
-        ollama_model = os.getenv("OLLAMA_MODEL", "").strip()
-        return f"ollama/{ollama_model}" if ollama_model else DEFAULT_LLM_MODEL
-    if os.getenv("DEEPSEEK_API_KEY"):
-        return "deepseek/deepseek-chat"
-    if os.getenv("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEYS"):
-        return _normalize_litellm_model(os.getenv("GEMINI_MODEL", DEFAULT_LLM_MODEL), "gemini")
-    if os.getenv("OPENAI_API_KEY"):
-        return _normalize_litellm_model(os.getenv("OPENAI_MODEL", "gpt-4o-mini"), "openai")
-    if os.getenv("AIHUBMIX_KEY"):
-        return _normalize_litellm_model(os.getenv("OPENAI_MODEL", "gpt-4o-mini"), "openai")
     return DEFAULT_LLM_MODEL
 
 
-def _normalize_litellm_model(model: str, protocol: str = "openai") -> str:
-    model = model.strip()
-    if "/" in model:
-        return model
-    if protocol == "ollama":
-        return f"ollama/{model}"
-    if protocol == "gemini":
-        return f"gemini/{model}"
-    if protocol == "deepseek":
-        return f"deepseek/{model}"
-    return f"openai/{model}"
+def _normalize_litellm_model(model: str, protocol: str = "deepseek") -> str:
+    return normalize_llm_channel_model(model, protocol)
 
 
 def _resolve_llm_api_key(model: str) -> str:
-    explicit = os.getenv("LLM_API_KEY", "").strip()
-    if explicit:
-        return explicit
-    if model.startswith("gemini/"):
-        keys = _parse_csv_env("GEMINI_API_KEYS", [])
-        return keys[0] if keys else os.getenv("GEMINI_API_KEY", "")
-    if model.startswith("deepseek/"):
-        return os.getenv("DEEPSEEK_API_KEY", "")
-    if model.startswith("anthropic/"):
-        return os.getenv("ANTHROPIC_API_KEY", "")
-    if os.getenv("AIHUBMIX_KEY"):
-        return os.getenv("AIHUBMIX_KEY", "")
-    if model.startswith("openai/"):
-        return os.getenv("OPENAI_API_KEY", "")
-    return os.getenv("OPENAI_API_KEY", "")
+    keys = _parse_csv_env("DEEPSEEK_API_KEYS", [])
+    return keys[0] if keys else os.getenv("DEEPSEEK_API_KEY", "")
 
 
 def _resolve_llm_base_url(model: str) -> str:
-    explicit = os.getenv("LLM_BASE_URL", "").strip()
-    if explicit:
-        return explicit
-    if model.startswith("ollama/"):
-        return os.getenv("OLLAMA_API_BASE", "")
-    if os.getenv("AIHUBMIX_KEY"):
-        return os.getenv("AIHUBMIX_BASE_URL", "https://api.aihubmix.com/v1")
-    if model.startswith("openai/"):
-        return os.getenv("OPENAI_BASE_URL", "")
-    return os.getenv("OPENAI_BASE_URL", "")
+    from src.config import DEEPSEEK_API_BASE
+    return DEEPSEEK_API_BASE

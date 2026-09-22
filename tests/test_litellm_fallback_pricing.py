@@ -32,13 +32,13 @@ def _fake_litellm_response(content: str = "agent ok") -> SimpleNamespace:
 def _fake_agent_config(**overrides) -> SimpleNamespace:
     config = {
         "agent_litellm_model": "",
-        "litellm_model": "openai/mimo-alpha",
+        "litellm_model": "deepseek/deepseek-test-model",
         "litellm_fallback_models": [],
         "llm_model_list": [],
         "llm_temperature": 0.7,
-        "gemini_api_keys": [],
-        "anthropic_api_keys": [],
-        "openai_api_keys": [],
+        "deepseek_api_keys": [],
+        "deepseek_api_keys": [],
+        "deepseek_api_keys": [],
         "deepseek_api_keys": [],
         "openai_base_url": None,
     }
@@ -47,7 +47,7 @@ def _fake_agent_config(**overrides) -> SimpleNamespace:
 
 
 class LiteLLMFallbackPricingTestCase(unittest.TestCase):
-    def test_register_fallback_pricing_registers_unknown_openai_model(self) -> None:
+    def test_register_fallback_pricing_registers_unknown_deepseek_model(self) -> None:
         registered = []
 
         def _register(payload):
@@ -56,65 +56,12 @@ class LiteLLMFallbackPricingTestCase(unittest.TestCase):
         with patch.object(llm_adapter.litellm, "register_model", side_effect=_register, create=True):
             with patch.object(llm_adapter.litellm, "model_cost", {}, create=True):
                 llm_adapter._FALLBACK_MODEL_PRICING_REGISTERED.clear()
-                llm_adapter.register_fallback_model_pricing(["openai/mimo-alpha"])
+                llm_adapter.register_fallback_model_pricing(["deepseek/deepseek-test-model"])
 
-        self.assertTrue(any("mimo-alpha" in payload for payload in registered))
+        self.assertTrue(any("deepseek-test-model" in payload for payload in registered))
 
-    def test_register_fallback_pricing_skips_custom_pricing_models(self) -> None:
-        registered = []
 
-        def _register(payload):
-            registered.append(payload)
 
-        with patch.object(llm_adapter.litellm, "register_model", side_effect=_register, create=True):
-            with patch.object(llm_adapter.litellm, "model_cost", {"MiniMax-M2.7": {"input_cost_per_token": 1.0}}, create=True):
-                llm_adapter._FALLBACK_MODEL_PRICING_REGISTERED.clear()
-                llm_adapter.register_fallback_model_pricing(["openai/MiniMax-M2.7", "openai/mimo-beta"])
-
-        self.assertFalse(any("MiniMax-M2.7" in payload for payload in registered))
-        self.assertTrue(any("mimo-beta" in payload for payload in registered))
-
-    def test_register_fallback_pricing_registers_unknown_custom_pricing_model(self) -> None:
-        registered = []
-
-        def _register(payload):
-            registered.append(payload)
-
-        with patch.object(llm_adapter.litellm, "register_model", side_effect=_register, create=True):
-            with patch.object(llm_adapter.litellm, "model_cost", {}, create=True):
-                llm_adapter._FALLBACK_MODEL_PRICING_REGISTERED.clear()
-                llm_adapter.register_fallback_model_pricing(["openai/MiniMax-M2.7"])
-
-        self.assertEqual(
-            registered,
-            [{"MiniMax-M2.7": llm_adapter._CUSTOM_MODEL_PRICING["MiniMax-M2.7"]}],
-        )
-
-    def test_register_fallback_pricing_falls_back_to_zero_cost_when_custom_pricing_registration_fails(self) -> None:
-        registered: list[dict] = []
-        attempts = 0
-
-        def _register(payload):
-            nonlocal attempts
-            attempts += 1
-            registered.append(payload)
-            if attempts == 1:
-                raise RuntimeError("register failed")
-
-        with patch.object(llm_adapter.litellm, "register_model", side_effect=_register, create=True):
-            with patch.object(llm_adapter.litellm, "model_cost", {}, create=True):
-                llm_adapter._FALLBACK_MODEL_PRICING_REGISTERED.clear()
-                llm_adapter.register_fallback_model_pricing(["openai/MiniMax-M2.7"])
-
-        self.assertEqual(len(registered), 2)
-        self.assertEqual(
-            registered[0],
-            {"MiniMax-M2.7": llm_adapter._CUSTOM_MODEL_PRICING["MiniMax-M2.7"]},
-        )
-        self.assertEqual(
-            registered[1],
-            {"MiniMax-M2.7": llm_adapter._FALLBACK_MODEL_PRICING},
-        )
 
     def test_llm_tool_adapter_registers_fallback_pricing_before_direct_completion(self) -> None:
         adapter = llm_adapter.LLMToolAdapter.__new__(llm_adapter.LLMToolAdapter)
@@ -136,11 +83,11 @@ class LiteLLMFallbackPricingTestCase(unittest.TestCase):
                 result = adapter._call_litellm_model(
                     [{"role": "user", "content": "hi"}],
                     [],
-                    "openai/mimo-alpha",
+                    "deepseek/deepseek-test-model",
                 )
 
         self.assertEqual(result.content, "agent ok")
-        self.assertEqual(events[:2], [("register", ["openai/mimo-alpha"]), ("completion", "openai/mimo-alpha")])
+        self.assertEqual(events[:2], [("register", ["deepseek/deepseek-test-model"]), ("completion", "deepseek/deepseek-test-model")])
 
     def test_llm_tool_adapter_registers_fallback_pricing_for_router_wire_model(self) -> None:
         adapter = llm_adapter.LLMToolAdapter.__new__(llm_adapter.LLMToolAdapter)
@@ -149,7 +96,7 @@ class LiteLLMFallbackPricingTestCase(unittest.TestCase):
             llm_model_list=[
                 {
                     "model_name": "mimo_alias",
-                    "litellm_params": {"model": "openai/mimo-router"},
+                    "litellm_params": {"model": "deepseek/mimo-router"},
                 }
             ],
         )
@@ -174,7 +121,7 @@ class LiteLLMFallbackPricingTestCase(unittest.TestCase):
             )
 
         self.assertEqual(result.content, "agent ok")
-        self.assertEqual(events[:2], [("register", ["openai/mimo-router"]), ("router", "mimo_alias")])
+        self.assertEqual(events[:2], [("register", ["deepseek/mimo-router"]), ("router", "mimo_alias")])
 
     def test_llm_tool_adapter_registers_fallback_pricing_for_router_wire_models(self) -> None:
         adapter = llm_adapter.LLMToolAdapter.__new__(llm_adapter.LLMToolAdapter)
@@ -183,11 +130,11 @@ class LiteLLMFallbackPricingTestCase(unittest.TestCase):
             llm_model_list=[
                 {
                     "model_name": "mimo_alias",
-                    "litellm_params": {"model": "openai/mimo-alpha"},
+                    "litellm_params": {"model": "deepseek/deepseek-test-model"},
                 },
                 {
                     "model_name": "mimo_alias",
-                    "litellm_params": {"model": "openai/mimo-beta"},
+                    "litellm_params": {"model": "deepseek/mimo-beta"},
                 },
             ],
         )
@@ -214,5 +161,5 @@ class LiteLLMFallbackPricingTestCase(unittest.TestCase):
         self.assertEqual(result.content, "agent ok")
         self.assertEqual(
             events[:2],
-            [("register", ["openai/mimo-alpha", "openai/mimo-beta"]), ("router", "mimo_alias")],
+            [("register", ["deepseek/deepseek-test-model", "deepseek/mimo-beta"]), ("router", "mimo_alias")],
         )

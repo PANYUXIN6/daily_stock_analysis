@@ -577,6 +577,7 @@ class TestToolRegistryCacheInvalidation:
         resolver coerces both to "no category limit".
         """
 
+
         class _StubConfig:
             """No AGENT_*_TOOL_TIMEOUT_S attributes at all."""
 

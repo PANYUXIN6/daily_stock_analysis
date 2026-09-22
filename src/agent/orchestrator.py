@@ -1169,7 +1169,7 @@ class AgentOrchestrator:
                 ctx.meta["analysis_context_pack_summary"] = analysis_context_pack_summary
 
             # Pre-populate data fields that the caller already has
-            for data_key in ("realtime_quote", "daily_history", "chip_distribution",
+            for data_key in ("realtime_quote", "daily_history",
                              "trend_result", "news_context"):
                 if context.get(data_key):
                     ctx.set_data(data_key, context[data_key])
@@ -1279,7 +1279,6 @@ class AgentOrchestrator:
         meaningful_data_keys = (
             "realtime_quote",
             "daily_history",
-            "chip_distribution",
             "trend_result",
             "news_context",
             "intel_opinion",
@@ -1308,7 +1307,6 @@ class AgentOrchestrator:
         meaningful_data_keys = (
             "realtime_quote",
             "daily_history",
-            "chip_distribution",
             "trend_result",
             "news_context",
             "intel_opinion",
@@ -1651,7 +1649,6 @@ class AgentOrchestrator:
     ) -> Dict[str, Any]:
         """Build a lightweight data_perspective block from cached market data."""
         realtime = ctx.get_data("realtime_quote")
-        chip = ctx.get_data("chip_distribution")
         trend = ctx.get_data("trend_result")
         technical = self._latest_opinion(ctx, {"technical"})
         tech_raw = technical.raw_data if technical and isinstance(technical.raw_data, dict) else {}
@@ -1708,17 +1705,6 @@ class AgentOrchestrator:
                 "turnover_rate": (realtime or {}).get("turnover_rate", "N/A"),
                 "volume_status": trend_dict.get("volume_status") or tech_raw.get("volume_status", "N/A"),
                 "volume_meaning": tech_raw.get("reasoning", "") if tech_raw else "",
-            }
-
-        if isinstance(chip, dict):
-            concentration = chip.get("concentration_90")
-            if concentration is None:
-                concentration = chip.get("concentration")
-            data_perspective["chip_structure"] = {
-                "profit_ratio": chip.get("profit_ratio", "N/A"),
-                "avg_cost": chip.get("avg_cost", "N/A"),
-                "concentration": concentration if concentration is not None else "N/A",
-                "chip_health": chip.get("chip_health", "一般"),
             }
 
         return data_perspective

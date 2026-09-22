@@ -23,8 +23,8 @@ def test_convert_messages_preserves_reasoning_blocks_and_provider_specific_field
         {
             "role": "assistant",
             "content": "checking",
-            "_trace_provider": "anthropic",
-            "_trace_model": "anthropic/claude-test",
+            "_trace_provider": "deepseek",
+            "_trace_model": "deepseek/deepseek-flash",
             "provider_blocks": [
                 {"type": "thinking", "thinking": "opaque"},
                 {"type": "redacted_thinking", "data": "redacted"},
@@ -61,8 +61,8 @@ def test_convert_messages_only_sends_provider_trace_to_matching_target_model() -
         {
             "role": "assistant",
             "content": "checking",
-            "_trace_provider": "anthropic",
-            "_trace_model": "anthropic/claude-test",
+            "_trace_provider": "deepseek",
+            "_trace_model": "deepseek/deepseek-flash",
             "provider_blocks": [{"type": "thinking", "thinking": "opaque"}],
             "reasoning_content": "provider-only",
             "tool_calls": [
@@ -77,8 +77,8 @@ def test_convert_messages_only_sends_provider_trace_to_matching_target_model() -
         }
     ]
 
-    matching = adapter._convert_messages(messages, target_model="anthropic/claude-test")
-    mismatched = adapter._convert_messages(messages, target_model="openai/gpt-4o-mini")
+    matching = adapter._convert_messages(messages, target_model="deepseek/deepseek-flash")
+    mismatched = adapter._convert_messages(messages, target_model="deepseek/deepseek-v4-pro")
 
     assert matching[0]["content"] == [{"type": "thinking", "thinking": "opaque"}]
     assert matching[0]["reasoning_content"] == "provider-only"
@@ -116,7 +116,7 @@ def test_convert_messages_skips_entire_trace_segment_for_mismatched_attempt() ->
         {"role": "assistant", "content": "a1-final"},
     ]
 
-    primary = adapter._convert_messages(messages, target_model="openai/gpt-4o-mini")
+    primary = adapter._convert_messages(messages, target_model="deepseek/deepseek-flash")
     fallback = adapter._convert_messages(messages, target_model="deepseek/deepseek-chat")
 
     assert [msg["role"] for msg in primary] == ["user", "assistant"]
@@ -135,8 +135,8 @@ def test_convert_messages_matches_slashless_openai_target_without_provider_leaka
         {
             "role": "assistant",
             "content": "checking",
-            "_trace_provider": "openai",
-            "_trace_model": "gpt-4o-mini",
+            "_trace_provider": "deepseek",
+            "_trace_model": "deepseek/deepseek-flash",
             "reasoning_content": "provider-only",
             "tool_calls": [
                 {
@@ -149,55 +149,14 @@ def test_convert_messages_matches_slashless_openai_target_without_provider_leaka
         }
     ]
 
-    matching = adapter._convert_messages(messages, target_model="gpt-4o-mini")
-    mismatched = adapter._convert_messages(messages, target_model="claude-router")
+    matching = adapter._convert_messages(messages, target_model="deepseek/deepseek-flash")
+    mismatched = adapter._convert_messages(messages, target_model="deepseek/deepseek-v4-pro")
 
     assert matching[0]["reasoning_content"] == "provider-only"
     assert matching[0]["tool_calls"][0]["provider_specific_fields"] == {"thought_signature": "sig-1"}
     assert mismatched == []
 
 
-def test_parse_litellm_response_extracts_claude_blocks_and_tool_provider_fields() -> None:
-    adapter = LLMToolAdapter.__new__(LLMToolAdapter)
-    blocks = [
-        {"type": "thinking", "thinking": "opaque"},
-        {"type": "redacted_thinking", "data": "hidden"},
-        {"type": "text", "text": "Need data"},
-    ]
-    response = SimpleNamespace(
-        choices=[
-            SimpleNamespace(
-                message=SimpleNamespace(
-                    content=blocks,
-                    reasoning_content=None,
-                    tool_calls=[
-                        SimpleNamespace(
-                            id="call_1",
-                            function=SimpleNamespace(
-                                name="echo",
-                                arguments='{"message": "hello"}',
-                                provider_specific_fields=None,
-                            ),
-                            provider_specific_fields={"thought_signature": "sig-1", "extra": "keep"},
-                        )
-                    ],
-                )
-            )
-        ],
-        usage=SimpleNamespace(prompt_tokens=1, completion_tokens=2, total_tokens=3),
-    )
-
-    parsed = adapter._parse_litellm_response(response, "anthropic/claude-test")
-
-    assert parsed.content == "Need data"
-    assert parsed.provider_blocks == blocks
-    assert parsed.provider == "anthropic"
-    assert parsed.model == "anthropic/claude-test"
-    assert parsed.tool_calls[0].thought_signature == "sig-1"
-    assert parsed.tool_calls[0].provider_specific_fields == {
-        "thought_signature": "sig-1",
-        "extra": "keep",
-    }
 
 
 def test_parse_litellm_response_resolves_provider_for_slashless_router_alias() -> None:
@@ -205,8 +164,8 @@ def test_parse_litellm_response_resolves_provider_for_slashless_router_alias() -
     adapter._config = SimpleNamespace(
         llm_model_list=[
             {
-                "model_name": "claude-router",
-                "litellm_params": {"model": "anthropic/claude-sonnet-test"},
+                "model_name": "deepseek/deepseek-flash",
+                "litellm_params": {"model": "deepseek/deepseek-v4-pro"},
             }
         ]
     )
@@ -223,54 +182,15 @@ def test_parse_litellm_response_resolves_provider_for_slashless_router_alias() -
         usage=SimpleNamespace(prompt_tokens=1, completion_tokens=2, total_tokens=3),
     )
 
-    parsed_alias = adapter._parse_litellm_response(response, "claude-router")
-    parsed_bare_openai = adapter._parse_litellm_response(response, "gpt-4o-mini")
+    parsed_alias = adapter._parse_litellm_response(response, "deepseek/deepseek-flash")
+    parsed_bare_openai = adapter._parse_litellm_response(response, "deepseek/deepseek-flash")
 
-    assert parsed_alias.provider == "anthropic"
-    assert parsed_alias.model == "claude-router"
-    assert parsed_bare_openai.provider == "openai"
-    assert parsed_bare_openai.model == "gpt-4o-mini"
+    assert parsed_alias.provider == "deepseek"
+    assert parsed_alias.model == "deepseek/deepseek-flash"
+    assert parsed_bare_openai.provider == "deepseek"
+    assert parsed_bare_openai.model == "deepseek/deepseek-flash"
 
 
-def test_parse_litellm_response_uses_openai_wire_model_for_alias_usage_threshold() -> None:
-    adapter = LLMToolAdapter.__new__(LLMToolAdapter)
-    adapter._config = SimpleNamespace(
-        llm_model_list=[
-            {
-                "model_name": "fast",
-                "litellm_params": {"model": "openai/gpt-4o"},
-            }
-        ]
-    )
-    response = SimpleNamespace(
-        choices=[
-            SimpleNamespace(
-                message=SimpleNamespace(
-                    content="ok",
-                    reasoning_content=None,
-                    tool_calls=[],
-                )
-            )
-        ],
-        usage=SimpleNamespace(
-            prompt_tokens=500,
-            completion_tokens=20,
-            total_tokens=520,
-            prompt_tokens_details={"cached_tokens": 0},
-        ),
-    )
-
-    parsed = adapter._parse_litellm_response(response, "fast")
-
-    assert parsed.provider == "openai"
-    assert parsed.model == "fast"
-    assert parsed.usage["provider_min_cache_tokens"] == 1024
-    assert parsed.usage["cache_capability"] == "supported"
-    assert parsed.usage["cache_eligibility"] == "below_threshold"
-    assert parsed.usage["cache_observation"] == "unknown"
-    assert parsed.usage["normalized_cache_read_tokens"] == 0
-    assert parsed.usage["normalized_cache_eligible_input_tokens"] is None
-    assert parsed.usage["normalized_cache_hit_ratio"] is None
 
 
 def test_parse_litellm_response_normalizes_litellm_usage_object(monkeypatch) -> None:
@@ -291,17 +211,17 @@ def test_parse_litellm_response_normalizes_litellm_usage_object(monkeypatch) -> 
             prompt_tokens=2000,
             completion_tokens=100,
             total_tokens=2100,
-            prompt_tokens_details={"cached_tokens": 500},
+            prompt_cache_hit_tokens=500, prompt_cache_miss_tokens=1500,
         ),
     )
 
     parsed = adapter._parse_litellm_response(
         response,
-        "openai/gpt-4o",
+        "deepseek/deepseek-flash",
         [{"role": "user", "content": "hello"}],
     )
 
-    assert parsed.provider == "openai"
+    assert parsed.provider == "deepseek"
     assert parsed.usage["prompt_tokens"] == 2000
     assert parsed.usage["completion_tokens"] == 100
     assert parsed.usage["total_tokens"] == 2100
@@ -331,14 +251,14 @@ def test_parse_litellm_response_reads_private_hidden_usage_best_effort(monkeypat
                 prompt_tokens=2000,
                 completion_tokens=100,
                 total_tokens=2100,
-                prompt_tokens_details={"cached_tokens": 500},
+                prompt_cache_hit_tokens=500, prompt_cache_miss_tokens=1500,
             )
         },
     )
 
     parsed = adapter._parse_litellm_response(
         response,
-        "openai/gpt-4o",
+        "deepseek/deepseek-flash",
         [{"role": "user", "content": "hello"}],
     )
 
@@ -350,43 +270,6 @@ def test_parse_litellm_response_reads_private_hidden_usage_best_effort(monkeypat
     assert parsed.usage["messages_hmac"]
 
 
-def test_parse_litellm_response_preserves_anthropic_litellm_prompt_tokens_without_input_tokens(monkeypatch) -> None:
-    monkeypatch.setenv("LLM_USAGE_HMAC_SECRET", "anthropic-normalized-secret")
-    adapter = LLMToolAdapter.__new__(LLMToolAdapter)
-    adapter._config = SimpleNamespace(llm_model_list=[])
-    response = SimpleNamespace(
-        choices=[
-            SimpleNamespace(
-                message=SimpleNamespace(
-                    content="ok",
-                    reasoning_content=None,
-                    tool_calls=[],
-                )
-            )
-        ],
-        usage=SimpleNamespace(
-            prompt_tokens=100,
-            completion_tokens=20,
-            total_tokens=120,
-            cache_read_input_tokens=0,
-            cache_creation_input_tokens=0,
-        ),
-    )
-
-    parsed = adapter._parse_litellm_response(
-        response,
-        "anthropic/claude-test",
-        [{"role": "user", "content": "hello"}],
-    )
-
-    assert parsed.usage["prompt_tokens"] == 100
-    assert parsed.usage["completion_tokens"] == 20
-    assert parsed.usage["total_tokens"] == 120
-    assert parsed.usage["normalized_prompt_tokens"] == 100
-    assert parsed.usage["normalized_uncached_input_tokens"] == 100
-    assert parsed.usage["cache_observation"] == "zero_hit"
-    assert parsed.usage["hmac_key_version"]
-    assert len(parsed.usage["messages_hmac"]) == 64
 
 
 def test_parse_litellm_response_without_provider_usage_keeps_usage_empty() -> None:
@@ -406,40 +289,13 @@ def test_parse_litellm_response_without_provider_usage_keeps_usage_empty() -> No
 
     parsed = adapter._parse_litellm_response(
         response,
-        "openai/gpt-test",
+        "deepseek/deepseek-flash",
         [{"role": "user", "content": "hello"}],
     )
 
     assert parsed.usage == {}
 
 
-def test_parse_litellm_response_maps_zhipu_usage_to_glm_cache_shape() -> None:
-    adapter = LLMToolAdapter.__new__(LLMToolAdapter)
-    adapter._config = SimpleNamespace(llm_model_list=[])
-    response = SimpleNamespace(
-        choices=[
-            SimpleNamespace(
-                message=SimpleNamespace(
-                    content="ok",
-                    reasoning_content=None,
-                    tool_calls=[],
-                )
-            )
-        ],
-        usage=SimpleNamespace(
-            prompt_tokens=1200,
-            completion_tokens=80,
-            total_tokens=1280,
-            prompt_tokens_details={"cached_tokens": 1200},
-        ),
-    )
-
-    parsed = adapter._parse_litellm_response(response, "zhipu/glm-4.5")
-
-    assert parsed.provider == "zhipu"
-    assert parsed.usage["normalized_cache_read_tokens"] == 1200
-    assert parsed.usage["cache_capability"] == "supported"
-    assert parsed.usage["cache_observation"] == "full_hit"
 
 
 def test_parse_litellm_response_hmac_covers_tool_call_wire_messages(monkeypatch) -> None:
@@ -490,8 +346,8 @@ def test_parse_litellm_response_hmac_covers_tool_call_wire_messages(monkeypatch)
         }
     ]
 
-    first = adapter._parse_litellm_response(_response(), "anthropic/claude-test", first_messages)
-    second = adapter._parse_litellm_response(_response(), "anthropic/claude-test", second_messages)
+    first = adapter._parse_litellm_response(_response(), "deepseek/deepseek-flash", first_messages)
+    second = adapter._parse_litellm_response(_response(), "deepseek/deepseek-flash", second_messages)
 
     assert first.usage["messages_hmac"]
     assert second.usage["messages_hmac"]

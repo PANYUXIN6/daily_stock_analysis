@@ -135,7 +135,7 @@ def extract_from_image(
     """
     从上传的图片中提取股票代码（使用 Vision LLM）。
 
-    表单字段请使用 file 上传图片。优先级：Gemini / Anthropic / OpenAI（首个可用）。
+    表单字段请使用 file 上传图片。通过 DeepSeek Vision 模型识别。
     """
     if not file or not file.filename:
         raise HTTPException(

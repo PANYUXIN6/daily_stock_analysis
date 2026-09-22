@@ -23,7 +23,7 @@ from src.notification import NotificationService
 from src.market_analyzer import MarketAnalyzer
 from src.report_language import normalize_report_language
 from src.search_service import SearchService
-from src.analyzer import AnalysisResult, GeminiAnalyzer
+from src.analyzer import AnalysisResult, DeepSeekAnalyzer
 from src.llm.generation_backend import GenerationError
 from src.services.run_diagnostics import (
     current_diagnostic_snapshot,
@@ -154,7 +154,7 @@ def _resolve_market_review_regions(raw_region: Optional[str]) -> list[str]:
 
 def run_market_review(
     notifier: NotificationService,
-    analyzer: Optional[GeminiAnalyzer] = None,
+    analyzer: Optional[DeepSeekAnalyzer] = None,
     search_service: Optional[SearchService] = None,
     config: Optional[object] = None,
     send_notification: bool = True,

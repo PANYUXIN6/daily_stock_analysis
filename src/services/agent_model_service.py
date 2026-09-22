@@ -7,13 +7,9 @@ from typing import Any, Dict, List
 
 from src.config import get_effective_agent_models_to_try, get_effective_agent_primary_model
 from src.agent.litellm_route_resolution import resolve_agent_litellm_route
-from src.llm.backend_registry import GENERATION_ONLY_BACKEND_IDS
 
 
 _PLACEHOLDER_TO_PROVIDER = {
-    "__legacy_gemini__": "gemini",
-    "__legacy_anthropic__": "anthropic",
-    "__legacy_openai__": "openai",
     "__legacy_deepseek__": "deepseek",
 }
 _MANAGED_LEGACY_PROVIDERS = set(_PLACEHOLDER_TO_PROVIDER.values())
@@ -31,7 +27,7 @@ def _get_model_provider(model_name: str) -> str:
         return "unknown"
     if "/" in model_name:
         return model_name.split("/", 1)[0]
-    return "openai"
+    return "deepseek"
 
 
 def _build_non_legacy_deployments(config) -> List[Dict[str, Any]]:
@@ -96,7 +92,7 @@ def _build_legacy_deployments(config) -> List[Dict[str, Any]]:
                 continue
             deployment_count = 1
 
-        api_base = getattr(config, "openai_base_url", None) if provider == "openai" else None
+        api_base = None
         # Legacy runtime only load-balances the primary model via Router.
         # Fallback models call litellm directly with the first configured key,
         # so they expose at most one reachable deployment per model.
@@ -124,8 +120,6 @@ def _build_legacy_deployments(config) -> List[Dict[str, Any]]:
 
 def list_agent_model_deployments(config) -> List[Dict[str, Any]]:
     """Return configured Agent model deployments without exposing secrets."""
-    if (getattr(config, "agent_generation_backend", "") or "").strip().lower() in GENERATION_ONLY_BACKEND_IDS:
-        return []
 
     deployments = _build_non_legacy_deployments(config)
     if not deployments:

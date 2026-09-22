@@ -20,7 +20,7 @@
 - 个股分析：生成核心结论、趋势、关键价位、风险提示和操作检查项。
 - A 股大盘复盘：汇总主要指数、市场宽度、板块表现与次日策略。
 - 数据聚合：复用 AkShare、Tushare、Efinance、Pytdx、Baostock、腾讯与 TickFlow 等 A 股数据源，并按可用性降级。
-- 新闻与公告：支持 Anspire、博查、Tavily、SerpAPI、Brave、MiniMax 和 SearXNG 等可选搜索服务。
+- 新闻与公告：支持 Bocha（博查）和 Tavily 搜索服务。
 - Web / API：支持任务提交、进度、历史报告、回测和配置管理。
 - 自动化通知：支持 GitHub Actions、本地调度、Docker，以及企业微信、飞书、Telegram、Discord、Slack 和邮件。
 
@@ -36,10 +36,10 @@ cp .env.example .env
 python main.py --stocks 600519,000858,300750
 ```
 
-至少配置一个可用的大模型渠道。以 Gemini 为例：
+配置 DeepSeek 官方 API：
 
 ```dotenv
-GEMINI_API_KEY=your_key
+DEEPSEEK_API_KEY=your_key
 STOCK_LIST=600519,000858,300750
 ```
 
@@ -67,7 +67,7 @@ Web 工作台启动后默认访问 `http://127.0.0.1:8000`。
 
 Fork 仓库后，在 `Settings → Secrets and variables → Actions` 中配置：
 
-- 一个模型密钥，例如 `GEMINI_API_KEY`、`OPENAI_API_KEY` 或其他受支持渠道；
+- DeepSeek 模型密钥 `DEEPSEEK_API_KEY`；
 - `STOCK_LIST`，例如 `600519,000858,300750`；
 - 至少一个通知渠道（如果需要自动推送）；
 - 可选的行情与搜索服务密钥。

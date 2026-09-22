@@ -16,31 +16,6 @@ describe('agentApi', () => {
     get.mockReset();
   });
 
-  it('uses the shared camelCase Agent backend status contract', async () => {
-    get.mockResolvedValueOnce({
-      data: {
-        backend: 'codex_app_server',
-        available: false,
-        experimental: true,
-        version: '0.144.3',
-        error_code: 'login_required',
-        message: 'Codex login is required',
-      },
-    });
-
-    const result = await agentApi.getStatus();
-
-    expect(get).toHaveBeenCalledWith('/api/v1/agent/status');
-    expect(result).toEqual({
-      backend: 'codex_app_server',
-      available: false,
-      experimental: true,
-      version: '0.144.3',
-      errorCode: 'login_required',
-      message: 'Codex login is required',
-    });
-  });
-
   it('returns session messages together with persisted Skill state', async () => {
     get.mockResolvedValueOnce({
       data: {

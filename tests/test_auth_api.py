@@ -43,7 +43,7 @@ class AuthApiTestCase(unittest.TestCase):
         self.data_dir = Path(self.temp_dir.name)
         self.env_path = self.data_dir / ".env"
         self.env_path.write_text(
-            "STOCK_LIST=600519\nGEMINI_API_KEY=test\nADMIN_AUTH_ENABLED=true\n",
+            "STOCK_LIST=600519\nDEEPSEEK_API_KEY=test\nADMIN_AUTH_ENABLED=true\n",
             encoding="utf-8",
         )
         os.environ["ENV_FILE"] = str(self.env_path)
@@ -318,7 +318,7 @@ class AuthApiTestCase(unittest.TestCase):
 
     def test_auth_settings_enable_sets_initial_password_and_logs_in(self) -> None:
         self.env_path.write_text(
-            "STOCK_LIST=600519\nGEMINI_API_KEY=test\nADMIN_AUTH_ENABLED=false\n",
+            "STOCK_LIST=600519\nDEEPSEEK_API_KEY=test\nADMIN_AUTH_ENABLED=false\n",
             encoding="utf-8",
         )
         with patch.object(auth, "_is_auth_enabled_from_env", side_effect=self._read_auth_enabled_from_env):
@@ -344,7 +344,7 @@ class AuthApiTestCase(unittest.TestCase):
 
     def test_auth_settings_enable_requires_password_when_missing(self) -> None:
         self.env_path.write_text(
-            "STOCK_LIST=600519\nGEMINI_API_KEY=test\nADMIN_AUTH_ENABLED=false\n",
+            "STOCK_LIST=600519\nDEEPSEEK_API_KEY=test\nADMIN_AUTH_ENABLED=false\n",
             encoding="utf-8",
         )
         with patch.object(auth, "_is_auth_enabled_from_env", side_effect=self._read_auth_enabled_from_env):
@@ -362,7 +362,7 @@ class AuthApiTestCase(unittest.TestCase):
 
     def test_auth_settings_rechecks_password_before_initial_write(self) -> None:
         self.env_path.write_text(
-            "STOCK_LIST=600519\nGEMINI_API_KEY=test\nADMIN_AUTH_ENABLED=false\n",
+            "STOCK_LIST=600519\nDEEPSEEK_API_KEY=test\nADMIN_AUTH_ENABLED=false\n",
             encoding="utf-8",
         )
         with patch.object(auth, "_is_auth_enabled_from_env", side_effect=self._read_auth_enabled_from_env):
@@ -514,7 +514,7 @@ class AuthApiTestCase(unittest.TestCase):
 
     def test_auth_settings_enable_rolls_back_when_session_creation_fails(self) -> None:
         self.env_path.write_text(
-            "STOCK_LIST=600519\nGEMINI_API_KEY=test\nADMIN_AUTH_ENABLED=false\n",
+            "STOCK_LIST=600519\nDEEPSEEK_API_KEY=test\nADMIN_AUTH_ENABLED=false\n",
             encoding="utf-8",
         )
         with patch.object(auth, "_is_auth_enabled_from_env", side_effect=self._read_auth_enabled_from_env):
@@ -567,7 +567,7 @@ class AuthApiTestCase(unittest.TestCase):
         is_auth_enabled() evaluates to True during handler execution (TOCTOU race condition).
         """
         self.env_path.write_text(
-            "STOCK_LIST=600519\nGEMINI_API_KEY=test\nADMIN_AUTH_ENABLED=false\n",
+            "STOCK_LIST=600519\nDEEPSEEK_API_KEY=test\nADMIN_AUTH_ENABLED=false\n",
             encoding="utf-8",
         )
         with patch.object(auth, "_is_auth_enabled_from_env", side_effect=self._read_auth_enabled_from_env):
@@ -578,7 +578,7 @@ class AuthApiTestCase(unittest.TestCase):
             # The middleware let the request through because auth was supposedly False.
             # But just before the handler runs, another thread enables auth.
             self.env_path.write_text(
-                "STOCK_LIST=600519\nGEMINI_API_KEY=test\nADMIN_AUTH_ENABLED=true\n",
+                "STOCK_LIST=600519\nDEEPSEEK_API_KEY=test\nADMIN_AUTH_ENABLED=true\n",
                 encoding="utf-8",
             )
             auth.refresh_auth_state() # simulate the flip to True
@@ -601,7 +601,7 @@ class AuthApiTestCase(unittest.TestCase):
     def _auth_setup_with_stored_password(self):
         """Set up enabled auth + stored admin password shared by the disable tests."""
         self.env_path.write_text(
-            "STOCK_LIST=600519\nGEMINI_API_KEY=test\nADMIN_AUTH_ENABLED=true\n",
+            "STOCK_LIST=600519\nDEEPSEEK_API_KEY=test\nADMIN_AUTH_ENABLED=true\n",
             encoding="utf-8",
         )
         with patch.object(auth, "_is_auth_enabled_from_env", side_effect=self._read_auth_enabled_from_env):
@@ -685,7 +685,7 @@ class AuthDisableViaRealASGITestCase(unittest.TestCase):
         cls.data_dir = Path(cls._temp_dir.name)
         cls.env_path = cls.data_dir / ".env"
         cls.env_path.write_text(
-            "STOCK_LIST=600519\nGEMINI_API_KEY=test\nADMIN_AUTH_ENABLED=true\n",
+            "STOCK_LIST=600519\nDEEPSEEK_API_KEY=test\nADMIN_AUTH_ENABLED=true\n",
             encoding="utf-8",
         )
         os.environ["ENV_FILE"] = str(cls.env_path)
@@ -721,7 +721,7 @@ class AuthDisableViaRealASGITestCase(unittest.TestCase):
         # path mutates the .env so we restore it before every test.
         _reset_auth_globals()
         self.env_path.write_text(
-            "STOCK_LIST=600519\nGEMINI_API_KEY=test\nADMIN_AUTH_ENABLED=true\n",
+            "STOCK_LIST=600519\nDEEPSEEK_API_KEY=test\nADMIN_AUTH_ENABLED=true\n",
             encoding="utf-8",
         )
         Config.reset_instance()

@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { CheckCircle2, ChevronDown, CircleAlert, CircleDashed, Clock, Play, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { useAuth, useSystemConfig } from '../hooks';
@@ -10,10 +10,8 @@ import { screeningApi, notifyScreeningConfigChanged, notifySystemConfigChanged }
 import { systemConfigApi } from '../api/systemConfig';
 import { ApiErrorAlert, Button, ConfirmDialog, EmptyState } from '../components/common';
 import {
-  AgentBackendStatusPanel,
   AuthSettingsCard,
   ChangePasswordCard,
-  GenerationBackendStatusPanel,
   IntelligentImport,
   LLMChannelEditor,
   NotificationTestPanel,
@@ -38,93 +36,6 @@ import type {
 } from '../types/systemConfig';
 import type { UiLanguage, UiTextKey } from '../i18n/uiText';
 
-const LLM_CHANNEL_EDITOR_RUNTIME_KEYS = new Set([
-  'LITELLM_MODEL',
-  'LITELLM_FALLBACK_MODELS',
-  'AGENT_LITELLM_MODEL',
-  'VISION_MODEL',
-  'LLM_TEMPERATURE',
-]);
-const GENERATION_BACKEND_STATUS_KEYS = new Set([
-  'GENERATION_BACKEND',
-  'GENERATION_FALLBACK_BACKEND',
-  'GENERATION_BACKEND_TIMEOUT_SECONDS',
-  'GENERATION_BACKEND_MAX_OUTPUT_BYTES',
-  'GENERATION_BACKEND_MAX_CONCURRENCY',
-  'LOCAL_CLI_BACKEND_MAX_CONCURRENCY',
-  'OPENCODE_CLI_MODEL',
-  'LITELLM_CONFIG',
-  'LITELLM_MODEL',
-  'LITELLM_FALLBACK_MODELS',
-  'GEMINI_API_KEY',
-  'GEMINI_API_KEYS',
-  'GEMINI_MODEL',
-  'GEMINI_MODEL_FALLBACK',
-  'GEMINI_TEMPERATURE',
-  'ANTHROPIC_API_KEY',
-  'ANTHROPIC_API_KEYS',
-  'ANTHROPIC_MODEL',
-  'ANTHROPIC_TEMPERATURE',
-  'ANTHROPIC_MAX_TOKENS',
-  'OPENAI_API_KEY',
-  'OPENAI_API_KEYS',
-  'OPENAI_BASE_URL',
-  'OPENAI_MODEL',
-  'OPENAI_VISION_MODEL',
-  'OPENAI_TEMPERATURE',
-  'OLLAMA_API_BASE',
-  'OLLAMA_MODEL',
-  'DEEPSEEK_API_KEY',
-  'DEEPSEEK_API_KEYS',
-  'AIHUBMIX_KEY',
-  'ANSPIRE_LLM_ENABLED',
-  'ANSPIRE_LLM_BASE_URL',
-  'ANSPIRE_LLM_MODEL',
-  'ANSPIRE_API_KEYS',
-]);
-const LLM_CHANNEL_STATUS_KEY_PATTERN = /^LLM_[A-Z0-9_]+_(PROTOCOL|API_SURFACE|BASE_URL|API_KEY|API_KEYS|MODELS|EXTRA_HEADERS|ENABLED)$/;
-const AGENT_BACKEND_STATUS_KEYS = new Set([
-  'AGENT_BACKEND',
-  'AGENT_GENERATION_BACKEND',
-  'AGENT_LITELLM_MODEL',
-  'AGENT_MODE',
-  'AGENT_ARCH',
-  'AGENT_ORCHESTRATOR_TIMEOUT_S',
-]);
-
-function isLlmChannelEditorDraftKey(key: string): boolean {
-  const normalized = key.trim().toUpperCase();
-  return normalized.startsWith('LLM_') || LLM_CHANNEL_EDITOR_RUNTIME_KEYS.has(normalized);
-}
-
-function isGenerationBackendStatusDraftKey(key: string): boolean {
-  const normalized = key.trim().toUpperCase();
-  return (
-    GENERATION_BACKEND_STATUS_KEYS.has(normalized)
-    || normalized === 'LLM_CHANNELS'
-    || LLM_CHANNEL_STATUS_KEY_PATTERN.test(normalized)
-  );
-}
-
-function mergeGenerationBackendDraftItems(
-  outerItems: SystemConfigUpdateItem[],
-  llmChannelItems: SystemConfigUpdateItem[],
-): SystemConfigUpdateItem[] {
-  const merged = new Map<string, SystemConfigUpdateItem>();
-  for (const item of outerItems) {
-    const normalizedKey = item.key.trim().toUpperCase();
-    if (isGenerationBackendStatusDraftKey(normalizedKey)) {
-      merged.set(normalizedKey, item);
-    }
-  }
-  for (const item of llmChannelItems) {
-    const normalizedKey = item.key.trim().toUpperCase();
-    if (isLlmChannelEditorDraftKey(normalizedKey) && isGenerationBackendStatusDraftKey(normalizedKey)) {
-      merged.set(normalizedKey, item);
-    }
-  }
-  return Array.from(merged.values());
-}
 
 const PROMPT_CACHE_ADVANCED_SETTING_KEYS = new Set([
   'LLM_PROMPT_CACHE_TELEMETRY_ENABLED',
@@ -697,7 +608,6 @@ const SettingsPage: React.FC = () => {
   const [isRunningSetupSmoke, setIsRunningSetupSmoke] = useState(false);
   const [setupSmokeError, setSetupSmokeError] = useState<ParsedApiError | null>(null);
   const [setupSmokeSuccess, setSetupSmokeSuccess] = useState('');
-  const [llmChannelDraftItems, setLlmChannelDraftItems] = useState<SystemConfigUpdateItem[]>([]);
   const envBackupImportRef = useRef<HTMLInputElement | null>(null);
   const setupStatusRequestIdRef = useRef(0);
 
@@ -734,34 +644,6 @@ const SettingsPage: React.FC = () => {
   } = useSystemConfig();
 
   const currentChangedItems = getChangedItems();
-  const currentChangedItemsFingerprint = JSON.stringify(currentChangedItems);
-  const llmChannelDraftItemsFingerprint = JSON.stringify(llmChannelDraftItems);
-  const generationBackendDraftItems = useMemo(
-    () => mergeGenerationBackendDraftItems(currentChangedItems, llmChannelDraftItems),
-    // Fingerprints keep the status panel from refreshing when parent renders do not change draft content.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [currentChangedItemsFingerprint, llmChannelDraftItemsFingerprint],
-  );
-  const agentBackendDraftItems = useMemo(
-    () => {
-      const merged = new Map(
-        generationBackendDraftItems.map((item) => [item.key.trim().toUpperCase(), item]),
-      );
-      for (const item of currentChangedItems) {
-        const key = item.key.trim().toUpperCase();
-        if (AGENT_BACKEND_STATUS_KEYS.has(key)) {
-          merged.set(key, item);
-        }
-      }
-      return Array.from(merged.values());
-    },
-    // The fingerprint changes only when the draft content changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [currentChangedItemsFingerprint, generationBackendDraftItems],
-  );
-  const handleLlmChannelDraftItemsChange = useCallback((items: Array<{ key: string; value: string }>) => {
-    setLlmChannelDraftItems(items);
-  }, []);
 
   const refreshSetupStatus = useCallback(async () => {
     const requestId = setupStatusRequestIdRef.current + 1;
@@ -852,25 +734,8 @@ const SettingsPage: React.FC = () => {
     'LITELLM_MODEL',
     'AGENT_LITELLM_MODEL',
     'LITELLM_FALLBACK_MODELS',
-    'AIHUBMIX_KEY',
     'DEEPSEEK_API_KEY',
     'DEEPSEEK_API_KEYS',
-    'GEMINI_API_KEY',
-    'GEMINI_API_KEYS',
-    'GEMINI_MODEL',
-    'GEMINI_MODEL_FALLBACK',
-    'GEMINI_TEMPERATURE',
-    'ANTHROPIC_API_KEY',
-    'ANTHROPIC_API_KEYS',
-    'ANTHROPIC_MODEL',
-    'ANTHROPIC_TEMPERATURE',
-    'ANTHROPIC_MAX_TOKENS',
-    'OPENAI_API_KEY',
-    'OPENAI_API_KEYS',
-    'OPENAI_BASE_URL',
-    'OPENAI_MODEL',
-    'OPENAI_VISION_MODEL',
-    'OPENAI_TEMPERATURE',
     'VISION_MODEL',
   ]);
   const SYSTEM_HIDDEN_KEYS = new Set([
@@ -880,7 +745,6 @@ const SettingsPage: React.FC = () => {
   const BASE_HIDDEN_KEYS = new Set([
     'SCREENING_ENABLED',
   ]);
-  const AGENT_HIDDEN_KEYS = new Set(['AGENT_GENERATION_BACKEND']);
   const activeItems =
     activeCategory === 'base'
       ? rawActiveItems.filter((item) => !BASE_HIDDEN_KEYS.has(item.key))
@@ -896,8 +760,6 @@ const SettingsPage: React.FC = () => {
       })
       : activeCategory === 'system'
         ? rawActiveItems.filter((item) => !SYSTEM_HIDDEN_KEYS.has(item.key))
-      : activeCategory === 'agent'
-        ? rawActiveItems.filter((item) => !AGENT_HIDDEN_KEYS.has(item.key))
       : rawActiveItems;
   const promptCacheAdvancedItems = activeCategory === 'ai_model'
     ? activeItems.filter(isPromptCacheAdvancedSetting)
@@ -1110,17 +972,6 @@ const SettingsPage: React.FC = () => {
   const settingsPanelDiagnosticHint = t('settings.diagnosticHintWeb');
   const activeCategoryTitle = getCategoryTitle(activeCategory as SystemConfigCategory, t('settings.activePanelTitle'), uiLanguage);
   const activeCategoryDescription = getCategoryDescription(activeCategory as SystemConfigCategory, '', uiLanguage);
-  const selectedAgentBackend = (rawActiveItemMap.get('AGENT_BACKEND') || 'auto').trim().toLowerCase();
-  const selectedAgentArch = (rawActiveItemMap.get('AGENT_ARCH') || 'single').trim().toLowerCase();
-  const hasCodexArchitectureConflict = selectedAgentBackend === 'codex_app_server' && selectedAgentArch !== 'single';
-  const codexArchitectureIssue: ConfigValidationIssue = {
-    key: 'AGENT_ARCH',
-    code: 'unsupported_agent_arch',
-    message: t('settings.agentBackendSingleOnly'),
-    severity: 'error',
-    expected: 'single',
-    actual: selectedAgentArch,
-  };
   const activeConfigPanel = hasActiveConfigItems ? (
     <SettingsSectionCard
       title={activeCategoryTitle}
@@ -1129,9 +980,7 @@ const SettingsPage: React.FC = () => {
       {visibleActiveItems.length ? (
         <div className="divide-y divide-[var(--settings-border-soft)] overflow-hidden rounded-lg border border-[var(--settings-border)] bg-[var(--settings-surface)]">
           {visibleActiveItems.map((item) => {
-            const fieldIssues = item.key === 'AGENT_ARCH' && hasCodexArchitectureConflict
-              ? [...(issueByKey[item.key] || []), codexArchitectureIssue]
-              : issueByKey[item.key] || [];
+            const fieldIssues = issueByKey[item.key] || [];
             return (
               <SettingsField
                 key={item.key}
@@ -1459,19 +1308,12 @@ const SettingsPage: React.FC = () => {
                 title={t('settings.llmAccess')}
                 description={t('settings.llmAccessDescription')}
               >
-                <GenerationBackendStatusPanel
-                  items={generationBackendDraftItems}
-                  maskToken={maskToken}
-                  disabled={isSaving || isLoading}
-                />
                 <LLMChannelEditor
                   items={rawActiveItems}
                   configVersion={configVersion}
                   maskToken={maskToken}
                   modelProviderPrefixes={llmModelProviders}
-                  onDraftItemsChange={handleLlmChannelDraftItemsChange}
                   onSaved={async (updatedItems) => {
-                    setLlmChannelDraftItems([]);
                     await refreshAfterExternalSave(updatedItems.map((item) => item.key));
                     void refreshSetupStatus();
                   }}
@@ -1493,28 +1335,6 @@ const SettingsPage: React.FC = () => {
                   maskToken={maskToken}
                   disabled={isSaving || isLoading}
                 />
-              </SettingsPanelErrorBoundary>
-            ) : null}
-            {activeCategory === 'agent' ? (
-              <SettingsPanelErrorBoundary
-                title={t('settings.agentBackendStatus')}
-                resetKey={`agent-backend:${configVersion}`}
-                diagnosticHint={settingsPanelDiagnosticHint}
-              >
-                <SettingsSectionCard
-                  title={t('settings.agentBackendSectionTitle')}
-                  description={t('settings.agentBackendSectionDescription')}
-                >
-                  <AgentBackendStatusPanel
-                    items={agentBackendDraftItems}
-                    maskToken={maskToken}
-                    selectedBackend={selectedAgentBackend}
-                    agentArch={selectedAgentArch}
-                    disabled={isSaving || isLoading}
-                    onUseSingleAgent={() => setDraftValue('AGENT_ARCH', 'single')}
-                    onEnableAgentMode={() => setDraftValue('AGENT_MODE', 'true')}
-                  />
-                </SettingsSectionCard>
               </SettingsPanelErrorBoundary>
             ) : null}
             {shouldGuardActiveConfigPanel && hasActiveConfigItems ? (

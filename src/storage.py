@@ -3919,12 +3919,29 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
         with self.session_scope() as session:
             session.add(row)
 
+    @staticmethod
+    def _deepseek_usage_scope():
+        """Use recorded provider identity; infer only for pre-provider records."""
+        provider = func.lower(func.trim(func.coalesce(LLMUsage.provider, "")))
+        model = func.lower(func.trim(LLMUsage.model))
+        return or_(
+            provider == "deepseek",
+            and_(
+                provider == "",
+                or_(
+                    model == "deepseek",
+                    model.startswith("deepseek/"),
+                    and_(model.startswith("deepseek-"), ~model.contains("/")),
+                ),
+            ),
+        )
+
     def get_llm_usage_summary(
         self,
         from_dt: datetime,
         to_dt: datetime,
     ) -> Dict[str, Any]:
-        """Return aggregated token usage between from_dt and to_dt.
+        """Return DeepSeek token usage between from_dt and to_dt.
 
         Returns a dict with keys:
           total_calls, total_prompt_tokens, total_completion_tokens, total_tokens,
@@ -3937,6 +3954,7 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
             base_filter = and_(
                 LLMUsage.called_at >= from_dt,
                 LLMUsage.called_at <= to_dt,
+                self._deepseek_usage_scope(),
             )
 
             # Overall totals
@@ -4012,7 +4030,7 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
         to_dt: datetime,
         limit: int = 50,
     ) -> List[Dict[str, Any]]:
-        """Return recent LLM usage audit rows between from_dt and to_dt.
+        """Return recent DeepSeek usage audit rows between from_dt and to_dt.
 
         Each row contains id, call_type, model, stock_code, prompt_tokens,
         completion_tokens, total_tokens, and called_at. Results are ordered by
@@ -4035,6 +4053,7 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
                     and_(
                         LLMUsage.called_at >= from_dt,
                         LLMUsage.called_at <= to_dt,
+                        self._deepseek_usage_scope(),
                     )
                 )
                 .order_by(desc(LLMUsage.called_at), desc(LLMUsage.id))

@@ -585,16 +585,10 @@ class AnalysisApiContractTestCase(unittest.TestCase):
             has_search_capability_enabled=lambda: True,
             bocha_api_keys=["bocha"],
             tavily_api_keys=["tavily"],
-            anspire_api_keys=["anspire"],
-            brave_api_keys=["brave"],
-            serpapi_keys=["serpapi"],
-            minimax_api_keys=["minimax"],
-            searxng_base_urls=["http://searxng.local"],
-            searxng_public_instances_enabled=False,
+
+
             news_max_age_days=5,
             news_strategy_profile="balanced",
-            gemini_api_key="gemini-key",
-            openai_api_key=None,
         )
 
         runtime_notifier = MagicMock()
@@ -629,15 +623,13 @@ class AnalysisApiContractTestCase(unittest.TestCase):
 
         config = SimpleNamespace(
             has_search_capability_enabled=lambda: False,
-            gemini_api_key=None,
-            openai_api_key=None,
-            litellm_model="anthropic/claude-sonnet-4-6",
+            litellm_model="deepseek/deepseek-v4-pro",
             llm_model_list=[],
-            anthropic_api_keys=["sk-ant-test-value"],
+            deepseek_api_keys=["sk-ant-test-value"],
         )
 
         with patch("src.notification.NotificationService"), \
-             patch("src.analyzer.GeminiAnalyzer") as analyzer_cls:
+             patch("src.analyzer.DeepSeekAnalyzer") as analyzer_cls:
             analyzer_cls.return_value.is_available.return_value = True
 
             _, analyzer, search_service = analysis_endpoint_module._build_market_review_runtime(config)
@@ -4562,15 +4554,9 @@ class ImageStockExtractorContractTestCase(unittest.TestCase):
     def test_litellm_completion_patch_target_remains_available(self) -> None:
         cfg = SimpleNamespace(
             vision_model="",
-            openai_vision_model=None,
             litellm_model="",
-            gemini_api_keys=["sk-gemini-testkey-1234"],
-            gemini_model="gemini-2.0-flash",
-            anthropic_api_keys=[],
-            anthropic_model="claude-3-5-sonnet-20241022",
-            openai_api_keys=[],
-            openai_model="gpt-4o-mini",
-            openai_base_url=None,
+            deepseek_api_keys=["sk-deepseek/deepseek-flash"],
+            llm_model_list=[],
         )
         msg = MagicMock()
         msg.content = '["600519"]'

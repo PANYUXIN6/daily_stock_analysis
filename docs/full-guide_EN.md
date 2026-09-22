@@ -53,130 +53,9 @@ Go to your forked repo → `Settings` → `Secrets and variables` → `Actions` 
   <img src="assets/secret_config.png" alt="GitHub Secrets Configuration" width="600">
 </div>
 
-#### AI Model Configuration (Configure at Least One)
+#### AI Model Configuration
 
-| Secret Name | Description | Required |
-|------------|------|:----:|
-| `ANSPIRE_API_KEYS` | [Anspire](https://open.anspire.cn/) API key for its model gateway and Chinese-optimized web search | Optional |
-| `AIHUBMIX_KEY` | [AIHubMix](https://aihubmix.com/) API key for its OpenAI-compatible model channel | Optional |
-| `GEMINI_API_KEY` | Get free key from [Google AI Studio](https://aistudio.google.com/) | Optional |
-| `ANTHROPIC_API_KEY` | Anthropic Claude API Key | Optional |
-| `OPENAI_API_KEY` | OpenAI-compatible API Key (supports DeepSeek, Qwen, etc.) | Optional |
-| `OPENAI_BASE_URL` | OpenAI-compatible API endpoint (e.g., `https://api.deepseek.com`) | Optional |
-| `OPENAI_MODEL` | Model name (e.g., `deepseek-v4-flash`) | Optional |
-
-> *Note: Configure at least one model key or channel. Startup validation reports a clear error when no usable AI model key or model channel is configured.
-
-#### Notification Channels (Multiple can be configured, all will receive notifications)
-
-> The notification channel matrix, minimal/advanced key split, generated Actions mapping, `--check-notify` CLI behavior, Web one-click notification test, and local / Docker / GitHub Actions setup notes are tracked in [Notification Guide](notifications.md).
-
-| Secret Name | Description | Required |
-|------------|------|:----:|
-| `WECHAT_WEBHOOK_URL` | WeChat Work Webhook URL | Optional |
-| `FEISHU_WEBHOOK_URL` | Feishu Webhook URL | Optional |
-| `FEISHU_WEBHOOK_SECRET` | Feishu Webhook signing secret (required when “Signature” security is enabled) | Optional |
-| `FEISHU_WEBHOOK_KEYWORD` | Feishu Webhook keyword (required when “Keyword” security is enabled) | Optional |
-| `TELEGRAM_BOT_TOKEN` | Telegram Bot Token (get from @BotFather) | Optional |
-| `TELEGRAM_CHAT_ID` | Telegram Chat ID | Optional |
-| `TELEGRAM_MESSAGE_THREAD_ID` | Telegram Topic ID (for sending to topics) | Optional |
-| `DISCORD_WEBHOOK_URL` | Discord Webhook URL ([How to create](https://support.discord.com/hc/en-us/articles/228383668)) | Optional |
-| `DISCORD_BOT_TOKEN` | Discord Bot Token (choose one with Webhook) | Optional |
-| `DISCORD_MAIN_CHANNEL_ID` | Discord Channel ID (required when using Bot) | Optional |
-| `DISCORD_INTERACTIONS_PUBLIC_KEY` | Discord Public Key (required only for inbound Interaction/Webhook signature verification) | Optional |
-| `SLACK_BOT_TOKEN` | Slack Bot Token (recommended, supports image upload; takes priority over Webhook when both set) | Optional |
-| `SLACK_CHANNEL_ID` | Slack Channel ID (required when using Bot) | Optional |
-| `SLACK_WEBHOOK_URL` | Slack Incoming Webhook URL (text only, no image support) | Optional |
-| `EMAIL_SENDER` | Sender email (e.g., `xxx@qq.com`) | Optional |
-| `EMAIL_PASSWORD` | Email authorization code (not login password) | Optional |
-| `EMAIL_RECEIVERS` | Receiver emails (comma-separated, leave empty to send to self) | Optional |
-| `EMAIL_SENDER_NAME` | Sender display name | Optional |
-| `STOCK_GROUP_N` / `EMAIL_GROUP_N` | Email routing groups (Issue #268): `STOCK_GROUP_N` should be a subset of `STOCK_LIST`; affects email recipients only, not analysis scope or other channels | Optional |
-| `PUSHPLUS_TOKEN` | PushPlus Token ([Get here](https://www.pushplus.plus), Chinese push service) | Optional |
-| `SERVERCHAN3_SENDKEY` | ServerChan v3 Sendkey ([Get here](https://sc3.ft07.com/), mobile app push service) | Optional |
-| `ASTRBOT_URL` | AstrBot Webhook URL | Optional |
-| `ASTRBOT_TOKEN` | Optional AstrBot Bearer Token | Optional |
-| `NTFY_URL` | Full ntfy topic endpoint, must include topic path, e.g. `https://ntfy.sh/my-topic` | Optional |
-| `NTFY_TOKEN` | Optional ntfy Bearer Token | Optional |
-| `GOTIFY_URL` | Gotify server base URL, without `/message`; the sender appends `/message` | Optional |
-| `GOTIFY_TOKEN` | Gotify application token sent with the `X-Gotify-Key` header | Optional |
-| `CUSTOM_WEBHOOK_URLS` | Custom Webhook (supports DingTalk, etc., comma-separated) | Optional |
-| `CUSTOM_WEBHOOK_BEARER_TOKEN` | Bearer Token for custom webhooks (for authenticated webhooks) | Optional |
-| `CUSTOM_WEBHOOK_BODY_TEMPLATE` | Custom Webhook JSON body template for AstrBot, NapCat, or self-hosted services with special payloads | Optional |
-| `WEBHOOK_VERIFY_SSL` | HTTPS certificate verification for webhook-style notification requests that read this setting (default true). Set to false for self-signed certs. WARNING: Disabling has serious security risk (MITM), use only on trusted internal networks | Optional |
-
-> *Note: Configure at least one channel; multiple channels will all receive notifications. Startup validation reports missing paired Telegram / email fields and common Webhook URLs that do not start with `http://` or `https://`.
->
-> The default `00-daily-analysis.yml` in this repository only exports fixed Secret / Variable names. Arbitrary numbered env vars such as `STOCK_GROUP_1` and `EMAIL_GROUP_1` are not auto-injected into the job, so grouped email routing is not available in the stock workflow unless you explicitly extend the workflow's `env:` mapping in your own fork. Actions now maps `CUSTOM_WEBHOOK_BODY_TEMPLATE`, `WEBHOOK_VERIFY_SSL`, `FEISHU_WEBHOOK_SECRET`, `FEISHU_WEBHOOK_KEYWORD`, `PUSHPLUS_TOPIC`, `NTFY_URL`, `NTFY_TOKEN`, `GOTIFY_URL`, `GOTIFY_TOKEN`, the P3 notification route keys, and the P4 notification noise-control keys; `MARKDOWN_TO_IMAGE_CHANNELS` and `MERGE_EMAIL_NOTIFICATION` remain behavior toggles outside the default workflow mapping.
-
-#### Push Behavior Configuration
-
-| Secret Name | Description | Required |
-|------------|------|:----:|
-| `SINGLE_STOCK_NOTIFY` | Single stock push mode: set to `true` to push immediately after each stock analysis | Optional |
-| `REPORT_TYPE` | Report type: `simple` (concise), `full` (complete), `brief` (3-5 sentences), Docker recommended: `full` | Optional |
-| `REPORT_LANGUAGE` | Default output language for reports and Agent Chat: `zh` (default Chinese) / `en` (English) / `ko` (Korean); also updates prompt instructions, templates, notification fallbacks, fixed copy in the Web report view, and Ask Stock replies that omit `context.report_language`. `ko` reuses the English structural scaffolding and constrains the model to Korean output via an output-language directive; notifications render localized labels by report language. The bundled `00-daily-analysis.yml` already maps this variable, so setting it in Actions Secrets/Variables works out of the box | Optional |
-| `REPORT_SHOW_LLM_MODEL` | Whether notification report footers show the LLM model used for analysis. Defaults to `true`; set to `false` to hide runtime model metadata. This switch only affects presentation and does not change provider/model/Base URL, LiteLLM routing, or runtime model save/migration/cleanup behavior. | Optional |
-| `REPORT_TEMPLATES_DIR` | Jinja2 template directory (relative to project root, default `templates`) | Optional |
-| `REPORT_RENDERER_ENABLED` | Enable Jinja2 template rendering (default `false`, zero regression) | Optional |
-| `REPORT_INTEGRITY_ENABLED` | Enable report integrity checks, retry or placeholder on missing fields (default `true`) | Optional |
-| `REPORT_INTEGRITY_RETRY` | Integrity retry count (default `1`, `0` = placeholder only) | Optional |
-| `REPORT_HISTORY_COMPARE_N` | History signal comparison count, `0` off (default), `>0` enable | Optional |
-| `ANALYSIS_DELAY` | Delay between stock analysis and market review (seconds) to avoid API rate limits, e.g., `10` | Optional |
-| `SAVE_CONTEXT_SNAPSHOT` | Whether to persist analysis-history `context_snapshot`; defaults to `true`. Set to `false` or use `--no-context-snapshot` to stop persisting the full snapshot | Optional |
-| `MARKDOWN_TO_IMAGE_CHANNELS` | Notification channels that receive report images: telegram,wechat,custom,email,slack | Optional |
-| `MARKDOWN_TO_IMAGE_MAX_CHARS` | Skip image conversion above this Markdown length (default 15000) | Optional |
-| `MD2IMG_ENGINE` | Image renderer: `wkhtmltoimage` (default), `markdown-to-file`, or `playwright`. Debian/Ubuntu deployments using `wkhtmltoimage` should install both `wkhtmltopdf` and `fonts-noto-cjk` so supported Chinese and Korean report text renders correctly | Optional |
-| `SHARE_IMAGE_XIAOHONGSHU_URL` | Xiaohongshu profile URL shown in share images; empty disables the link | Optional |
-| `SHARE_IMAGE_XIAOHONGSHU_HANDLE` | Xiaohongshu nickname shown in share images; when all Xiaohongshu settings are empty, uses bundled nickname `@霸天土小豆` | Optional |
-| `SHARE_IMAGE_XIAOHONGSHU_QR_PATH` | QR image path, absolute or relative to the project root; when all Xiaohongshu settings are empty, uses the bundled QR | Optional |
-| `NOTIFICATION_REPORT_CHANNELS` | Report route channels for single-stock, aggregate daily, market review, merged push, and Feishu document success notifications. Empty means all configured channels | Optional |
-| `NOTIFICATION_ALERT_CHANNELS` | Alert route channels for EventMonitor notifications. Empty means all configured channels | Optional |
-| `NOTIFICATION_SYSTEM_ERROR_CHANNELS` | Reserved system_error route channels. No automatic system error producer is added in P3; empty means all configured channels | Optional |
-| `NOTIFICATION_DEDUP_TTL_SECONDS` | Dedup TTL in seconds. `0` disables dedup; the same stable dedup key sends only once within the TTL | Optional |
-| `NOTIFICATION_COOLDOWN_SECONDS` | Cooldown window in seconds. `0` disables cooldown; the same cooldown key is rate-limited within the window | Optional |
-| `NOTIFICATION_QUIET_HOURS` | Quiet-hours window in `HH:MM-HH:MM` format, supports overnight ranges. Empty disables quiet hours | Optional |
-| `NOTIFICATION_TIMEZONE` | IANA timezone for quiet hours, e.g. `Asia/Shanghai`. Empty follows `TZ` or the local system timezone | Optional |
-| `NOTIFICATION_MIN_SEVERITY` | Minimum severity: `info`, `warning`, `error`, `critical`. Empty keeps current behavior | Optional |
-| `NOTIFICATION_DAILY_DIGEST_ENABLED` | Reserved daily digest flag. The current implementation does not send or persist digests | Optional |
-
-> Compatibility note: `REPORT_SHOW_LLM_MODEL` keeps the previous default-visible behavior (`true`) and only changes report footer rendering. It does not alter provider/model/Base URL, LiteLLM routing, or runtime model persistence/migration/cleanup semantics. Rollback is to remove the variable or set it back to `true`.
-
-> `REPORT_LANGUAGE` affects report text, report-page fixed copy, and Agent Chat replies that do not explicitly select a language. Web UI chrome language (navigation, login, settings, shell labels, shared controls) is intentionally independent and stored in browser `localStorage` as `dsa.uiLanguage`.
-> UI language resolution is: explicit localStorage value (`zh` or `en`) -> browser language (`navigator.languages` / `navigator.language`) -> default `zh`.
-
-#### Other Configuration
-
-| Secret Name | Description | Required |
-|------------|------|:----:|
-| `STOCK_LIST` | A-share watchlist codes, e.g., `600519,300750,002594`; English commas are recommended, while pasted Chinese commas, enumeration commas, semicolons, spaces, and newlines are normalized | ✅ |
-| `ANSPIRE_API_KEYS` | [Anspire AI Search](https://aisearch.anspire.cn/) optimized for Chinese content; the same key can also be used for Anspire LLM fallback scenarios (example model: `Doubao-Seed-2.0-lite`) | Recommended |
-| `SERPAPI_API_KEYS` | [SerpAPI](https://serpapi.com/github-daily-stock-analysis) search-engine results for realtime financial news | Recommended |
-| `TAVILY_API_KEYS` | [Tavily](https://tavily.com/) Search API (for news search) | Optional |
-| `BOCHA_API_KEYS` | [Bocha Search](https://open.bocha.cn/) Web Search API (Chinese search optimized, supports AI summaries, multiple keys comma-separated) | Optional |
-| `BRAVE_API_KEYS` | [Brave Search](https://brave.com/search/api/) API (privacy-first, comma-separated for multiple keys) | Optional |
-| `MINIMAX_API_KEYS` | [MiniMax](https://platform.minimax.io/) Coding Plan Web Search (structured search results) | Optional |
-| `SEARXNG_BASE_URLS` | SearXNG self-hosted instances (quota-free fallback, enable format: json in settings.yml); when empty, `searx.space` discovery is used only if public instances are explicitly enabled | Optional |
-| `SEARXNG_PUBLIC_INSTANCES_ENABLED` | Auto-discover public SearXNG instances from `searx.space` when `SEARXNG_BASE_URLS` is empty (default `false`). Public instances are commonly rate-limited or do not return JSON, so enabling this can add 30-60s per run and still yield no news | Optional |
-| `SEARXNG_TIMEOUT_SECONDS` | Per-search timeout in seconds for self-hosted SearXNG instances (default `10`, minimum `1`). Increase for slow instances (e.g. NAS deployments aggregating many engines); public-instance timeout is unaffected. GitHub Actions requires explicit variable mapping | Optional |
-| `TUSHARE_TOKEN` | [Tushare Pro](https://tushare.pro/weborder/#/login?reg=834638) Token | Optional |
-| `TUSHARE_HTTP_URL` | Tushare Pro HTTP endpoint; when unset/empty defaults to the official `http://api.tushare.pro`. Set to a `http://` or `https://` URL only when routing through a corporate proxy, cross-border network, or a self-hosted mirror | Optional |
-| `TICKFLOW_API_KEY` | [TickFlow](https://tickflow.org) API key for optional A-share daily K-lines, realtime quotes, stock list/name lookup, and CN market review enhancement; permission or entitlement failures fall back to existing providers | Optional |
-
-> **GitHub Actions:** The bundled `00-daily-analysis.yml` maps `TUSHARE_TOKEN`, `TICKFLOW_API_KEY`, and the related `TICKFLOW_*` variables into the job environment. Store API keys in **Secrets**; non-sensitive priority, adjustment, and batch switches can live in **Variables**.
-
-> **`TUSHARE_HTTP_URL` mapping in the daily workflow:** `00-daily-analysis.yml` maps `TUSHARE_HTTP_URL` with `vars.TUSHARE_HTTP_URL || secrets.TUSHARE_HTTP_URL` — the same vars-first precedence used for `TICKFLOW_PRIORITY` and other non-sensitive knobs. The endpoint is an "address" rather than a credential, so **Variables** is preferred for team review and audit visibility. Note that the real precedence is "vars wins when non-empty": a **Secrets** entry with the same name is **not** a tamper fallback that overrides a non-empty Variable — Secrets is only selected when the Variable is empty. Build your threat model on that actual semantics. GitHub exposes Variables and Secrets as two independent write-permission models: anyone (human or automation) with write access to repository Variables can set a non-empty Variable and silently reroute the runtime endpoint — including `TUSHARE_TOKEN` and the full request body to an attacker-controlled URL — without reading or modifying any Secret. Secrets only protect value confidentiality; they do **not** provide "endpoint integrity" or "priority override" guarantees. If you need stronger access control over the endpoint, use GitHub Environment protection rules, CODEOWNERS, branch protection, or a dedicated deployment approval flow — **do not treat "put it in Secrets and leave Variables empty" as a tamper guard**. Leaving it unset or empty preserves the default `http://api.tushare.pro` endpoint — the fetcher does not error when this variable is missing.
-
-#### ✅ Minimum Configuration Example
-
-To get started quickly, you need at minimum:
-
-1. **AI Model**: `ANSPIRE_API_KEYS` (one key for LLMs and search), `AIHUBMIX_KEY` (one key for multiple model families), `GEMINI_API_KEY`, or `OPENAI_API_KEY`
-2. **Notification Channel**: At least one, e.g., `WECHAT_WEBHOOK_URL` or `EMAIL_SENDER` + `EMAIL_PASSWORD`
-3. **Stock List**: `STOCK_LIST` (required)
-4. **Search API**: `ANSPIRE_API_KEYS` or `SERPAPI_API_KEYS` (recommended for news and sentiment search)
-
-> Configure these 4 items and you're ready to go!
+Only the official DeepSeek API is supported. Set `DEEPSEEK_API_KEY` and `LITELLM_MODEL=deepseek/deepseek-flash`. See [configuration guide](LLM_CONFIG_GUIDE_EN.md).
 
 ### 3. Enable Actions
 
@@ -208,52 +87,27 @@ Default schedule: Every weekday at **18:00 (Beijing Time)** automatic execution.
 
 | Variable | Description | Default | Required |
 |--------|------|--------|:----:|
-| `GENERATION_BACKEND` | Generation backend for regular analysis. Supports `litellm` or explicit opt-in `codex_cli` / `claude_code_cli` / `opencode_cli` (experimental/limited) | `litellm` | No |
-| `OPENCODE_CLI_MODEL` | Optional model override passed to OpenCode `--model` when `GENERATION_BACKEND=opencode_cli`; leave empty to use the local OpenCode default model. Authentication and model availability are handled by the local OpenCode setup | Empty | No |
-| `GENERATION_FALLBACK_BACKEND` | Backend-level fallback. Unset defaults to `litellm`; an empty value disables fallback; self fallback resolves to no-op | `litellm` | No |
-| `GENERATION_BACKEND_TIMEOUT_SECONDS` | Per-call generation backend timeout in seconds, mainly for local CLI backends; range `1-3600` | `300` | No |
-| `GENERATION_BACKEND_MAX_OUTPUT_BYTES` | Total captured diagnostic stdout/stderr plus final-response size limit for one local CLI backend call; final responses duplicated to stdout by `--output-last-message` are not counted twice; range `1-33554432` | `1048576` | No |
-| `GENERATION_BACKEND_MAX_CONCURRENCY` | Global generation backend concurrency cap; range `1-16`, does not change LiteLLM Router or `MAX_WORKERS` behavior | `1` | No |
-| `LOCAL_CLI_BACKEND_MAX_CONCURRENCY` | Local CLI backend concurrency cap; range `1-4`, effective concurrency is the lower of this value and `GENERATION_BACKEND_MAX_CONCURRENCY` | `1` | No |
-| `AGENT_BACKEND` | Runtime for the existing ask-stock Chat: `auto` (recommended, preserves the default model), `litellm`, or `codex_app_server` (experimental, single-agent Chat only) | `auto` | No |
-| `AGENT_GENERATION_BACKEND` | Agent Chat generation backend. Web settings only expose `auto|litellm`; hand-written local CLI backends return an unsupported tool-calling diagnostic | `auto` | No |
 | `AGENT_SKILL_CONCURRENCY` | Specialist-mode strategy worker concurrency cap, range `1-4`. Up to four strategies are selected; the default runs three concurrently and queues the fourth under the shared pipeline budget | `3` | No |
 | `AGENT_DATA_TOOL_TIMEOUT_S` | Default timeout (seconds) for Agent `data`-category tools; also the category default for `market` tools (`get_market_indices` / `get_sector_rankings` and other network-backed data calls); `0` disables and falls back to the global budget. The effective timeout is resolved first-wins: explicit per-run `tool_call_timeout_seconds` > per-tool `timeout_seconds` > category default > no limit, with the remaining wall-clock budget as an unbreakable outer cap; `inf`/`nan`/negative degrade to "no limit". Timeout is a best-effort soft interrupt: Python threads cannot be force-stopped, so a handler may keep running after the timeout; the timed-out result is marked `retriable: false` and recorded in `non_retriable_tool_results` to block immediate retries, and the runner arms a cooperative-cancel signal (`is_tool_cancellation_requested()` and the existing `check_tool_execution()` checkpoints both honor it) to reduce side effects | `0` | No |
 | `AGENT_SEARCH_TOOL_TIMEOUT_S` | Default timeout (seconds) for Agent `search`-category tools; `0` disables and falls back to the global budget | `0` | No |
 | `AGENT_ANALYSIS_TOOL_TIMEOUT_S` | Default timeout (seconds) for Agent `analysis`-category tools; `0` disables and falls back to the global budget | `0` | No |
 | `AGENT_ACTION_TOOL_TIMEOUT_S` | Default timeout (seconds) for Agent `action`-category tools; `0` disables and falls back to the global budget | `0` | No |
-| `LITELLM_MODEL` | Primary model, format `provider/model` (e.g. `gemini/gemini-3.1-pro-preview`), recommended | - | No |
-| `AGENT_LITELLM_MODEL` | Optional primary model for **Default model** ask-stock; empty inherits the primary model and bare names become `openai/<model>`; Codex does not use this setting | - | No |
-| `AGENT_CONTEXT_COMPRESSION_ENABLED` | LLM compression for visible **Default model** ask-stock history; Codex uses the 20 most recent visible messages and retains this setting | `false` | No |
+| `LITELLM_MODEL` | Primary model, format `provider/model` (e.g. `deepseek/deepseek-flash`), recommended | - | No |
+| `AGENT_LITELLM_MODEL` | Optional primary model for **Default model** ask-stock; empty inherits the primary model and bare names become `openai/<model>` | - | No |
+| `AGENT_CONTEXT_COMPRESSION_ENABLED` | LLM compression for visible **Default model** ask-stock history | `false` | No |
 | `AGENT_CONTEXT_COMPRESSION_PROFILE` | Default model ask-stock compression profile: `cost`, `balanced`, or `long_context_raw_first` | `balanced` | No |
 | `AGENT_CONTEXT_COMPRESSION_TRIGGER_TOKENS` | Estimated-history token threshold; blank follows the selected profile preset | - | No |
 | `AGENT_CONTEXT_PROTECTED_TURNS` | Number of recent user turns and following replies kept verbatim; blank follows the selected profile preset | - | No |
 | `LITELLM_FALLBACK_MODELS` | Fallback models, comma-separated | - | No |
 | `LLM_CHANNELS` | Channel names (comma-separated), use with `LLM_{NAME}_*`, see [LLM Config Guide](LLM_CONFIG_GUIDE_EN.md) | - | No |
-| `LLM_HERMES_API_KEY` | Single API key for the reserved Hermes local HTTP generation channel; provide it through `.env`, runtime config, or Secrets only | - | Required for Hermes |
-| `LLM_HERMES_BASE_URL` | Hermes local loopback `/v1` endpoint; defaults to `http://127.0.0.1:8642/v1`; remote endpoints are not supported | `http://127.0.0.1:8642/v1` | No |
-| `LLM_HERMES_MODELS` | Raw Hermes model list; Phase 3 defaults to `hermes-agent`, maps to runtime route `openai/hermes-agent`, and does not support Vision, stream, tools, or Agent tools | `hermes-agent` | No |
 | `LITELLM_CONFIG` | Advanced model routing YAML path (expert use) | - | No |
 | `LLM_USAGE_HMAC_SECRET` | Secret for LLM usage telemetry message HMACs; leave empty to use a generated local data-dir secret file | - | No |
 | `LLM_USAGE_HMAC_KEY_VERSION` | Version label for the LLM usage HMAC key; update it when rotating the secret | `local-v1` | No |
-| `ANSPIRE_API_KEYS` | [Anspire](https://open.anspire.cn/) API key for its model gateway and search | - | Optional |
-| `AIHUBMIX_KEY` | [AIHubMix](https://aihubmix.com/) API key for its OpenAI-compatible model channel | - | Optional |
-| `GEMINI_API_KEY` | Google Gemini API Key | - | Optional |
-| `GEMINI_MODEL` | Primary model name (legacy, `LITELLM_MODEL` preferred) | `gemini-3.1-pro-preview` | No |
-| `GEMINI_MODEL_FALLBACK` | Fallback model (legacy) | `gemini-3-flash-preview` | No |
-| `ANTHROPIC_API_KEY` | Anthropic Claude API Key | - | Optional |
-| `OPENAI_API_KEY` | OpenAI-compatible API Key | - | Optional |
-| `OPENAI_BASE_URL` | OpenAI-compatible API endpoint | - | Optional |
-| `OLLAMA_API_BASE` | Ollama local service address (e.g. `http://localhost:11434`), see [LLM Config Guide](LLM_CONFIG_GUIDE_EN.md) | - | Optional |
-| `OPENAI_MODEL` | OpenAI model name (legacy) | `gpt-5.5` | Optional |
 
-> GitHub Actions note: the bundled `00-daily-analysis.yml` explicitly uses `litellm` when `GENERATION_FALLBACK_BACKEND` is not configured, so an unset Secret/Variable is not exported as an empty value that disables backend fallback. To disable backend fallback in Actions, set the fallback to the primary backend and let the resolver treat it as self no-op.
 
-> Generation backend status note: the Web settings quick check only reads config, drafts, and executable visibility; it does not send a real model request. JSON smoke test is a separate explicit action that sends one real request with a server-owned fixed JSON prompt/schema. `health_status` and `last_error_code/message` describe only the current status computation or smoke result, not persisted historical health.
 
-> `AGENT_BACKEND=codex_app_server` is an experimental option only for the existing ask-stock Chat. Install and sign in to Codex on the device running DSA, then open **Settings → Agent → Ask-stock method**, keep `AGENT_ARCH=single`, and set a positive overall timeout. Settings checks only whether the configuration, Codex command, and required protocol allow an attempt; it does not sign in, call a model, or read stock data. After saving, ask directly in Chat—the first question is the first real execution. Codex can currently read only saved analysis context and backtest summaries; use **Default model** for live quotes, news, market hotspots, technical-indicator recalculation, per-stock backtest details, or portfolio tools. After the user clicks Stop, the page shows **Stopping** and reports **Stopped** only after both the Codex turn and its current tool task have exited. It currently supports macOS, Linux, and a complete DSA backend running inside WSL; native Windows is not supported, while the Phase 2 `codex_cli` generation path remains unchanged. Codex Multi Agent and Codex Deep Research are not supported; existing LiteLLM Multi Agent, Deep Research, regular reports, and scheduled analysis stay unchanged. Codex is not an offline model, and services configured in Codex may process stock questions and redacted tool results. DSA does not read or store Codex credentials. Docker, remote servers must each expose Codex on the backend process PATH. See the [LLM Config Guide](LLM_CONFIG_GUIDE_EN.md#codex-local-agent-phase-6-experimental-prototype).
 
-> *Note: Configure at least one of `ANSPIRE_API_KEYS`, `AIHUBMIX_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `OLLAMA_API_BASE`, or `LLM_CHANNELS` / `LITELLM_CONFIG`. `ANSPIRE_API_KEYS` and `AIHUBMIX_KEY` are auto-adapted without an `OPENAI_BASE_URL`.
+> Model configuration uses the official DeepSeek API only. See [LLM configuration](LLM_CONFIG_GUIDE_EN.md).
 
 ### Notification Channel Configuration
 
@@ -327,20 +181,19 @@ For the notification baseline, diagnostics, and deployment notes, see [Notificat
 
 ### Search Service Configuration
 
+News search and search enrichment support only Bocha and Tavily, tried in that order. Either provider can be used on its own. Without either key, news search is unavailable and no public search instance is contacted. Removed search settings no longer take effect.
+
 | Variable | Description | Required |
 |--------|------|:----:|
-| `ANSPIRE_API_KEYS` | Anspire Open API Key (shared with search and LLM fallback examples; availability depends on account/model entitlement, and can effectively enhance A-share analysis) | Recommended |
-| `SERPAPI_API_KEYS` | SerpAPI search-engine results for realtime financial news | Recommended |
 | `TAVILY_API_KEYS` | Tavily Search API Key | Optional |
 | `BOCHA_API_KEYS` | Bocha Search API Key (Chinese optimized) | Optional |
-| `BRAVE_API_KEYS` | Brave Search API Key | Optional |
-| `MINIMAX_API_KEYS` | MiniMax Coding Plan Web Search (structured results) | Optional |
-| `SEARXNG_BASE_URLS` | SearXNG self-hosted instances (quota-free fallback, enable format: json in settings.yml); when empty, `searx.space` discovery is used only if public instances are explicitly enabled | Optional |
-| `SEARXNG_PUBLIC_INSTANCES_ENABLED` | Auto-discover public SearXNG instances from `searx.space` when `SEARXNG_BASE_URLS` is empty (default `false`). Public instances are commonly rate-limited or do not return JSON, so enabling this can add 30-60s per run and still yield no news | Optional |
 
 > Search services are optional enhancements. If search is unavailable, the system logs a warning and continues within the available capability boundary.
 
 ### Data Source Configuration
+
+Chip-distribution analysis has been removed. Tushare `cyq_chips` and other chip endpoints are no longer called, and `ENABLE_CHIP_DISTRIBUTION` has no effect. Shrink-pullback and bottom-volume strategies retain price, volume, and risk checks without profit-ratio, average-cost, or concentration requirements. New reports omit chip sections and their quality scores exclude this retired block. Existing reports remain readable without a database migration.
+
 
 | Variable | Description | Default | Required |
 |--------|------|--------|:----:|
@@ -354,7 +207,6 @@ For the notification baseline, diagnostics, and deployment notes, see [Notificat
 | `TICKFLOW_BATCH_SIZE` | Maximum symbols per TickFlow batch request. | `100` | Optional |
 | `ENABLE_REALTIME_QUOTE` | Enable real-time quotes (if disabled, uses historical closing prices for analysis) | `true` | Optional |
 | `ENABLE_REALTIME_TECHNICAL_INDICATORS` | Intraday real-time technicals: Calculate MA5/MA10/MA20 and bull trends using real-time prices when enabled (Issue #234); uses yesterday's close if disabled. | `true` | Optional |
-| `ENABLE_CHIP_DISTRIBUTION` | Enable chip distribution analysis (this API is unstable, recommended to disable for cloud deployment). GitHub Actions users must set `ENABLE_CHIP_DISTRIBUTION=true` in Repository Variables to enable; disabled by default in workflows. | `true` | Optional |
 | `ENABLE_EASTMONEY_PATCH` | Eastmoney API patch: Recommended to set to `true` when Eastmoney APIs fail frequently (e.g., RemoteDisconnected, connection closed). Injects NID tokens and random User-Agents to reduce rate limiting probability. | `false` | Optional |
 | `REALTIME_SOURCE_PRIORITY` | Real-time quote source priority (comma-separated), e.g., `tencent,akshare_sina,efinance,akshare_em`; add `tickflow` explicitly to use TickFlow realtime quotes | See .env.example | Optional |
 | `ENABLE_FUNDAMENTAL_PIPELINE` | Master switch for fundamental aggregation; when disabled, returns `not_supported` block only, without altering the original analysis pipeline. | `true` | Optional |
@@ -367,7 +219,7 @@ For the notification baseline, diagnostics, and deployment notes, see [Notificat
 > **Behavior Notes:**
 > - **A-shares**: Returns aggregated capabilities by `valuation/growth/earnings/institution/capital_flow/dragon_tiger/boards`.
 > - **ETFs**: Returns available items, marks missing capabilities as `not_supported`, and does not affect the original flow overall.
-> - Any exception uses fail-open logic, only logs errors without affecting the main technical/news/chip pipeline.
+> - Any exception uses fail-open logic, only logs errors without affecting the main technical/news pipeline.
 > - **Field contracts**:
 >   - `fundamental_context.belong_boards` = related A-share board list, `[]` when unavailable;
 >   - `fundamental_context.boards.data` = `sector_rankings` (sector rise/fall leaderboard, structure `{top, bottom}`);
@@ -424,7 +276,6 @@ For the notification baseline, diagnostics, and deployment notes, see [Notificat
 > `MARKET_REVIEW_REGION` only accepts `cn` in the A-share edition.
 > - Changes in `src/config.py`, `src/core/config_registry.py`, and `src/services/system_config_service.py` are configuration-contract updates only, and do not alter runtime provider/model/base URL routing semantics or trigger provider migration/cleanup logic.
 > - Affected config keys are `MARKET_REVIEW_REGION` and `MARKET_REVIEW_COLOR_SCHEME`; existing model/runtime keys (`LITELLM_MODEL`, `AGENT_LITELLM_MODEL`, `LITELLM_FALLBACK_MODELS`, `VISION_MODEL`, `OPENAI_BASE_URL`, etc.) remain unchanged under the existing atomic upsert semantics and are not silently cleared when this scope is changed.
-> - Verifiable evidence summary: official provider / Base URL / model-name sources remain the [LLM Config Guide](LLM_CONFIG_GUIDE_EN.md#official-references-for-provider-presets--base-urls--model-naming), and the locked runtime dependency window remains `litellm>=1.80.10,!=1.82.7,!=1.82.8,<1.99.0` in `requirements.txt`; this scope adds no migration script or cleanup branch, and save/import still writes only submitted keys. `tests/test_system_config_service.py::SystemConfigServiceTestCase::test_update_market_review_region_does_not_trigger_runtime_model_cleanup` covers saving `MARKET_REVIEW_REGION` without clearing or rewriting existing `LITELLM_CONFIG`, `LLM_CHANNELS`, `LLM_OPENAI_*`, `LITELLM_MODEL`, `AGENT_LITELLM_MODEL`, `LITELLM_FALLBACK_MODELS`, `VISION_MODEL`, `OPENAI_*`, and related runtime settings.
 > - Rollback is a restore-and-recover path: apply pre-PR `.env` / config backup for the above keys, restore `MARKET_REVIEW_REGION`, and restart the runtime; or revert this PR directly.
 > - CN market review reports now use a post-market workstation layout with market signal, index detail, sector Top tables, news catalysts, next-session plan, and risk sections. The market signal uses a plain-text score such as `66/100 (constructive, risk-on)` instead of block bars so it renders consistently across terminals and notification clients. News catalysts list only headline, source, and link instead of search snippets to reduce mixed-language noise. Missing data sources degrade by omitting or simplifying only the affected block.
 > - Per-stock analysis, realtime quote priority, and sector rankings fallback remain unchanged.
@@ -656,7 +507,7 @@ python main.py --stocks sh000016,000016
 python main.py --stocks sh000016 --dry-run
 ```
 
-Index targets are handled with `market=cn` throughout the Pipeline for market phase, daily-bar target date, resume/checkpoint date, history window, and `DecisionSignal`. Stock-only modules (chip distribution, fundamentals, board membership, capital flow, LHB, corporate events) are centrally skipped. An unregistered `.CSI` input (e.g. `930956.CSI`) is rejected before any market-data provider request: the CLI `--stocks` entry and the Actions daily workflow reject the whole batch for the run (no target in the batch runs), while Web/API rejects only that target in an async batch (it enters `rejected`) or returns 4xx for a sync/single request. Search and reports use the registry Chinese index name and never carry machine codes.
+Index targets are handled with `market=cn` throughout the Pipeline for market phase, daily-bar target date, resume/checkpoint date, history window, and `DecisionSignal`. Stock-only modules (fundamentals, board membership, capital flow, LHB, corporate events) are centrally skipped. An unregistered `.CSI` input (e.g. `930956.CSI`) is rejected before any market-data provider request: the CLI `--stocks` entry and the Actions daily workflow reject the whole batch for the run (no target in the batch runs), while Web/API rejects only that target in an async batch (it enters `rejected`) or returns 4xx for a sync/single request. Search and reports use the registry Chinese index name and never carry machine codes.
 
 Indices share the A-share trading-day semantics: when the trading-day check is enabled, registered indices (`sh`/`sz` prefix or `.CSI` alias) participate in CN holiday filtering as `market=cn`, so indices are skipped on A-share holidays; a market-unknown non-index code keeps the existing fail-open behavior. `--force-run` forces execution on non-trading days.
 
@@ -831,7 +682,7 @@ Data-quality visibility continues to reuse `report.details.analysis_context_pack
 
 ### AnalysisContextPack Prompt Summary (Issue #1389 P3)
 
-P3 injects a low-sensitivity `AnalysisContextPack` summary into regular analysis and Agent initial prompts. The pipeline builds the pack from already-fetched quote, daily-bar, trend, chip, fundamentals, news, and market-phase artifacts, then passes `analysis_context_pack_summary` downstream; in this new pack-summary section, the LLM only sees subject, version, data-block status/source/warnings/missing reason, and news result count, not full `news.content`, `trend_result`, chip, or fundamentals raw payloads through that section. On the Agent path, the pipeline reads `storage.get_analysis_context()` once after history prefetch to drive the daily-bars status, and marks `daily_bars_missing` only when that read has no usable context. Existing `news_context`, Agent pre-fetched JSON, and `enhanced_context` raw-payload channels keep their pre-P3 behavior and are not replaced or sanitized by this summary.
+P3 injects a low-sensitivity `AnalysisContextPack` summary into regular analysis and Agent initial prompts. The pipeline builds the pack from already-fetched quote, daily-bar, trend, fundamentals, news, and market-phase artifacts, then passes `analysis_context_pack_summary` downstream; in this new pack-summary section, the LLM only sees subject, version, data-block status/source/warnings/missing reason, and news result count, not full `news.content`, `trend_result`, fundamentals raw payloads through that section. On the Agent path, the pipeline reads `storage.get_analysis_context()` once after history prefetch to drive the daily-bars status, and marks `daily_bars_missing` only when that read has no usable context. Existing `news_context`, Agent pre-fetched JSON, and `enhanced_context` raw-payload channels keep their pre-P3 behavior and are not replaced or sanitized by this summary.
 
 P3 itself did not add API/Web/Bot parameters, persist fields into history/task status/report metadata, change report JSON schemas, or expose the full pack through history, notifications, or Web surfaces. Agent tool-level reuse of pack data and P5 data-quality scoring are left to later phases.
 
@@ -853,13 +704,13 @@ Any model-authored explanation at the top-level or nested dashboard location is 
 
 P4 adds `report.details.analysis_context_pack_overview`. History detail and completed `/api/v1/analysis/status/{task_id}` responses read the same low-sensitivity overview from the persisted `context_snapshot`; sync analysis responses also extract the overview from the just-persisted `analysis_history.context_snapshot`, so new records do not guarantee this field when `SAVE_CONTEXT_SNAPSHOT=false`. The Web report page renders a collapsed data-block summary after Strategy and News, with available/missing counts, non-zero other status counts, and trigger source in the header and data-block status, source, warnings, missing reasons, status counts, and news result count after expansion. API `details.context_snapshot` strips the top-level `analysis_context_pack_overview` so the raw snapshot panel does not duplicate the public overview.
 
-The overview does not include the full pack, the `analysis_context_pack_summary` prompt string, `items.value`, news body text, `trend_result`, chip, or fundamentals raw payloads. When `SAVE_CONTEXT_SNAPSHOT=false`, the full `analysis_history.context_snapshot` is not persisted, so new history records cannot provide the overview; older records without the overview keep returning an empty field and the report still loads. This phase does not cover pending/processing TaskPanel, in-progress SSE events, notification summaries, Bot-specific rendering, `market_review` overview, or data-quality scoring.
+The overview does not include the full pack, the `analysis_context_pack_summary` prompt string, `items.value`, news body text, `trend_result`, fundamentals raw payloads. When `SAVE_CONTEXT_SNAPSHOT=false`, the full `analysis_history.context_snapshot` is not persisted, so new history records cannot provide the overview; older records without the overview keep returning an empty field and the report still loads. This phase does not cover pending/processing TaskPanel, in-progress SSE events, notification summaries, Bot-specific rendering, `market_review` overview, or data-quality scoring.
 
 ### AnalysisContextPack Data Quality Scoring and Prompt Limitations (Issue #1389 P5)
 
-P5 adds lightweight data-quality scoring and model-readable data limitations to `AnalysisContextPack` without changing `PACK_VERSION = "1.0"`, adding data sources, or changing the report JSON schema. `ContextFieldStatus` now includes `fetch_failed`, which only means a field or data block explicitly failed to fetch in this run; the first mapping only turns `fundamental_context.status == "failed"` into `fetch_failed`, while empty news, unconfigured search, missing realtime quote, or missing chip data keep the existing `missing` / `not_supported` semantics.
+P5 adds lightweight data-quality scoring and model-readable data limitations to `AnalysisContextPack` without changing `PACK_VERSION = "1.0"`, adding data sources, or changing the report JSON schema. `ContextFieldStatus` now includes `fetch_failed`, which only means a field or data block explicitly failed to fetch in this run; the first mapping only turns `fundamental_context.status == "failed"` into `fetch_failed`, while empty news, unconfigured search, missing realtime quote keep the existing `missing` / `not_supported` semantics.
 
-`DataQuality` now contains `overall_score`, `level`, `block_scores`, and `limitations`, while preserving the old `warnings` / `metadata` fields. Scoring is fixed to six blocks: `quote`, `daily_bars`, `technical`, `news`, `fundamentals`, and `chip`; auxiliary missing blocks are not re-normalized away. When core blocks are degraded, the prompt's `Data Limitations` section tells the model not to return high confidence; missing auxiliary blocks only constrain their matching analysis sections and must not be interpreted as bullish or bearish. The section is generated by `format_analysis_context_pack_prompt_section()`, so regular analysis, single Agent, and multi-agent paths reuse the same low-sensitivity summary without exposing raw payloads, news body text, raw trend values, secrets, tokens, or webhooks.
+`DataQuality` now contains `overall_score`, `level`, `block_scores`, and `limitations`, while preserving the old `warnings` / `metadata` fields. Scoring is fixed to five blocks: `quote`, `daily_bars`, `technical`, `news` and `fundamentals`; auxiliary missing blocks are not re-normalized away. When core blocks are degraded, the prompt's `Data Limitations` section tells the model not to return high confidence; missing auxiliary blocks only constrain their matching analysis sections and must not be interpreted as bullish or bearish. The section is generated by `format_analysis_context_pack_prompt_section()`, so regular analysis, single Agent, and multi-agent paths reuse the same low-sensitivity summary without exposing raw payloads, news body text, raw trend values, secrets, tokens, or webhooks.
 
 History detail, sync analysis responses, and completed task status responses still expose only `report.details.analysis_context_pack_overview`; P5 only adds a nested `data_quality` object with score, level, block_scores, and limitations, and does not duplicate `warnings`. The Web report page remains collapsed by default, adds quality score/level to the header, and shows limitations plus `fetch_failed` status after expansion; API `details.context_snapshot` continues to strip the top-level `analysis_context_pack_overview`.
 
@@ -1211,41 +1062,12 @@ System defaults to AkShare (free), also supports other data sources:
 
 ### Multi-Model Switching
 
-Configure multiple models, system auto-switches:
+Only the official DeepSeek API is supported. Set `DEEPSEEK_API_KEY` and `LITELLM_MODEL=deepseek/deepseek-flash`. See [configuration guide](LLM_CONFIG_GUIDE_EN.md).
 
-```bash
-# Gemini (primary)
-GEMINI_API_KEY=xxx
-GEMINI_MODEL=gemini-3.1-pro-preview
 
-# OpenAI compatible (backup)
-OPENAI_API_KEY=xxx
-OPENAI_BASE_URL=https://api.deepseek.com
-OPENAI_MODEL=deepseek-v4-flash
-# deepseek-chat / deepseek-reasoner remain compatible, but DeepSeek marks them deprecated after 2026/07/24
-```
+### DeepSeek routing and image import
 
-### Advanced Model Routing (Powered by LiteLLM)
-
-See [LLM Config Guide](LLM_CONFIG_GUIDE_EN.md). Most users only need to think in terms of primary models, fallback models, and channels; this section is for expert users who want direct access to the underlying [LiteLLM](https://github.com/BerriAI/litellm) routing capabilities. No separate Proxy service is required.
-
-**Two-layer mechanism**: Same-model multi-key rotation (Router) and cross-model fallback are independent.
-
-**Multi-key + cross-model fallback example**:
-
-```env
-# Primary: 3 Gemini keys rotate; Router switches on 429
-GEMINI_API_KEYS=key1,key2,key3
-LITELLM_MODEL=gemini/gemini-3.1-pro-preview
-
-# Cross-model fallback: when all primary keys fail, try Claude → GPT
-# Requires ANTHROPIC_API_KEY, OPENAI_API_KEY
-LITELLM_FALLBACK_MODELS=anthropic/claude-sonnet-4-6,openai/gpt-5.4-mini
-```
-
-> ⚠️ `LITELLM_MODEL` must include provider prefix (e.g. `gemini/`, `anthropic/`, `openai/`). Legacy `GEMINI_MODEL` (no prefix) is only used when `LITELLM_MODEL` is not set.
-
-**Vision model (image stock code extraction)**: See [LLM Config Guide - Vision](LLM_CONFIG_GUIDE_EN.md#41-vision-model-image-stock-code-extraction).
+`DEEPSEEK_API_KEYS` supports key rotation. `LITELLM_FALLBACK_MODELS` accepts DeepSeek models only. Image extraction uses `VISION_MODEL=deepseek/deepseek-flash`. See [LLM configuration](LLM_CONFIG_GUIDE_EN.md).
 
 ### Debug Mode
 
@@ -1276,7 +1098,7 @@ You can tune the behavior in `.env`:
 
 ## Decision Actionability
 
-Single-stock reports calibrate operation advice with support/resistance, volume/chip context, main-force capital flow, and risk events. This reduces direct buy/sell flips caused only by one-day price movement or score thresholds. When price is between support and resistance and capital flow is unclear, the report prefers neutral actionable wording such as hold, range-bound watch, or shakeout watch. Buy calls require support confirmation or a valid resistance breakout with volume/capital-flow confirmation; sell/reduce calls require support failure, sustained outflow, or clearly elevated risk.
+Single-stock reports calibrate operation advice with support/resistance, price/volume context, main-force capital flow, and risk events. This reduces direct buy/sell flips caused only by one-day price movement or score thresholds. When price is between support and resistance and capital flow is unclear, the report prefers neutral actionable wording such as hold, range-bound watch, or shakeout watch. Buy calls require support confirmation or a valid resistance breakout with volume/capital-flow confirmation; sell/reduce calls require support failure, sustained outflow, or clearly elevated risk.
 This post-processing update only adjusts advisory wording and stability logic and does not change the configured LLM model/provider routing semantics (including LiteLLM, providers, or API model settings).
 Compatibility check result: decision operability and runtime post-processing paths are changed, while model/provider/API configuration and persistence semantics remain unchanged; the compatibility boundary is now in analysis/pipeline/agent intent inference and stabilization mapping.
 Verification trail: the runtime behavior is implemented in `src/analyzer.py`, `src/core/pipeline.py`, `src/core/backtest_engine.py`, `src/report_language.py`, and `src/agent` decision-path modules (with corresponding tests in `tests/test_backtest_engine.py`, `tests/test_analyzer_news_prompt.py`, `tests/test_decision_stability.py`, and `tests/test_agent_pipeline.py`); it does not add/remove runtime config fields or config-cleanup logic in `src/config.py` or persistence code paths.
@@ -1474,8 +1296,8 @@ For this feature, the product behavior is:
 | `/api/v1/decision-signals/{signal_id}` | GET | Fetch one decision signal and apply lazy expiration before reading |
 | `/api/v1/decision-signals/{signal_id}/status` | PATCH | Update a decision signal status and optional metadata |
 | `/api/v1/decision-signals/latest/{stock_code}` | GET | Query the latest active decision signals for a stock |
-| `/api/v1/usage/summary?period=today|month|all` | GET | Query LLM call counts and token usage grouped by call type and model |
-| `/api/v1/usage/dashboard?period=today|month|all&limit=50` | GET | Return token-usage dashboard data: totals, prompt/completion split, model usage, call-type breakdown, and recent call records; the Web entry is the sidebar Usage page |
+| `/api/v1/usage/summary?period=today|month|all` | GET | Query DeepSeek call counts and token usage grouped by call type and model |
+| `/api/v1/usage/dashboard?period=today|month|all&limit=50` | GET | Return DeepSeek token-usage dashboard data: totals, prompt/completion split, model usage, call-type breakdown, and recent call records; the Web entry is the sidebar Usage page |
 | `/api/v1/backtest/run` | POST | Trigger backtest |
 | `/api/v1/backtest/results` | GET | Query backtest results (paginated) |
 | `/api/v1/backtest/performance` | GET | Get overall backtest performance |
@@ -1488,7 +1310,7 @@ For this feature, the product behavior is:
 > Note: `POST /api/v1/analysis/analyze` accepts `analysis_phase=auto|premarket|intraday|postmarket`, defaulting to `auto`. Non-`auto` only overrides the phase and derived phase flags for this run; it does not rewrite real trading-calendar timestamps. Accepted responses, in-memory task status, task lists, and SSE echo the requested phase, while the final report phase remains `report.meta.market_phase_summary.phase`.
 > Note: `POST /api/v1/analysis/analyze` accepts `report_language=zh|en|ko` (legacy-compatible alias `reportLanguage`). When omitted, it falls back to global `REPORT_LANGUAGE`. This parameter is request-scoped only and influences report output language for this run, including `report.meta.report_language` in responses.
 > Note: The Web Home page exposes an explicit strategy selector. When users do not pick one, `skills` is not sent and legacy behavior is preserved; when selected, it is passed through to this endpoint and persisted in task status/history snapshots.
-> Note: `POST /api/v1/analysis/market-review` follows the same runtime configuration path as CLI/Bot market review (`GeminiAnalyzer(config=...)`, search setup, and prompt/rendering pipeline). The provider compatibility path prioritizes `litellm_model` and `llm_model_list`, then falls back to existing legacy keys (`GEMINI_*`, `OPENAI_*`, `ANTHROPIC_*`, `DEEPSEEK_*`) when those are not set; provider names, Base URL, and LiteLLM routing semantics are otherwise unchanged.
+> Model configuration uses the official DeepSeek API only. See [LLM configuration](LLM_CONFIG_GUIDE_EN.md).
 > Note: `POST /api/v1/analysis/market-review` also accepts `report_language=zh|en|ko` / `reportLanguage` to set report language for that request. If omitted, it falls back to global `REPORT_LANGUAGE`; Bot/CLI/manual `/market-review` calls keep using global config and do not carry request-level override.
 > Note: `POST /api/v1/analysis/market-review` accepts optional `region=cn`; omitting it uses the same A-share default.
 > Note: the Home selector is a one-run override only. It does not call the config read/save API or write LocalStorage. “Server default” omits `region` from the request, and the UI does not guess the effective runtime market from the saved/display value exposed by Web Settings. The backend resolves one canonical effective value at task submission; the accepted response, pending/processing/completed status, task list, `task_created`/`task_started`/`task_progress`/`task_completed` SSE events, completed structured payload, and both the History list item's `region` and `context_snapshot.market_review_region` reuse that value. Persistent `MARKET_REVIEW_REGION` keeps its existing lenient compatibility behavior; CLI, Bot, schedule, and the default `cn` semantics are unchanged.
@@ -1518,7 +1340,7 @@ For this feature, the product behavior is:
 >   - `tests/test_llm_channel_config.py` (configuration priority and provider/base URL mapping)
 >   - `tests/test_market_review_runtime.py` (`build_market_review_runtime` shared assembly path)
 >   - `tests/test_analysis_api_contract.py` (`/api/v1/analysis/market-review` contract and task status flow)
-> - Rollback path: if regression appears, restore historical `LITELLM_MODEL`, `LITELLM_FALLBACK_MODELS`, and legacy `GEMINI_*` / `OPENAI_*` / `ANTHROPIC_*` / `DEEPSEEK_*`, or import a configuration backup through `POST /api/v1/system/config/import` and restart; at runtime you can also clear `LITELLM_CONFIG` / `LLM_CHANNELS` to force legacy fallback.
+> Model configuration uses the official DeepSeek API only. See [LLM configuration](LLM_CONFIG_GUIDE_EN.md).
 
 > Progress-stream note: `GET /api/v1/analysis/tasks/stream` now emits `task_progress` in addition to `task_created / task_started / task_completed / task_failed`. The regular analysis path updates `progress` and `message` across quote preparation, news retrieval, context assembly, LLM generation, and report persistence. Streaming chunks are accumulated only on the server side; history is persisted only after the final JSON parses successfully. If streaming is unavailable before the first chunk, the system falls back to the previous non-stream request. If a stream fails after partial output has already arrived, the system first retries non-stream for the same model, then continues through existing fallback models in the original order (primary + fallback list).
 > If a progress callback fails, the analysis flow continues, and the exception is now logged at warning level to help troubleshoot SSE delivery gaps.
@@ -1622,7 +1444,6 @@ A: Check if Actions is enabled, and if cron expression is correct (note it's UTC
 
 When `AGENT_EVENT_MONITOR_ENABLED=true`, schedule mode runs the alert worker every `AGENT_EVENT_MONITOR_INTERVAL_MINUTES` minutes. The worker reads enabled rules created through the Alert API and continues to support legacy rules in `AGENT_EVENT_ALERT_RULES_JSON`; triggered alerts still go through the existing notification channels. Alert API / Web persisted rules support price, change-percent, volume, daily technical indicators, `watchlist`, and `market` Market Light targets; legacy JSON still supports only the three basic rule types.
 
-> Compatibility and rollback note: this section documents current Event Monitor rule behavior (including `price_change_percent`) and does not change external model/provider API semantics such as model names, providers, Base URL, LiteLLM, `OPENAI_*`, `DEEPSEEK_*`, or `GEMINI_*` configuration.
 > Legacy JSON is not automatically migrated, deleted, or rewritten. To roll back the background alert worker, clear or disable `AGENT_EVENT_MONITOR_ENABLED`/related rule config.
 
 | `alert_type` | Direction | Threshold | Description |

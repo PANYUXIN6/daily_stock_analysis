@@ -393,7 +393,7 @@ class StockBarItem(BaseModel):
             "operation_advice": "持有",
             "analysis_count": 18,
             "last_analysis_time": "2024-01-01T12:00:00",
-            "model_used": "Gemini 2.5 Pro",
+            "model_used": "DeepSeek Flash",
         }
     })
 

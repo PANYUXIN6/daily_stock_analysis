@@ -42,8 +42,6 @@ _LEGACY_AUDIT_MARKER_NAMES = frozenset(
 
 _HMAC_SECRET_CACHE: Optional[bytes] = None
 _DROP_RAW_USAGE_VALUE = object()
-_OPENAI_LITELLM_PROVIDER = "openai"
-_OPENAI_COMPATIBLE_PROVIDER = "openai_compatible"
 _ALLOWED_RAW_USAGE_SCALAR_KEYS = {
     "prompt_tokens",
     "completion_tokens",
@@ -354,60 +352,6 @@ def normalize_litellm_usage(
             if prompt_tokens is None:
                 prompt_tokens = (cache_read or 0) + (cache_miss or 0)
             result["normalized_uncached_input_tokens"] = cache_miss
-    elif provider_name == "openai":
-        cached = _nested_int(usage, ("prompt_tokens_details", "cached_tokens"))
-        if cached is not None:
-            cache_read = cached
-            cache_field_observed = True
-            capability = "supported"
-        provider_min_cache_tokens = 1024
-    elif provider_name in {"glm", "qwen", "dashscope", _OPENAI_COMPATIBLE_PROVIDER}:
-        cached = _nested_int(usage, ("prompt_tokens_details", "cached_tokens"))
-        if cached is not None:
-            cache_read = cached
-            cache_field_observed = True
-            capability = "supported"
-    elif provider_name == "anthropic":
-        read_tokens = _first_int(usage, "cache_read_input_tokens")
-        creation_tokens = _first_int(usage, "cache_creation_input_tokens")
-        input_tokens = _first_int(usage, "input_tokens")
-        if read_tokens is not None or creation_tokens is not None:
-            cache_read = read_tokens or 0
-            cache_write = creation_tokens or 0
-            cache_field_observed = True
-            capability = "supported"
-            if input_tokens is not None:
-                prompt_tokens = input_tokens + (cache_read or 0) + (cache_write or 0)
-                result["normalized_uncached_input_tokens"] = input_tokens
-    elif provider_name in {"gemini", "vertex_ai"}:
-        cached = _first_int(usage, "cache_read_input_tokens")
-        if cached is None:
-            cached = _nested_int(usage, ("prompt_tokens_details", "cached_tokens"))
-        if cached is None:
-            cached = _first_int(
-                usage,
-                "cached_content_token_count",
-                "cache_read_tokens",
-            )
-        if cached is not None:
-            cache_read = cached
-            cache_field_observed = True
-            capability = "supported"
-    elif provider_name in {"kimi", "moonshot", "minimax", "stepfun"}:
-        cached = _first_int(usage, "cached_tokens")
-        if cached is not None:
-            cache_read = cached
-            cache_field_observed = True
-            capability = "supported"
-    elif provider_name == "openrouter":
-        read_tokens = _first_int(usage, "cache_read_tokens")
-        write_tokens = _first_int(usage, "cache_write_tokens")
-        if read_tokens is not None or write_tokens is not None:
-            cache_read = read_tokens or 0
-            cache_write = write_tokens or 0
-            cache_field_observed = True
-            capability = "supported"
-
     if total_tokens is None and prompt_tokens is not None and completion_tokens is not None:
         total_tokens = prompt_tokens + completion_tokens
 
@@ -932,77 +876,8 @@ def _has_deepseek_hit_miss_shape(usage: Mapping[str, Any]) -> bool:
 
 
 def _infer_provider(model: str, provider: Optional[str]) -> str:
-    normalized_model = (model or "").strip().lower()
-    normalized_provider = (provider or "").strip().lower()
-    try:
-        from src.llm.provider_cache import infer_provider_family
-
-        inferred = infer_provider_family(model=normalized_model, provider=normalized_provider)
-        if inferred:
-            return inferred
-    except Exception:
-        pass
-    route_text = f"{normalized_provider} {normalized_model}"
-
-    if normalized_model.startswith("openai/~") or "openrouter" in route_text:
-        return "openrouter"
-    if normalized_provider in {"zhipu", "bigmodel", "glm"}:
-        return "glm"
-    if normalized_provider in {"anthropic", "gemini", "vertex_ai", "deepseek", "stepfun"}:
-        return normalized_provider
-    if normalized_provider == _OPENAI_LITELLM_PROVIDER:
-        return "openai" if _is_native_openai_model(normalized_model) else _OPENAI_COMPATIBLE_PROVIDER
-    if normalized_model.startswith("openai/"):
-        return "openai" if _is_native_openai_model(normalized_model) else _OPENAI_COMPATIBLE_PROVIDER
-
-    if _is_glm_model(normalized_model):
-        return "glm"
-    if "stepfun" in normalized_model or normalized_model.startswith("step/"):
-        return "stepfun"
-    if normalized_model.startswith("anthropic/"):
-        return "anthropic"
-    if normalized_model.startswith("gemini/"):
-        return "gemini"
-    if normalized_model.startswith("deepseek/"):
-        return "deepseek"
-    if "/" in normalized_model:
-        return normalized_model.split("/", 1)[0]
-    return normalized_provider or "unknown"
-
-
-def _is_glm_model(normalized_model: str) -> bool:
-    if not normalized_model:
-        return False
-    return (
-        normalized_model.startswith("glm")
-        or normalized_model.startswith("zhipu/")
-        or normalized_model.startswith("bigmodel/")
-        or "/glm" in normalized_model
-    )
-
-
-def _is_native_openai_model(model: str) -> bool:
-    normalized = (model or "").strip().lower()
-    if normalized.startswith("openai/"):
-        normalized = normalized.split("/", 1)[1]
-    if not normalized or "/" in normalized:
-        return False
-    return normalized.startswith(
-        (
-            "gpt-",
-            "gpt4",
-            "gpt5",
-            "chatgpt-",
-            "o1",
-            "o3",
-            "o4",
-            "text-",
-            "davinci",
-            "babbage",
-            "curie",
-            "ada",
-        )
-    )
+    from src.llm.provider_cache import infer_provider_family
+    return infer_provider_family(model=model, provider=provider)
 
 
 def _first_int(mapping: Mapping[str, Any], *keys: str) -> Optional[int]:

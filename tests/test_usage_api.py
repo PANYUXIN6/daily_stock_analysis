@@ -30,7 +30,7 @@ class FakeUsageDbManager:
             ],
             "by_model": [
                 {
-                    "model": "openai/gpt-test",
+                    "model": "deepseek/deepseek-flash",
                     "calls": 2,
                     "prompt_tokens": 30,
                     "completion_tokens": 70,
@@ -46,9 +46,9 @@ class FakeUsageDbManager:
                 "id": 7,
                 "called_at": datetime(2026, 6, 11, 9, 30, 0),
                 "call_type": "analysis",
-                "model": "openai/gpt-test",
+                "model": "deepseek/deepseek-flash",
                 "stock_code": "600519",
-                "provider": "openai",
+                "provider": "deepseek",
                 "language": "zh",
                 "market_group": "cn",
                 "analysis_mode": "stock_analysis",
@@ -80,7 +80,7 @@ class UsageDashboardApiTestCase(unittest.TestCase):
         body = response.json()
         self.assertEqual(body["period"], "today")
         self.assertEqual(body["total_tokens"], 100)
-        self.assertEqual(body["by_model"][0]["model"], "openai/gpt-test")
+        self.assertEqual(body["by_model"][0]["model"], "deepseek/deepseek-flash")
         self.assertEqual(body["by_model"][0]["max_total_tokens"], 60)
         self.assertNotIn("provider", body["by_model"][0])
         self.assertNotIn("context_window", body["by_model"][0])

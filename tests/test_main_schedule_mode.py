@@ -1239,7 +1239,7 @@ class MainScheduleModeTestCase(unittest.TestCase):
 
     def test_reload_runtime_config_preserves_process_env_overrides(self) -> None:
         self.env_path.write_text(
-            "OPENAI_API_KEY=stale-file\nSCHEDULE_TIME=09:30\n",
+            "DEEPSEEK_API_KEY=stale-file\nSCHEDULE_TIME=09:30\n",
             encoding="utf-8",
         )
         runtime_config = self._make_config(schedule_enabled=True, schedule_time="09:30")
@@ -1248,14 +1248,14 @@ class MainScheduleModeTestCase(unittest.TestCase):
             os.environ,
             {
                 "ENV_FILE": str(self.env_path),
-                "OPENAI_API_KEY": "runtime-secret",
+                "DEEPSEEK_API_KEY": "runtime-secret",
                 "SCHEDULE_TIME": "18:00",
             },
             clear=False,
         ), patch.object(
             main,
             "_INITIAL_PROCESS_ENV",
-            {"OPENAI_API_KEY": "runtime-secret"},
+            {"DEEPSEEK_API_KEY": "runtime-secret"},
         ), patch.object(
             main,
             "_RUNTIME_ENV_FILE_KEYS",
@@ -1265,7 +1265,7 @@ class MainScheduleModeTestCase(unittest.TestCase):
             return_value=runtime_config,
         ) as get_config_mock:
             reloaded_config = main._reload_runtime_config()
-            self.assertEqual(os.environ["OPENAI_API_KEY"], "runtime-secret")
+            self.assertEqual(os.environ["DEEPSEEK_API_KEY"], "runtime-secret")
             self.assertEqual(os.environ["SCHEDULE_TIME"], "09:30")
 
         self.assertIs(reloaded_config, runtime_config)
@@ -1276,7 +1276,7 @@ class MainScheduleModeTestCase(unittest.TestCase):
             os.environ,
             {
                 "ENV_FILE": str(self.env_path),
-                "OPENAI_API_KEY": "runtime-secret",
+                "DEEPSEEK_API_KEY": "runtime-secret",
                 "SCHEDULE_TIME": "09:30",
             },
             clear=False,
@@ -1287,18 +1287,18 @@ class MainScheduleModeTestCase(unittest.TestCase):
         ), patch.object(
             main,
             "_RUNTIME_ENV_FILE_KEYS",
-            {"OPENAI_API_KEY", "SCHEDULE_TIME"},
+            {"DEEPSEEK_API_KEY", "SCHEDULE_TIME"},
         ), patch(
             "main.dotenv_values",
             side_effect=OSError("boom"),
         ):
             main._reload_env_file_values_preserving_overrides()
 
-            self.assertEqual(os.environ["OPENAI_API_KEY"], "runtime-secret")
+            self.assertEqual(os.environ["DEEPSEEK_API_KEY"], "runtime-secret")
             self.assertEqual(os.environ["SCHEDULE_TIME"], "09:30")
             self.assertEqual(
                 main._RUNTIME_ENV_FILE_KEYS,
-                {"OPENAI_API_KEY", "SCHEDULE_TIME"},
+                {"DEEPSEEK_API_KEY", "SCHEDULE_TIME"},
             )
 
     def test_reload_runtime_config_refreshes_env_before_resetting_singleton(self) -> None:

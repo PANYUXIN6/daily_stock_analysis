@@ -5,7 +5,7 @@
 ===================================
 
 从截图/图片中提取股票代码，使用 Vision LLM。
-优先级：Gemini -> Anthropic -> OpenAI（首个可用）。
+使用 DeepSeek 官方图片理解模型。
 """
 
 from __future__ import annotations
@@ -19,8 +19,7 @@ import sys
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-from src.config import Config, channel_allows_empty_api_key, get_config
-from src.llm.hermes import route_has_hermes
+from src.config import Config, get_config, DEEPSEEK_MODEL_DEFAULT, normalize_agent_litellm_model, get_api_keys_for_model
 
 logger = logging.getLogger(__name__)
 
@@ -202,22 +201,11 @@ def _parse_items_from_text(text: str) -> List[Tuple[str, Optional[str], str]]:
 
 
 def _resolve_vision_model() -> str:
-    """Determine the litellm model to use for vision."""
     cfg = get_config()
-    # Prefer explicit vision model, then OPENAI_VISION_MODEL alias, then primary litellm model
-    model = (cfg.vision_model or cfg.openai_vision_model or cfg.litellm_model or "").strip()
-    if not model:
-        # Fallback: infer from available keys
-        if cfg.gemini_api_keys:
-            model_name = cfg.gemini_model or "gemini-3.1-pro-preview"
-            model = model_name if "/" in model_name else f"gemini/{model_name}"
-        elif cfg.anthropic_api_keys:
-            model = f"anthropic/{cfg.anthropic_model or 'claude-sonnet-4-6'}"
-        elif cfg.openai_api_keys:
-            model = f"openai/{cfg.openai_model or 'gpt-5.5'}"
-        else:
-            return ""
-    return model
+    return normalize_agent_litellm_model(
+        cfg.vision_model or DEEPSEEK_MODEL_DEFAULT,
+        {str(entry.get("model_name", "")) for entry in (cfg.llm_model_list or [])},
+    )
 
 
 def _matching_vision_deployments(model: str, cfg: Config) -> List[Dict[str, Any]]:
@@ -243,32 +231,16 @@ def _get_api_keys_for_model(model: str, cfg: Config) -> List[str]:
             deployment_keys.append(key)
     if deployment_keys:
         return deployment_keys
-    if model.startswith("gemini/") or model.startswith("vertex_ai/"):
-        return [k for k in cfg.gemini_api_keys if k and len(k) >= 8]
-    if model.startswith("anthropic/"):
-        return [k for k in cfg.anthropic_api_keys if k and len(k) >= 8]
-    return [k for k in cfg.openai_api_keys if k and len(k) >= 8]
-
-
-def _deployment_allows_empty_api_key(deployment: Dict[str, Any]) -> bool:
-    """Return whether a configured vision deployment is a supported keyless endpoint."""
-    params = deployment.get("litellm_params") or {}
-    if str(params.get("api_key") or "").strip():
-        return False
-    wire_model = str(params.get("model") or "").strip()
-    protocol = wire_model.split("/", 1)[0] if "/" in wire_model else None
-    return channel_allows_empty_api_key(protocol, params.get("api_base"))
+    return get_api_keys_for_model(model, cfg)
 
 
 def _call_litellm_vision(image_b64: str, mime_type: str, api_key: Optional[str] = None) -> str:
-    """Extract stock codes from an image using litellm (all providers via OpenAI vision format)."""
+    """Extract stock codes from an image using litellm (DeepSeek image_url format)."""
     global litellm
     cfg = get_config()
     model = _resolve_vision_model()
     if not model:
-        raise ValueError("未配置 Vision API。请设置 LITELLM_MODEL 或相关 API Key。")
-    if route_has_hermes(getattr(cfg, "llm_model_list", []) or [], model):
-        raise ValueError("Hermes Vision 未验证：VISION_MODEL 不能选择包含 Hermes deployment 的 route。")
+        raise ValueError("未配置 Vision API。请设置 VISION_MODEL 和 DEEPSEEK_API_KEY。")
 
     deployments = _matching_vision_deployments(model, cfg)
     keys = _get_api_keys_for_model(model, cfg)
@@ -284,13 +256,6 @@ def _call_litellm_vision(image_b64: str, mime_type: str, api_key: Optional[str] 
             ),
             None,
         )
-        if deployment is None:
-            deployment = next(
-                (item for item in deployments if _deployment_allows_empty_api_key(item)),
-                None,
-            )
-            if deployment is not None:
-                key = None
         if deployment is not None:
             deployment_params = dict(deployment.get("litellm_params") or {})
     if key is None and not deployment_params:
@@ -319,13 +284,6 @@ def _call_litellm_vision(image_b64: str, mime_type: str, api_key: Optional[str] 
         call_kwargs["api_base"] = deployment_params["api_base"]
     if deployment_params.get("extra_headers"):
         call_kwargs["extra_headers"] = dict(deployment_params["extra_headers"])
-    # Add api_base and custom headers for OpenAI-compatible providers
-    if not deployment_params and not model.startswith("gemini/") and not model.startswith("anthropic/") and not model.startswith("vertex_ai/"):
-        if cfg.openai_base_url:
-            call_kwargs["api_base"] = cfg.openai_base_url
-        if cfg.openai_base_url and "aihubmix.com" in cfg.openai_base_url:
-            call_kwargs["extra_headers"] = {"APP-Code": "GPIJ3886"}
-
     if getattr(litellm, "completion", None) is None:
         import litellm as litellm_module
         litellm = litellm_module
@@ -342,7 +300,7 @@ def extract_stock_codes_from_image(
     """
     从图片中提取股票代码及名称（使用 Vision LLM）。
 
-    优先级：Gemini -> Anthropic -> OpenAI（首个可用）。
+    使用 DeepSeek 官方图片理解模型。
     支持多 Key 轮询与重试（最多 3 次，指数退避）。
 
     Args:

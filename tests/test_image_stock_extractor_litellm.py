@@ -15,7 +15,7 @@ from unittest.mock import MagicMock
 if "litellm" not in sys.modules:
     sys.modules["litellm"] = MagicMock()
 # Stub google.generativeai if absent (imported transitively by some modules)
-for _stub in ("google.generativeai", "google.genai", "anthropic"):
+for _stub in ("google.generativeai", "google.genai", "deepseek"):
     if _stub not in sys.modules:
         sys.modules[_stub] = MagicMock()
 
@@ -38,7 +38,7 @@ from src.config import Config
 # Helpers
 # ---------------------------------------------------------------------------
 
-_GEMINI_KEY = "sk-gemini-testkey-1234"   # len >= 8
+_DEEPSEEK_KEY = "sk-deepseek/deepseek-flash"   # len >= 8
 _ANTHROPIC_KEY = "sk-anthropic-testkey-1234"
 _OPENAI_KEY = "sk-openai-testkey-1234"
 
@@ -54,15 +54,6 @@ def _cfg(**kwargs) -> Config:
         litellm_model="",
         litellm_fallback_models=[],
         vision_model="",
-        vision_provider_priority="gemini,anthropic,openai",
-        gemini_api_keys=[],
-        gemini_model="gemini-3.1-pro-preview",
-        anthropic_api_keys=[],
-        anthropic_model="claude-sonnet-4-6",
-        openai_api_keys=[],
-        openai_model="gpt-5.5",
-        openai_base_url=None,
-        openai_vision_model=None,
         deepseek_api_keys=[],
         config_validate_mode="warn",
     )
@@ -81,46 +72,20 @@ def _make_jpeg_bytes() -> bytes:
 
 class TestResolveVisionModel:
     def test_uses_vision_model_first(self):
-        cfg = _cfg(vision_model="gemini/gemini-2.0-flash", openai_vision_model="openai/gpt-4o")
+        cfg = _cfg(vision_model="deepseek/deepseek-flash")
         with patch("src.services.image_stock_extractor.get_config", return_value=cfg):
-            assert _resolve_vision_model() == "gemini/gemini-2.0-flash"
+            assert _resolve_vision_model() == "deepseek/deepseek-flash"
 
-    def test_uses_openai_vision_model_first(self):
-        cfg = _cfg(vision_model="", openai_vision_model="openai/gpt-4o", litellm_model="gemini/gemini-2.5-flash")
-        with patch("src.services.image_stock_extractor.get_config", return_value=cfg):
-            assert _resolve_vision_model() == "openai/gpt-4o"
 
     def test_falls_back_to_litellm_model(self):
-        cfg = _cfg(openai_vision_model=None, litellm_model="gemini/gemini-2.5-flash")
+        cfg = _cfg(litellm_model="deepseek/deepseek-flash")
         with patch("src.services.image_stock_extractor.get_config", return_value=cfg):
-            assert _resolve_vision_model() == "gemini/gemini-2.5-flash"
+            assert _resolve_vision_model() == "deepseek/deepseek-flash"
 
-    def test_infers_gemini_from_api_keys(self):
-        cfg = _cfg(openai_vision_model=None, litellm_model="", gemini_api_keys=[_GEMINI_KEY])
-        with patch("src.services.image_stock_extractor.get_config", return_value=cfg):
-            assert _resolve_vision_model() == "gemini/gemini-3.1-pro-preview"
 
-    def test_infers_anthropic_when_no_gemini_key(self):
-        cfg = _cfg(openai_vision_model=None, litellm_model="", gemini_api_keys=[], anthropic_api_keys=[_ANTHROPIC_KEY])
-        with patch("src.services.image_stock_extractor.get_config", return_value=cfg):
-            result = _resolve_vision_model()
-            assert result.startswith("anthropic/")
 
-    def test_infers_openai_when_only_openai_key(self):
-        cfg = _cfg(openai_vision_model=None, litellm_model="", openai_api_keys=[_OPENAI_KEY])
-        with patch("src.services.image_stock_extractor.get_config", return_value=cfg):
-            result = _resolve_vision_model()
-            assert result.startswith("openai/")
 
-    def test_keeps_gemini3_vision_model(self):
-        cfg = _cfg(openai_vision_model="gemini/gemini-3.1-pro-preview")
-        with patch("src.services.image_stock_extractor.get_config", return_value=cfg):
-            assert _resolve_vision_model() == "gemini/gemini-3.1-pro-preview"
 
-    def test_returns_empty_when_no_model_and_no_keys(self):
-        cfg = _cfg(openai_vision_model=None, litellm_model="", gemini_api_keys=[], anthropic_api_keys=[], openai_api_keys=[])
-        with patch("src.services.image_stock_extractor.get_config", return_value=cfg):
-            assert _resolve_vision_model() == ""
 
 
 # ---------------------------------------------------------------------------
@@ -128,26 +93,18 @@ class TestResolveVisionModel:
 # ---------------------------------------------------------------------------
 
 class TestGetApiKeysForModel:
-    def test_returns_gemini_keys_for_gemini_model(self):
-        cfg = _cfg(gemini_api_keys=[_GEMINI_KEY], openai_api_keys=[_OPENAI_KEY])
-        keys = _get_api_keys_for_model("gemini/gemini-2.0-flash", cfg)
-        assert _GEMINI_KEY in keys
+    def test_returns_deepseek_keys(self):
+        cfg = _cfg(deepseek_api_keys=[_DEEPSEEK_KEY])
+        keys = _get_api_keys_for_model("deepseek/deepseek-flash", cfg)
+        assert _DEEPSEEK_KEY in keys
 
-    def test_returns_anthropic_keys_for_anthropic_model(self):
-        cfg = _cfg(anthropic_api_keys=[_ANTHROPIC_KEY], openai_api_keys=[_OPENAI_KEY])
-        keys = _get_api_keys_for_model("anthropic/claude-3-5-sonnet-20241022", cfg)
-        assert _ANTHROPIC_KEY in keys
 
-    def test_returns_openai_keys_for_openai_model(self):
-        cfg = _cfg(openai_api_keys=[_OPENAI_KEY], gemini_api_keys=[_GEMINI_KEY])
-        keys = _get_api_keys_for_model("openai/gpt-4o-mini", cfg)
-        assert _OPENAI_KEY in keys
 
     def test_filters_out_short_keys(self):
-        cfg = _cfg(gemini_api_keys=["short", _GEMINI_KEY])
-        keys = _get_api_keys_for_model("gemini/gemini-2.0-flash", cfg)
+        cfg = _cfg(deepseek_api_keys=["short", _DEEPSEEK_KEY])
+        keys = _get_api_keys_for_model("deepseek/deepseek-flash", cfg)
         assert "short" not in keys
-        assert _GEMINI_KEY in keys
+        assert _DEEPSEEK_KEY in keys
 
 
 # ---------------------------------------------------------------------------
@@ -165,7 +122,7 @@ class TestCallLitellmVision:
         return resp
 
     def test_calls_litellm_with_image(self):
-        cfg = _cfg(openai_vision_model=None, litellm_model="", gemini_api_keys=[_GEMINI_KEY])
+        cfg = _cfg(litellm_model="", deepseek_api_keys=[_DEEPSEEK_KEY])
         with patch("src.services.image_stock_extractor.get_config", return_value=cfg), \
              patch("src.services.image_stock_extractor.litellm.completion",
                    return_value=self._good_response()) as mock_comp:
@@ -176,103 +133,19 @@ class TestCallLitellmVision:
             assert kwargs["timeout"] == VISION_API_TIMEOUT
             assert kwargs["max_tokens"] == 1024
 
-    def test_openai_model_uses_api_base_and_aihubmix_headers(self):
-        cfg = _cfg(
-            openai_vision_model="openai/gpt-4o-mini",
-            openai_api_keys=[_OPENAI_KEY],
-            openai_base_url="https://aihubmix.com/v1",
-        )
-        with patch("src.services.image_stock_extractor.get_config", return_value=cfg), \
-             patch("src.services.image_stock_extractor.litellm.completion",
-                   return_value=self._good_response()) as mock_comp:
-            _call_litellm_vision("b64", "image/jpeg")
-            kwargs = mock_comp.call_args[1]
-            assert kwargs["api_base"] == "https://aihubmix.com/v1"
-            assert kwargs["extra_headers"]["APP-Code"] == "GPIJ3886"
 
-    def test_responses_vision_route_uses_deployment_wire_model_and_credentials(self):
-        cfg = _cfg(
-            vision_model="openai/gpt-5.6-sol",
-            openai_api_keys=[_OPENAI_KEY],
-            openai_base_url="https://legacy.example/v1",
-            llm_model_list=[{
-                "model_name": "openai/gpt-5.6-sol",
-                "litellm_params": {
-                    "model": "openai/responses/gpt-5.6-sol",
-                    "api_key": "sk-channel-test-value",
-                    "api_base": "https://responses.example/v1",
-                    "extra_headers": {"X-Channel": "responses"},
-                },
-                "model_info": {"dsa_api_surface": "responses"},
-            }],
-        )
-        with patch("src.services.image_stock_extractor.get_config", return_value=cfg), \
-             patch("src.services.image_stock_extractor.litellm.completion",
-                   return_value=self._good_response()) as mock_comp:
-            _call_litellm_vision("b64", "image/jpeg")
 
-        kwargs = mock_comp.call_args.kwargs
-        assert kwargs["model"] == "openai/responses/gpt-5.6-sol"
-        assert kwargs["api_key"] == "sk-channel-test-value"
-        assert kwargs["api_base"] == "https://responses.example/v1"
-        assert kwargs["extra_headers"] == {"X-Channel": "responses"}
 
-    def test_responses_vision_route_allows_keyless_loopback_deployment(self):
-        cfg = _cfg(
-            vision_model="openai/gpt-5.6-sol",
-            openai_api_keys=[],
-            llm_model_list=[{
-                "model_name": "openai/gpt-5.6-sol",
-                "litellm_params": {
-                    "model": "openai/responses/gpt-5.6-sol",
-                    "api_base": "http://127.0.0.1:8642/v1",
-                },
-                "model_info": {"dsa_api_surface": "responses"},
-            }],
-        )
-        with patch("src.services.image_stock_extractor.get_config", return_value=cfg), \
-             patch("src.services.image_stock_extractor.litellm.completion",
-                   return_value=self._good_response()) as mock_comp:
-            _call_litellm_vision("b64", "image/jpeg")
 
-        kwargs = mock_comp.call_args.kwargs
-        assert kwargs["model"] == "openai/responses/gpt-5.6-sol"
-        assert kwargs["api_base"] == "http://127.0.0.1:8642/v1"
-        assert "api_key" not in kwargs
-
-    def test_responses_vision_route_rejects_keyless_remote_deployment(self):
-        cfg = _cfg(
-            vision_model="openai/gpt-5.6-sol",
-            openai_api_keys=[],
-            llm_model_list=[{
-                "model_name": "openai/gpt-5.6-sol",
-                "litellm_params": {
-                    "model": "openai/responses/gpt-5.6-sol",
-                    "api_base": "https://responses.example/v1",
-                },
-                "model_info": {"dsa_api_surface": "responses"},
-            }],
-        )
-        with patch("src.services.image_stock_extractor.get_config", return_value=cfg), \
-             patch("src.services.image_stock_extractor.litellm.completion") as mock_comp:
-            with pytest.raises(ValueError, match="No API key found"):
-                _call_litellm_vision("b64", "image/jpeg")
-        mock_comp.assert_not_called()
-
-    def test_raises_when_model_not_configured(self):
-        cfg = _cfg(openai_vision_model=None, litellm_model="", gemini_api_keys=[], anthropic_api_keys=[], openai_api_keys=[])
-        with patch("src.services.image_stock_extractor.get_config", return_value=cfg):
-            with pytest.raises(ValueError, match="未配置 Vision API"):
-                _call_litellm_vision("b64", "image/jpeg")
 
     def test_raises_when_no_key_for_model(self):
-        cfg = _cfg(openai_vision_model="openai/gpt-4o-mini", openai_api_keys=[])
+        cfg = _cfg(deepseek_api_keys=[])
         with patch("src.services.image_stock_extractor.get_config", return_value=cfg):
             with pytest.raises(ValueError, match="No API key found"):
                 _call_litellm_vision("b64", "image/jpeg")
 
     def test_raises_when_completion_returns_empty(self):
-        cfg = _cfg(gemini_api_keys=[_GEMINI_KEY])
+        cfg = _cfg(deepseek_api_keys=[_DEEPSEEK_KEY])
         empty_resp = MagicMock()
         empty_resp.choices = []
         with patch("src.services.image_stock_extractor.get_config", return_value=cfg), \
@@ -280,79 +153,6 @@ class TestCallLitellmVision:
                    return_value=empty_resp):
             with pytest.raises(ValueError, match="returned empty response"):
                 _call_litellm_vision("b64", "image/jpeg")
-
-    def test_rejects_hermes_route_without_calling_litellm(self):
-        cfg = _cfg(
-            vision_model="openai/hermes-agent",
-            llm_model_list=[
-                {
-                    "model_name": "openai/hermes-agent",
-                    "litellm_params": {
-                        "model": "openai/hermes-agent",
-                        "api_key": "sk-hermes-test-value",
-                        "api_base": "http://127.0.0.1:8642/v1",
-                    },
-                    "model_info": {"dsa_channel": "hermes"},
-                }
-            ],
-            openai_api_keys=[_OPENAI_KEY],
-        )
-        with patch("src.services.image_stock_extractor.get_config", return_value=cfg), \
-             patch("src.services.image_stock_extractor.litellm.completion") as mock_comp:
-            with pytest.raises(ValueError, match="Hermes Vision"):
-                _call_litellm_vision("b64", "image/jpeg")
-        mock_comp.assert_not_called()
-
-    def test_rejects_bare_hermes_route_without_calling_litellm(self):
-        cfg = _cfg(
-            vision_model="hermes-agent",
-            llm_model_list=[
-                {
-                    "model_name": "openai/hermes-agent",
-                    "litellm_params": {
-                        "model": "openai/hermes-agent",
-                        "api_key": "sk-hermes-test-value",
-                        "api_base": "http://127.0.0.1:8642/v1",
-                    },
-                    "model_info": {"dsa_channel": "hermes"},
-                }
-            ],
-            openai_api_keys=[_OPENAI_KEY],
-        )
-        with patch("src.services.image_stock_extractor.get_config", return_value=cfg), \
-             patch("src.services.image_stock_extractor.litellm.completion") as mock_comp:
-            with pytest.raises(ValueError, match="Hermes Vision"):
-                _call_litellm_vision("b64", "image/jpeg")
-        mock_comp.assert_not_called()
-
-    def test_rejects_bare_mixed_hermes_route_without_calling_litellm(self):
-        cfg = _cfg(
-            vision_model="shared-route",
-            llm_model_list=[
-                {
-                    "model_name": "openai/shared-route",
-                    "litellm_params": {
-                        "model": "openai/hermes-agent",
-                        "api_key": "sk-hermes-test-value",
-                        "api_base": "http://127.0.0.1:8642/v1",
-                    },
-                    "model_info": {"dsa_channel": "hermes"},
-                },
-                {
-                    "model_name": "openai/shared-route",
-                    "litellm_params": {
-                        "model": "openai/gpt-4o-mini",
-                        "api_key": _OPENAI_KEY,
-                    },
-                },
-            ],
-            openai_api_keys=[_OPENAI_KEY],
-        )
-        with patch("src.services.image_stock_extractor.get_config", return_value=cfg), \
-             patch("src.services.image_stock_extractor.litellm.completion") as mock_comp:
-            with pytest.raises(ValueError, match="Hermes Vision"):
-                _call_litellm_vision("b64", "image/jpeg")
-        mock_comp.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -443,7 +243,7 @@ class TestExtractStockCodesFromImage:
         return resp
 
     def test_returns_items_and_raw(self):
-        cfg = _cfg(gemini_api_keys=[_GEMINI_KEY])
+        cfg = _cfg(deepseek_api_keys=[_DEEPSEEK_KEY])
         jpeg = _make_jpeg_bytes()
         with patch("src.services.image_stock_extractor.get_config", return_value=cfg), \
              patch("src.services.image_stock_extractor.litellm.completion",
@@ -469,7 +269,7 @@ class TestExtractStockCodesFromImage:
             extract_stock_codes_from_image(fake, "image/jpeg")
 
     def test_wraps_litellm_error_message(self):
-        cfg = _cfg(gemini_api_keys=[_GEMINI_KEY])
+        cfg = _cfg(deepseek_api_keys=[_DEEPSEEK_KEY])
         jpeg = _make_jpeg_bytes()
         with patch("src.services.image_stock_extractor.get_config", return_value=cfg), \
              patch("src.services.image_stock_extractor.litellm.completion",

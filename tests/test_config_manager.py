@@ -31,7 +31,7 @@ class ConfigManagerTestCase(unittest.TestCase):
                     "",
                     "export SHOULD_STAY_UNCHANGED",
                     "# Secrets",
-                    "GEMINI_API_KEY=secret-key",
+                    "DEEPSEEK_API_KEY=secret-key",
                 ]
             )
             + "\n",
@@ -47,7 +47,7 @@ class ConfigManagerTestCase(unittest.TestCase):
         env_content = self.env_path.read_text(encoding="utf-8")
         self.assertIn("# Core settings\n", env_content)
         self.assertIn("\n\nexport SHOULD_STAY_UNCHANGED\n", env_content)
-        self.assertIn("# Secrets\nGEMINI_API_KEY=secret-key\n", env_content)
+        self.assertIn("# Secrets\nDEEPSEEK_API_KEY=secret-key\n", env_content)
         self.assertIn("STOCK_LIST=600519,300750\n", env_content)
 
     def test_apply_updates_only_rewrites_last_duplicate_assignment(self) -> None:

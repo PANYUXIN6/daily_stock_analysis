@@ -171,7 +171,6 @@ def _build_analysis_context_pack_summary(
         if realtime_quote is not None
         else {"price": 1880.0, "source": "mock_quote"},
         trend_result={"trend_status": "available"},
-        chip_data={"source": "mock_chip", "date": "2026-03-26"},
         fundamental_context=fundamental_context
         if fundamental_context is not None
         else {
@@ -644,8 +643,8 @@ class TestAgentExecutor(unittest.TestCase):
             content="Done.",
             tool_calls=[],
             usage={},
-            provider="openai",
-            model="openai/gpt-test",
+            provider="deepseek",
+            model="deepseek/deepseek-flash",
         )
 
         with patch("src.agent.runner._persist_usage") as persist_usage:
@@ -668,10 +667,10 @@ class TestAgentExecutor(unittest.TestCase):
             tool_calls=[],
             usage=normalize_litellm_usage(
                 {"estimated_prefix_tokens": 123},
-                model="openai/gpt-4o",
+                model="deepseek/deepseek-flash",
             ),
-            provider="openai",
-            model="openai/gpt-test",
+            provider="deepseek",
+            model="deepseek/deepseek-flash",
         )
 
         with patch("src.agent.runner._persist_usage") as persist_usage:
@@ -689,13 +688,13 @@ class TestAgentExecutor(unittest.TestCase):
     def test_run_agent_loop_persists_invalid_provider_usage_diagnostics(self):
         registry = _make_registry_with_echo()
         adapter = _make_mock_adapter()
-        usage = normalize_litellm_usage({"prompt_tokens": -1}, model="openai/gpt-4o")
+        usage = normalize_litellm_usage({"prompt_tokens": -1}, model="deepseek/deepseek-flash")
         adapter.call_with_tools.return_value = LLMResponse(
             content="Done.",
             tool_calls=[],
             usage=usage,
-            provider="openai",
-            model="openai/gpt-test",
+            provider="deepseek",
+            model="deepseek/deepseek-flash",
         )
 
         with patch("src.agent.runner._persist_usage") as persist_usage:
@@ -709,7 +708,7 @@ class TestAgentExecutor(unittest.TestCase):
         self.assertTrue(result.success)
         self.assertEqual(result.total_tokens, 0)
         self.assertEqual(usage["cache_observation"], "invalid_provider_usage")
-        persist_usage.assert_called_once_with(usage, "openai/gpt-test", call_type="agent")
+        persist_usage.assert_called_once_with(usage, "deepseek/deepseek-flash", call_type="agent")
 
     def test_run_agent_loop_persists_agent_usage_with_provider_usage(self):
         registry = _make_registry_with_echo()
@@ -719,8 +718,8 @@ class TestAgentExecutor(unittest.TestCase):
             content="Done.",
             tool_calls=[],
             usage=usage,
-            provider="openai",
-            model="openai/gpt-test",
+            provider="deepseek",
+            model="deepseek/deepseek-flash",
         )
 
         with patch("src.agent.runner._persist_usage") as persist_usage:
@@ -733,7 +732,7 @@ class TestAgentExecutor(unittest.TestCase):
 
         self.assertTrue(result.success)
         self.assertEqual(result.total_tokens, 5)
-        persist_usage.assert_called_once_with(usage, "openai/gpt-test", call_type="agent")
+        persist_usage.assert_called_once_with(usage, "deepseek/deepseek-flash", call_type="agent")
 
     def test_run_agent_loop_blocks_conflicting_stock_scoped_tool_and_keeps_tool_result(self):
         executed_calls = []
@@ -746,13 +745,13 @@ class TestAgentExecutor(unittest.TestCase):
                     ToolCall(id="quote_1", name="get_realtime_quote", arguments={"stock_code": "TTM"}),
                 ],
                 usage={"total_tokens": 10},
-                provider="openai",
+                provider="deepseek",
             ),
             LLMResponse(
                 content="I will stay on the current stock.",
                 tool_calls=[],
                 usage={"total_tokens": 10},
-                provider="openai",
+                provider="deepseek",
             ),
         ]
 
@@ -792,13 +791,13 @@ class TestAgentExecutor(unittest.TestCase):
                     ToolCall(id="quote_1", name="get_realtime_quote", arguments={"stock_code": 123456}),
                 ],
                 usage={"total_tokens": 10},
-                provider="openai",
+                provider="deepseek",
             ),
             LLMResponse(
                 content="Blocked wrong numeric code.",
                 tool_calls=[],
                 usage={"total_tokens": 10},
-                provider="openai",
+                provider="deepseek",
             ),
         ]
 
@@ -832,13 +831,13 @@ class TestAgentExecutor(unittest.TestCase):
                     ToolCall(id="quote_1", name="get_realtime_quote", arguments={"stock_code": "000002.SZ"}),
                 ],
                 usage={"total_tokens": 10},
-                provider="openai",
+                provider="deepseek",
             ),
             LLMResponse(
                 content="000858 and HK allowed.",
                 tool_calls=[],
                 usage={"total_tokens": 10},
-                provider="openai",
+                provider="deepseek",
             ),
         ]
 
@@ -872,13 +871,13 @@ class TestAgentExecutor(unittest.TestCase):
                     ToolCall(id="quote_1", name="get_realtime_quote", arguments={"stock_code": "000858"}),
                 ],
                 usage={"total_tokens": 10},
-                provider="openai",
+                provider="deepseek",
             ),
             LLMResponse(
                 content="Compared allowed stock.",
                 tool_calls=[],
                 usage={"total_tokens": 10},
-                provider="openai",
+                provider="deepseek",
             ),
         ]
         message = "分析 600519 和 000858 的差异"
@@ -912,13 +911,13 @@ class TestAgentExecutor(unittest.TestCase):
                     ToolCall(id="quote_1", name="get_realtime_quote", arguments={"stock_code": "000002"}),
                 ],
                 usage={"total_tokens": 10},
-                provider="openai",
+                provider="deepseek",
             ),
             LLMResponse(
                 content="Compared allowed HK stock.",
                 tool_calls=[],
                 usage={"total_tokens": 10},
-                provider="openai",
+                provider="deepseek",
             ),
         ]
         message = "比较 000002 和 000858"
@@ -953,13 +952,13 @@ class TestAgentExecutor(unittest.TestCase):
                     ToolCall(id="quote_2", name="get_realtime_quote", arguments={"stock_code": "300750"}),
                 ],
                 usage={"total_tokens": 10},
-                provider="openai",
+                provider="deepseek",
             ),
             LLMResponse(
                 content="Compared allowed stocks.",
                 tool_calls=[],
                 usage={"total_tokens": 10},
-                provider="openai",
+                provider="deepseek",
             ),
         ]
         message = "000858 和 300750 哪个更值得买"
@@ -1016,13 +1015,13 @@ class TestAgentExecutor(unittest.TestCase):
                             ),
                         ],
                         usage={"total_tokens": 10},
-                        provider="openai",
+                        provider="deepseek",
                     ),
                     LLMResponse(
                         content="Blocked invalid suffix token.",
                         tool_calls=[],
                         usage={"total_tokens": 10},
-                        provider="openai",
+                        provider="deepseek",
                     ),
                 ]
                 scope = resolve_stock_scope(message, {"stock_code": "600519"}).stock_scope
@@ -1069,13 +1068,13 @@ class TestAgentExecutor(unittest.TestCase):
                             ),
                         ],
                         usage={"total_tokens": 10},
-                        provider="openai",
+                        provider="deepseek",
                     ),
                     LLMResponse(
                         content="Blocked indicator token.",
                         tool_calls=[],
                         usage={"total_tokens": 10},
-                        provider="openai",
+                        provider="deepseek",
                     ),
                 ]
                 scope = resolve_stock_scope(message, {"stock_code": "600519"}).stock_scope
@@ -1124,13 +1123,13 @@ class TestAgentExecutor(unittest.TestCase):
                             ),
                         ],
                         usage={"total_tokens": 10},
-                        provider="openai",
+                        provider="deepseek",
                     ),
                     LLMResponse(
                         content="Blocked untrusted context.",
                         tool_calls=[],
                         usage={"total_tokens": 10},
-                        provider="openai",
+                        provider="deepseek",
                     ),
                 ]
                 scope_resolution = resolve_stock_scope(
@@ -1175,13 +1174,13 @@ class TestAgentExecutor(unittest.TestCase):
                     ),
                 ],
                 usage={"total_tokens": 10},
-                provider="gemini",
+                provider="deepseek",
             ),
             LLMResponse(
                 content="Blocked wrong code.",
                 tool_calls=[],
                 usage={"total_tokens": 10},
-                provider="gemini",
+                provider="deepseek",
             ),
         ]
 
@@ -1218,13 +1217,13 @@ class TestAgentExecutor(unittest.TestCase):
                     ToolCall(id="echo_1", name="echo", arguments={"message": "not stock scoped"}),
                 ],
                 usage={"total_tokens": 10},
-                provider="openai",
+                provider="deepseek",
             ),
             LLMResponse(
                 content="Done.",
                 tool_calls=[],
                 usage={"total_tokens": 10},
-                provider="openai",
+                provider="deepseek",
             ),
         ]
 
@@ -1299,7 +1298,7 @@ class TestAgentExecutor(unittest.TestCase):
             content=json.dumps(SAMPLE_DASHBOARD, ensure_ascii=False),
             tool_calls=[],
             usage={"total_tokens": 50},
-            provider="openai",
+            provider="deepseek",
         )
 
         executor = AgentExecutor(
@@ -1325,7 +1324,7 @@ class TestAgentExecutor(unittest.TestCase):
             content=json.dumps(SAMPLE_DASHBOARD, ensure_ascii=False),
             tool_calls=[],
             usage={"total_tokens": 50},
-            provider="openai",
+            provider="deepseek",
         )
 
         executor = AgentExecutor(
@@ -1355,7 +1354,7 @@ class TestAgentExecutor(unittest.TestCase):
             content=json.dumps(SAMPLE_DASHBOARD, ensure_ascii=False),
             tool_calls=[],
             usage={"total_tokens": 100},
-            provider="openai",
+            provider="deepseek",
         )
 
         executor = AgentExecutor(registry, adapter, max_steps=5)
@@ -1365,7 +1364,7 @@ class TestAgentExecutor(unittest.TestCase):
         self.assertIsNotNone(result.dashboard)
         self.assertEqual(result.dashboard["sentiment_score"], 75)
         self.assertEqual(result.total_steps, 1)
-        self.assertEqual(result.provider, "openai")
+        self.assertEqual(result.provider, "deepseek")
         self.assertEqual(len(result.tool_calls_log), 0)
 
     def test_tool_call_then_text(self):
@@ -1380,14 +1379,14 @@ class TestAgentExecutor(unittest.TestCase):
                 ToolCall(id="call_1", name="echo", arguments={"message": "hello"}),
             ],
             usage={"total_tokens": 50},
-            provider="gemini",
+            provider="deepseek",
         )
         # Step 2: LLM returns final text
         step2_response = LLMResponse(
             content=json.dumps(SAMPLE_DASHBOARD, ensure_ascii=False),
             tool_calls=[],
             usage={"total_tokens": 80},
-            provider="gemini",
+            provider="deepseek",
         )
         adapter.call_with_tools.side_effect = [step1_response, step2_response]
 
@@ -1556,13 +1555,13 @@ class TestAgentExecutor(unittest.TestCase):
                 ToolCall(id="c2", name="echo", arguments={"message": "b"}),
             ],
             usage={"total_tokens": 40},
-            provider="openai",
+            provider="deepseek",
         )
         step2 = LLMResponse(
             content=json.dumps(SAMPLE_DASHBOARD),
             tool_calls=[],
             usage={"total_tokens": 60},
-            provider="openai",
+            provider="deepseek",
         )
         adapter.call_with_tools.side_effect = [step1, step2]
 
@@ -1584,7 +1583,7 @@ class TestAgentExecutor(unittest.TestCase):
                 ToolCall(id="c1", name="echo", arguments={"message": "loop"}),
             ],
             usage={"total_tokens": 20},
-            provider="openai",
+            provider="deepseek",
         )
         adapter.call_with_tools.return_value = tool_response
 
@@ -1616,13 +1615,13 @@ class TestAgentExecutor(unittest.TestCase):
                 ToolCall(id="f1", name="failing_tool", arguments={}),
             ],
             usage={"total_tokens": 30},
-            provider="openai",
+            provider="deepseek",
         )
         step2 = LLMResponse(
             content=json.dumps(SAMPLE_DASHBOARD),
             tool_calls=[],
             usage={"total_tokens": 50},
-            provider="openai",
+            provider="deepseek",
         )
         adapter.call_with_tools.side_effect = [step1, step2]
 
@@ -1646,13 +1645,13 @@ class TestAgentExecutor(unittest.TestCase):
                 ToolCall(id="u1", name="nonexistent_tool", arguments={}),
             ],
             usage={"total_tokens": 20},
-            provider="openai",
+            provider="deepseek",
         )
         step2 = LLMResponse(
             content=json.dumps(SAMPLE_DASHBOARD),
             tool_calls=[],
             usage={"total_tokens": 50},
-            provider="openai",
+            provider="deepseek",
         )
         adapter.call_with_tools.side_effect = [step1, step2]
 
@@ -1696,7 +1695,7 @@ class TestAgentExecutor(unittest.TestCase):
                     ToolCall(id="q1", name="get_realtime_quote", arguments={"stock_code": "sz000002"}),
                 ],
                 usage={"total_tokens": 10},
-                provider="openai",
+                provider="deepseek",
             ),
             LLMResponse(
                 content="",
@@ -1704,13 +1703,13 @@ class TestAgentExecutor(unittest.TestCase):
                     ToolCall(id="q2", name="get_realtime_quote", arguments={"stock_code": "000002.SZ"}),
                 ],
                 usage={"total_tokens": 10},
-                provider="openai",
+                provider="deepseek",
             ),
             LLMResponse(
                 content=json.dumps(SAMPLE_DASHBOARD, ensure_ascii=False),
                 tool_calls=[],
                 usage={"total_tokens": 10},
-                provider="openai",
+                provider="deepseek",
             ),
         ]
 
@@ -1732,22 +1731,22 @@ class TestAgentExecutor(unittest.TestCase):
             content="first tool call",
             tool_calls=[ToolCall(id="m1", name="echo", arguments={"message": "a"})],
             usage={"total_tokens": 10},
-            provider="gemini",
-            model="gemini/gemini-2.0-flash",
+            provider="deepseek",
+            model="deepseek/deepseek-flash",
         )
         step2 = LLMResponse(
             content="second tool call",
             tool_calls=[ToolCall(id="m2", name="echo", arguments={"message": "b"})],
             usage={"total_tokens": 10},
-            provider="gemini",
-            model="gemini/gemini-2.0-flash",
+            provider="deepseek",
+            model="deepseek/deepseek-v4-pro",
         )
         step3 = LLMResponse(
             content=json.dumps(SAMPLE_DASHBOARD, ensure_ascii=False),
             tool_calls=[],
             usage={"total_tokens": 10},
-            provider="openai",
-            model="openai/gpt-4o-mini",
+            provider="deepseek",
+            model="deepseek/deepseek-flash",
         )
         adapter.call_with_tools.side_effect = [step1, step2, step3]
 
@@ -1755,7 +1754,7 @@ class TestAgentExecutor(unittest.TestCase):
         result = executor.run("Analyze 600519")
 
         self.assertTrue(result.success)
-        self.assertEqual(result.model, "gemini/gemini-2.0-flash, openai/gpt-4o-mini")
+        self.assertEqual(result.model, "deepseek/deepseek-flash, deepseek/deepseek-v4-pro")
 
     def test_model_trace_skips_error_provider(self):
         """Error provider placeholder should not appear in model trace."""
@@ -1811,7 +1810,7 @@ class TestAgentExecutor(unittest.TestCase):
                 content=json.dumps(SAMPLE_DASHBOARD, ensure_ascii=False),
                 tool_calls=[],
                 usage={"total_tokens": 10},
-                provider="openai",
+                provider="deepseek",
             )
 
         adapter.call_with_tools.side_effect = _slow_llm
@@ -1850,13 +1849,13 @@ class TestAgentExecutor(unittest.TestCase):
                     ToolCall(id="slow", name="echo", arguments={"message": "slow"}),
                 ],
                 usage={"total_tokens": 10},
-                provider="openai",
+                provider="deepseek",
             ),
             LLMResponse(
                 content=json.dumps(SAMPLE_DASHBOARD, ensure_ascii=False),
                 tool_calls=[],
                 usage={"total_tokens": 10},
-                provider="openai",
+                provider="deepseek",
             ),
         ]
 
@@ -1901,13 +1900,13 @@ class TestAgentExecutor(unittest.TestCase):
                 content="Gathering data.",
                 tool_calls=[ToolCall(id="slow", name="echo", arguments={"message": "slow"})],
                 usage={"total_tokens": 10},
-                provider="openai",
+                provider="deepseek",
             ),
             LLMResponse(
                 content=json.dumps(SAMPLE_DASHBOARD, ensure_ascii=False),
                 tool_calls=[],
                 usage={"total_tokens": 10},
-                provider="openai",
+                provider="deepseek",
             ),
         ]
 
@@ -1939,7 +1938,7 @@ class TestAgentExecutor(unittest.TestCase):
                 content=json.dumps(SAMPLE_DASHBOARD, ensure_ascii=False),
                 tool_calls=[],
                 usage={"total_tokens": 10},
-                provider="openai",
+                provider="deepseek",
             )
 
         adapter.call_with_tools.side_effect = _capture_timeout
@@ -1961,7 +1960,7 @@ class TestAgentExecutor(unittest.TestCase):
             content="Need one tool first.",
             tool_calls=[ToolCall(id="echo_1", name="echo", arguments={"message": "hello"})],
             usage={"total_tokens": 10},
-            provider="openai",
+            provider="deepseek",
         )
 
         with patch(

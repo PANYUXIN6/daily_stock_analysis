@@ -40,8 +40,8 @@ def _config(
         agent_context_compression_trigger_tokens=trigger,
         agent_context_protected_turns=protected,
         llm_model_list=[],
-        agent_litellm_model="openai/test-model",
-        litellm_model="openai/test-model",
+        agent_litellm_model="deepseek/deepseek-test-model",
+        litellm_model="deepseek/deepseek-test-model",
         litellm_fallback_models=[],
     )
 
@@ -129,8 +129,8 @@ def test_bundle_splices_provider_trace_before_visible_final_assistant() -> None:
     db.save_agent_provider_turn(
         session_id=session_id,
         run_id="run-1",
-        provider="openai",
-        model="openai/test-model",
+        provider="deepseek",
+        model="deepseek/deepseek-test-model",
         anchor_user_message_id=user_id,
         anchor_assistant_message_id=assistant_id,
         messages=[
@@ -192,8 +192,8 @@ def test_bundle_drops_trace_on_model_mismatch_budget_and_summarized_anchor() -> 
     db.save_agent_provider_turn(
         session_id=budget_session,
         run_id="run-budget",
-        provider="openai",
-        model="openai/test-model",
+        provider="deepseek",
+        model="deepseek/deepseek-test-model",
         anchor_user_message_id=user_id,
         anchor_assistant_message_id=assistant_id,
         messages=[{"role": "assistant", "reasoning_content": "r", "tool_calls": [{"id": "c", "name": "echo", "arguments": {}}]}],
@@ -218,8 +218,8 @@ def test_bundle_drops_trace_on_model_mismatch_budget_and_summarized_anchor() -> 
     db.save_agent_provider_turn(
         session_id=summarized_session,
         run_id="run-summary",
-        provider="openai",
-        model="openai/test-model",
+        provider="deepseek",
+        model="deepseek/deepseek-test-model",
         anchor_user_message_id=user_id,
         anchor_assistant_message_id=assistant_id,
         messages=[{"role": "assistant", "reasoning_content": "r", "tool_calls": [{"id": "c", "name": "echo", "arguments": {}}]}],
@@ -265,8 +265,8 @@ def test_bundle_injects_trace_for_configured_fallback_model_with_trace_metadata(
         estimated_tokens=10,
     )
     config = _config(enabled=False)
-    config.agent_litellm_model = "openai/test-model"
-    config.litellm_model = "openai/test-model"
+    config.agent_litellm_model = "deepseek/deepseek-test-model"
+    config.litellm_model = "deepseek/deepseek-test-model"
     config.litellm_fallback_models = ["deepseek/deepseek-chat"]
 
     bundle = build_agent_chat_context_bundle(session_id, MagicMock(), config)
@@ -311,14 +311,14 @@ def test_bundle_trace_is_replayed_only_for_matching_fallback_attempt() -> None:
         estimated_tokens=10,
     )
     config = _config(enabled=False)
-    config.agent_litellm_model = "openai/test-model"
-    config.litellm_model = "openai/test-model"
+    config.agent_litellm_model = "deepseek/deepseek-test-model"
+    config.litellm_model = "deepseek/deepseek-test-model"
     config.litellm_fallback_models = ["deepseek/deepseek-chat"]
     adapter = LLMToolAdapter.__new__(LLMToolAdapter)
     adapter._config = config
 
     bundle = build_agent_chat_context_bundle(session_id, MagicMock(), config)
-    primary_messages = adapter._convert_messages(bundle.context_messages, target_model="openai/test-model")
+    primary_messages = adapter._convert_messages(bundle.context_messages, target_model="deepseek/deepseek-test-model")
     fallback_messages = adapter._convert_messages(bundle.context_messages, target_model="deepseek/deepseek-chat")
 
     assert bundle.diagnostics["trace_injected"] is True
@@ -331,93 +331,6 @@ def test_bundle_trace_is_replayed_only_for_matching_fallback_attempt() -> None:
     assert fallback_messages[-1]["content"] == "a1-final"
 
 
-def test_bundle_does_not_match_hermes_only_fallback_trace() -> None:
-    db = _reset_db()
-    session_id = "chat-trace-hermes-fallback"
-    user_id = db.save_conversation_message(session_id, "user", "u1")
-    assistant_id = db.save_conversation_message(session_id, "assistant", "a1-final")
-    db.save_agent_provider_turn(
-        session_id=session_id,
-        run_id="run-hermes-fallback",
-        provider="openai",
-        model="openai/hermes-agent",
-        anchor_user_message_id=user_id,
-        anchor_assistant_message_id=assistant_id,
-        messages=[{"role": "assistant", "content": "hermes-trace"}],
-        contains_reasoning=False,
-        contains_tool_calls=False,
-        contains_thinking_blocks=False,
-        must_roundtrip=True,
-        estimated_tokens=10,
-    )
-    config = _config(enabled=False)
-    config.agent_litellm_model = "openai/test-model"
-    config.litellm_model = "openai/test-model"
-    config.litellm_fallback_models = ["openai/hermes-agent"]
-    config.llm_model_list = [
-        {
-            "model_name": "openai/test-model",
-            "litellm_params": {"model": "openai/test-model", "api_key": "sk-openai"},
-        },
-        {
-            "model_name": "openai/hermes-agent",
-            "litellm_params": {
-                "model": "openai/hermes-agent",
-                "api_key": "sk-hermes",
-                "api_base": "http://127.0.0.1:8642/v1",
-            },
-            "model_info": {"dsa_channel": "hermes"},
-        },
-    ]
-
-    bundle = build_agent_chat_context_bundle(session_id, MagicMock(), config)
-
-    assert bundle.diagnostics["trace_injected"] is False
-    assert bundle.diagnostics["model_mismatch"] == 1
-    assert [msg["content"] for msg in bundle.context_messages] == ["u1", "a1-final"]
-
-
-def test_bundle_does_not_fallback_to_unfiltered_try_order_for_hermes_only_agent() -> None:
-    db = _reset_db()
-    session_id = "chat-trace-hermes-only-agent"
-    user_id = db.save_conversation_message(session_id, "user", "u1")
-    assistant_id = db.save_conversation_message(session_id, "assistant", "a1-final")
-    db.save_agent_provider_turn(
-        session_id=session_id,
-        run_id="run-hermes-only-agent",
-        provider="openai",
-        model="openai/hermes-agent",
-        anchor_user_message_id=user_id,
-        anchor_assistant_message_id=assistant_id,
-        messages=[{"role": "assistant", "content": "hermes-trace"}],
-        contains_reasoning=False,
-        contains_tool_calls=False,
-        contains_thinking_blocks=False,
-        must_roundtrip=True,
-        estimated_tokens=10,
-    )
-    config = _config(enabled=False)
-    config.agent_litellm_model = ""
-    config.litellm_model = "openai/hermes-agent"
-    config.litellm_fallback_models = []
-    config.llm_model_list = [
-        {
-            "model_name": "openai/hermes-agent",
-            "litellm_params": {
-                "model": "openai/hermes-agent",
-                "api_key": "sk-hermes",
-                "api_base": "http://127.0.0.1:8642/v1",
-            },
-            "model_info": {"dsa_channel": "hermes"},
-        },
-    ]
-
-    bundle = build_agent_chat_context_bundle(session_id, MagicMock(), config)
-
-    assert bundle.diagnostics["trace_injected"] is False
-    assert bundle.diagnostics["model_mismatch"] == 1
-
-
 def test_bundle_matches_slashless_router_alias_fallback_by_resolved_provider() -> None:
     db = _reset_db()
     session_id = "chat-trace-router-alias"
@@ -426,7 +339,7 @@ def test_bundle_matches_slashless_router_alias_fallback_by_resolved_provider() -
     db.save_agent_provider_turn(
         session_id=session_id,
         run_id="run-router-alias",
-        provider="openai",
+        provider="deepseek",
         model="gpt4o",
         anchor_user_message_id=user_id,
         anchor_assistant_message_id=assistant_id,
@@ -446,13 +359,13 @@ def test_bundle_matches_slashless_router_alias_fallback_by_resolved_provider() -
         estimated_tokens=10,
     )
     config = _config(enabled=False)
-    config.agent_litellm_model = "anthropic/claude-test"
-    config.litellm_model = "anthropic/claude-test"
+    config.agent_litellm_model = "deepseek/deepseek-flash"
+    config.litellm_model = "deepseek/deepseek-flash"
     config.litellm_fallback_models = ["gpt4o"]
     config.llm_model_list = [
         {
             "model_name": "gpt4o",
-            "litellm_params": {"model": "openai/gpt-4o-mini"},
+            "litellm_params": {"model": "deepseek/deepseek-flash"},
         }
     ]
 
@@ -461,7 +374,7 @@ def test_bundle_matches_slashless_router_alias_fallback_by_resolved_provider() -
     assert bundle.diagnostics["trace_injected"] is True
     assert bundle.diagnostics["model_mismatch"] == 0
     assistant_trace = bundle.context_messages[1]
-    assert assistant_trace["_trace_provider"] == "openai"
+    assert assistant_trace["_trace_provider"] == "deepseek"
     assert assistant_trace["_trace_model"] == "gpt4o"
 
 
@@ -482,8 +395,8 @@ def test_over_trigger_generates_summary_and_updates_covered_message_id() -> None
     adapter = MagicMock()
     adapter.call_text.return_value = SimpleNamespace(
         content="## 会话摘要\n新摘要",
-        provider="openai",
-        model="openai/test-model",
+        provider="deepseek",
+        model="deepseek/deepseek-test-model",
         usage={"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3},
     )
 
@@ -513,8 +426,8 @@ def test_summary_compression_does_not_persist_agent_usage_without_provider_usage
     adapter = MagicMock()
     adapter.call_text.return_value = SimpleNamespace(
         content="## 会话摘要\n新摘要",
-        provider="openai",
-        model="openai/test-model",
+        provider="deepseek",
+        model="deepseek/deepseek-test-model",
         usage={},
     )
 
@@ -541,11 +454,11 @@ def test_summary_compression_does_not_persist_metadata_only_provider_usage() -> 
     adapter = MagicMock()
     adapter.call_text.return_value = SimpleNamespace(
         content="## 会话摘要\n新摘要",
-        provider="openai",
-        model="openai/test-model",
+        provider="deepseek",
+        model="deepseek/deepseek-test-model",
         usage=normalize_litellm_usage(
             {"estimated_prefix_tokens": 123},
-            model="openai/gpt-4o",
+            model="deepseek/deepseek-flash",
         ),
     )
 
@@ -569,12 +482,12 @@ def test_summary_compression_persists_invalid_provider_usage_diagnostics() -> No
             ("user", "u2"),
         ],
     )
-    usage = normalize_litellm_usage({"prompt_tokens": -1}, model="openai/gpt-4o")
+    usage = normalize_litellm_usage({"prompt_tokens": -1}, model="deepseek/deepseek-flash")
     adapter = MagicMock()
     adapter.call_text.return_value = SimpleNamespace(
         content="## 会话摘要\n新摘要",
-        provider="openai",
-        model="openai/test-model",
+        provider="deepseek",
+        model="deepseek/deepseek-test-model",
         usage=usage,
     )
 
@@ -584,7 +497,7 @@ def test_summary_compression_persists_invalid_provider_usage_diagnostics() -> No
 
     assert history[0]["content"].startswith(SUMMARY_USER_PREFIX)
     assert usage["cache_observation"] == "invalid_provider_usage"
-    persist_usage.assert_called_once_with(usage, "openai/test-model", call_type="agent")
+    persist_usage.assert_called_once_with(usage, "deepseek/deepseek-test-model", call_type="agent")
 
 
 def test_summary_compression_persists_agent_usage_with_provider_usage() -> None:
@@ -603,8 +516,8 @@ def test_summary_compression_persists_agent_usage_with_provider_usage() -> None:
     adapter = MagicMock()
     adapter.call_text.return_value = SimpleNamespace(
         content="## 会话摘要\n新摘要",
-        provider="openai",
-        model="openai/test-model",
+        provider="deepseek",
+        model="deepseek/deepseek-test-model",
         usage=usage,
     )
 
@@ -613,7 +526,7 @@ def test_summary_compression_persists_agent_usage_with_provider_usage() -> None:
             history = build_visible_chat_history(session_id, adapter, _config(trigger=1, protected=1))
 
     assert history[0]["content"].startswith(SUMMARY_USER_PREFIX)
-    persist_usage.assert_called_once_with(usage, "openai/test-model", call_type="agent")
+    persist_usage.assert_called_once_with(usage, "deepseek/deepseek-test-model", call_type="agent")
 
 
 def test_second_request_only_summarizes_incremental_unprotected_messages() -> None:
@@ -632,7 +545,7 @@ def test_second_request_only_summarizes_incremental_unprotected_messages() -> No
     )
     db.upsert_conversation_summary(session_id, "old summary", 2, 2, 10)
     adapter = MagicMock()
-    adapter.call_text.return_value = SimpleNamespace(content="new summary", provider="openai", model="m", usage={})
+    adapter.call_text.return_value = SimpleNamespace(content="new summary", provider="deepseek", model="m", usage={})
 
     with patch("src.agent.chat_context.estimate_messages_tokens", return_value=999999):
         build_visible_chat_history(session_id, adapter, _config(trigger=1, protected=1))

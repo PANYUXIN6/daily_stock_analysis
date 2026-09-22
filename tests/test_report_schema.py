@@ -20,7 +20,7 @@ except ModuleNotFoundError:
     sys.modules["litellm"] = MagicMock()
 
 from src.schemas.report_schema import AnalysisReportSchema
-from src.analyzer import GeminiAnalyzer, AnalysisResult
+from src.analyzer import DeepSeekAnalyzer, AnalysisResult
 
 
 class TestAnalysisReportSchema(unittest.TestCase):
@@ -129,7 +129,7 @@ class TestAnalyzerSchemaFallback(unittest.TestCase):
 
     def test_parse_response_continues_when_schema_fails(self) -> None:
         """When schema validation fails, analyzer continues with raw dict."""
-        analyzer = GeminiAnalyzer()
+        analyzer = DeepSeekAnalyzer()
         response = json.dumps({
             "stock_name": "贵州茅台",
             "sentiment_score": 150,  # invalid for schema
@@ -145,7 +145,7 @@ class TestAnalyzerSchemaFallback(unittest.TestCase):
 
     def test_parse_response_valid_json_succeeds(self) -> None:
         """Valid JSON produces correct AnalysisResult."""
-        analyzer = GeminiAnalyzer()
+        analyzer = DeepSeekAnalyzer()
         response = json.dumps({
             "stock_name": "贵州茅台",
             "sentiment_score": 72,
@@ -164,7 +164,7 @@ class TestAnalyzerSchemaFallback(unittest.TestCase):
         self.assertEqual(result.action_label, "持有")
 
     def test_parse_response_preserves_explicit_action_in_raw_result(self) -> None:
-        analyzer = GeminiAnalyzer()
+        analyzer = DeepSeekAnalyzer()
         response = json.dumps({
             "stock_name": "贵州茅台",
             "sentiment_score": 58,
@@ -185,7 +185,7 @@ class TestAnalyzerSchemaFallback(unittest.TestCase):
         self.assertEqual(raw_result["action_label"], "观望")
 
     def test_parse_response_keeps_unknown_dashboard_fields(self) -> None:
-        analyzer = GeminiAnalyzer()
+        analyzer = DeepSeekAnalyzer()
         response = json.dumps({
             "stock_name": "贵州茅台",
             "sentiment_score": 72,
@@ -209,7 +209,7 @@ class TestAnalyzerSchemaFallback(unittest.TestCase):
         self.assertEqual(result.dashboard["decision_stability"]["reason"], "回测验证")
 
     def test_parse_response_repairs_single_json_candidate(self) -> None:
-        analyzer = GeminiAnalyzer()
+        analyzer = DeepSeekAnalyzer()
         response = """```json
 {
   "stock_name": "贵州茅台",
@@ -226,7 +226,7 @@ class TestAnalyzerSchemaFallback(unittest.TestCase):
         self.assertEqual(result.sentiment_score, 68)
 
     def test_parse_response_accepts_single_generic_json_fence(self) -> None:
-        analyzer = GeminiAnalyzer()
+        analyzer = DeepSeekAnalyzer()
         response = """```
 {
   "stock_name": "贵州茅台",
@@ -244,7 +244,7 @@ class TestAnalyzerSchemaFallback(unittest.TestCase):
         self.assertEqual(result.sentiment_score, 67)
 
     def test_parse_response_repairs_nested_single_json_candidate(self) -> None:
-        analyzer = GeminiAnalyzer()
+        analyzer = DeepSeekAnalyzer()
         response = """```json
 {
   "stock_name": "贵州茅台",
@@ -262,7 +262,7 @@ class TestAnalyzerSchemaFallback(unittest.TestCase):
         self.assertEqual(result.dashboard["core_conclusion"]["one_sentence"], "继续观察")
 
     def test_validate_json_response_accepts_single_generic_json_fence(self) -> None:
-        analyzer = GeminiAnalyzer.__new__(GeminiAnalyzer)
+        analyzer = DeepSeekAnalyzer.__new__(DeepSeekAnalyzer)
         analyzer._config_override = SimpleNamespace(generation_backend="litellm")
 
         analyzer._validate_json_response("""```
@@ -276,7 +276,7 @@ class TestAnalyzerSchemaFallback(unittest.TestCase):
 ```""")
 
     def test_validate_json_response_accepts_single_json_fence(self) -> None:
-        analyzer = GeminiAnalyzer.__new__(GeminiAnalyzer)
+        analyzer = DeepSeekAnalyzer.__new__(DeepSeekAnalyzer)
         analyzer._config_override = SimpleNamespace(generation_backend="litellm")
 
         analyzer._validate_json_response("""```json
@@ -290,7 +290,7 @@ class TestAnalyzerSchemaFallback(unittest.TestCase):
 ```""")
 
     def test_validate_json_response_rejects_ambiguous_json_before_repair(self) -> None:
-        analyzer = GeminiAnalyzer.__new__(GeminiAnalyzer)
+        analyzer = DeepSeekAnalyzer.__new__(DeepSeekAnalyzer)
         analyzer._config_override = SimpleNamespace(generation_backend="litellm")
 
         with self.assertRaises(Exception) as context:
@@ -299,7 +299,7 @@ class TestAnalyzerSchemaFallback(unittest.TestCase):
         self.assertEqual(getattr(context.exception, "details", {}).get("reason"), "ambiguous_json")
 
     def test_validate_json_response_rejects_generic_fence_with_outside_text(self) -> None:
-        analyzer = GeminiAnalyzer.__new__(GeminiAnalyzer)
+        analyzer = DeepSeekAnalyzer.__new__(DeepSeekAnalyzer)
         analyzer._config_override = SimpleNamespace(generation_backend="litellm")
 
         with self.assertRaises(Exception) as context:
@@ -311,7 +311,7 @@ class TestAnalyzerSchemaFallback(unittest.TestCase):
         self.assertEqual(getattr(context.exception, "details", {}).get("reason"), "ambiguous_json")
 
     def test_validate_json_response_rejects_multiple_json_fences(self) -> None:
-        analyzer = GeminiAnalyzer.__new__(GeminiAnalyzer)
+        analyzer = DeepSeekAnalyzer.__new__(DeepSeekAnalyzer)
         analyzer._config_override = SimpleNamespace(generation_backend="litellm")
 
         with self.assertRaises(Exception) as context:
@@ -325,7 +325,7 @@ class TestAnalyzerSchemaFallback(unittest.TestCase):
         self.assertEqual(getattr(context.exception, "details", {}).get("reason"), "ambiguous_json")
 
     def test_validate_json_response_rejects_non_json_language_fence(self) -> None:
-        analyzer = GeminiAnalyzer.__new__(GeminiAnalyzer)
+        analyzer = DeepSeekAnalyzer.__new__(DeepSeekAnalyzer)
         analyzer._config_override = SimpleNamespace(generation_backend="litellm")
 
         with self.assertRaises(Exception) as context:
@@ -336,7 +336,7 @@ class TestAnalyzerSchemaFallback(unittest.TestCase):
         self.assertEqual(getattr(context.exception, "details", {}).get("reason"), "ambiguous_json")
 
     def test_validate_json_response_rejects_missing_minimal_contract(self) -> None:
-        analyzer = GeminiAnalyzer.__new__(GeminiAnalyzer)
+        analyzer = DeepSeekAnalyzer.__new__(DeepSeekAnalyzer)
         analyzer._config_override = SimpleNamespace(generation_backend="litellm")
 
         with self.assertRaises(Exception) as context:
@@ -345,7 +345,7 @@ class TestAnalyzerSchemaFallback(unittest.TestCase):
         self.assertEqual(getattr(context.exception, "details", {}).get("reason"), "minimal_contract_failed")
 
     def test_validate_json_response_rejects_parser_unconstructable_sentiment(self) -> None:
-        analyzer = GeminiAnalyzer.__new__(GeminiAnalyzer)
+        analyzer = DeepSeekAnalyzer.__new__(DeepSeekAnalyzer)
         analyzer._config_override = SimpleNamespace(generation_backend="litellm")
 
         with self.assertRaises(Exception) as context:
@@ -360,7 +360,7 @@ class TestAnalyzerSchemaFallback(unittest.TestCase):
         self.assertEqual(getattr(context.exception, "details", {}).get("reason"), "parser_contract_failed")
 
     def test_parse_response_falls_back_when_parser_contract_fails(self) -> None:
-        analyzer = GeminiAnalyzer()
+        analyzer = DeepSeekAnalyzer()
         response = json.dumps({
             "stock_name": "贵州茅台",
             "sentiment_score": "not-a-number",
@@ -377,8 +377,8 @@ class TestAnalyzerSchemaFallback(unittest.TestCase):
 
     def test_parse_text_response_honors_injected_runtime_report_language(self) -> None:
         """Fallback text parsing should use the analyzer's injected config, not the global singleton."""
-        with patch.object(GeminiAnalyzer, "_init_litellm", return_value=None):
-            analyzer = GeminiAnalyzer(config=SimpleNamespace(report_language="en"))
+        with patch.object(DeepSeekAnalyzer, "_init_litellm", return_value=None):
+            analyzer = DeepSeekAnalyzer(config=SimpleNamespace(report_language="en"))
 
         result = analyzer._parse_text_response("bullish buy setup", "AAPL", "Apple")
 

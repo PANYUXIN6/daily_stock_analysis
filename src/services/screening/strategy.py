@@ -12,6 +12,7 @@ import yaml
 
 from src.services.screening.models import (
     HardFilterConfig,
+    ProfitGapConfig,
     ScreeningConfig,
     Strategy,
     StrategyInfo,
@@ -31,6 +32,7 @@ _TOP_LEVEL_KEYS = {
     "screening",
 }
 _SCREENING_KEYS = {
+    "profit_gap",
     "enabled",
     "market_scope",
     "hard_filters",
@@ -209,6 +211,10 @@ def load_strategy(filepath: Path) -> Strategy:
     hard_filters = HardFilterConfig(**hf_data)
 
     screening = ScreeningConfig(
+        profit_gap=(ProfitGapConfig(**_optional_mapping(
+            screening_data, "profit_gap", filepath,
+            allowed_keys=set(ProfitGapConfig.__dataclass_fields__),
+        )) if "profit_gap" in screening_data else None),
         enabled=screening_data.get("enabled", False),
         market_scope=screening_data.get("market_scope", ["cn"]),
         hard_filters=hard_filters,
@@ -295,7 +301,7 @@ def list_strategies(strategies_dir: Path | None = None) -> list[StrategyInfo]:
     strategies = load_all_strategies(strategies_dir)
     infos: list[StrategyInfo] = []
     for s in strategies.values():
-        daily_required = requires_daily_features(s.screening.hard_filters)
+        daily_required = requires_daily_features(s.screening.hard_filters) or s.screening.profit_gap is not None
         infos.append(StrategyInfo(
             name=s.name,
             display_name=s.display_name,
@@ -308,8 +314,8 @@ def list_strategies(strategies_dir: Path | None = None) -> list[StrategyInfo]:
             requires_daily_features=daily_required,
             data_requirements=_strategy_data_requirements(s, daily_required=daily_required),
             required_snapshot_fields=_required_snapshot_fields(s.screening.hard_filters),
-            required_daily_fields=_required_daily_fields(s.screening.hard_filters),
-            active_filters=_active_hard_filters(s.screening.hard_filters),
+            required_daily_fields=_required_daily_fields(s.screening.hard_filters, s.screening.profit_gap),
+            active_filters=_active_hard_filters(s.screening.hard_filters, s.screening.profit_gap),
             factor_weights={key: float(value) for key, value in s.screening.factor_weights.items()},
             profile_keys=_strategy_profile_keys(s.screening),
             style=_style_to_dict(s.style),
@@ -589,8 +595,8 @@ def compare_strategies(
         missing = exc.args[0]
         raise ValueError(f"Strategy '{missing}' not found") from exc
 
-    base_daily = requires_daily_features(base.screening.hard_filters)
-    target_daily = requires_daily_features(target.screening.hard_filters)
+    base_daily = requires_daily_features(base.screening.hard_filters) or base.screening.profit_gap is not None
+    target_daily = requires_daily_features(target.screening.hard_filters) or target.screening.profit_gap is not None
     differences = {
         "identity": _mapping_diff(
             {
@@ -617,16 +623,20 @@ def compare_strategies(
             _required_snapshot_fields(target.screening.hard_filters),
         ),
         "required_daily_fields": _list_diff(
-            _required_daily_fields(base.screening.hard_filters),
-            _required_daily_fields(target.screening.hard_filters),
+            _required_daily_fields(base.screening.hard_filters, base.screening.profit_gap),
+            _required_daily_fields(target.screening.hard_filters, target.screening.profit_gap),
         ),
         "active_filters": _list_diff(
-            _active_hard_filters(base.screening.hard_filters),
-            _active_hard_filters(target.screening.hard_filters),
+            _active_hard_filters(base.screening.hard_filters, base.screening.profit_gap),
+            _active_hard_filters(target.screening.hard_filters, target.screening.profit_gap),
         ),
         "hard_filter_values": _mapping_diff(
             _active_filter_values(base.screening.hard_filters),
             _active_filter_values(target.screening.hard_filters),
+        ),
+        "profit_gap_values": _mapping_diff(
+            asdict(base.screening.profit_gap) if base.screening.profit_gap else {},
+            asdict(target.screening.profit_gap) if target.screening.profit_gap else {},
         ),
         "factor_weights": _numeric_mapping_diff(
             base.screening.factor_weights,
@@ -654,6 +664,8 @@ def _strategy_data_requirements(strategy: Strategy, *, daily_required: bool) -> 
         requirements.append("industry_context")
     if strategy.screening.event_profile:
         requirements.append("event_context")
+    if strategy.screening.profit_gap:
+        requirements.extend(["earnings", "limit_prices", "financial_quality"])
     return requirements
 
 
@@ -667,7 +679,7 @@ def _strategy_compare_summary(strategy: Strategy, *, daily_required: bool) -> di
         "style": _style_to_dict(strategy.style),
         "data_requirements": _strategy_data_requirements(strategy, daily_required=daily_required),
         "requires_daily_features": daily_required,
-        "active_filters": _active_hard_filters(strategy.screening.hard_filters),
+        "active_filters": _active_hard_filters(strategy.screening.hard_filters, strategy.screening.profit_gap),
         "factor_weights": {key: float(value) for key, value in strategy.screening.factor_weights.items()},
         "profile_keys": _strategy_profile_keys(strategy.screening),
     }
@@ -772,7 +784,7 @@ def _nested_list_diff(
     }
 
 
-def _active_hard_filters(filters_config: HardFilterConfig) -> list[str]:
+def _active_hard_filters(filters_config: HardFilterConfig, profit_gap: ProfitGapConfig | None = None) -> list[str]:
     active: list[str] = []
     defaults = HardFilterConfig()
     for item in fields(HardFilterConfig):
@@ -785,6 +797,8 @@ def _active_hard_filters(filters_config: HardFilterConfig) -> list[str]:
             continue
         if value != default and value is not None and value is not False:
             active.append(name)
+    if profit_gap:
+        active.extend(["profit_growth", "next_session_gap_limit_up", "gap_unfilled", "core_profit_quality"])
     return active
 
 
@@ -811,7 +825,7 @@ def _required_snapshot_fields(filters_config: HardFilterConfig) -> list[str]:
     return list(dict.fromkeys(fields))
 
 
-def _required_daily_fields(filters_config: HardFilterConfig) -> list[str]:
+def _required_daily_fields(filters_config: HardFilterConfig, profit_gap: ProfitGapConfig | None = None) -> list[str]:
     checks = [
         ("change_60d", filters_config.change_60d_min is not None or filters_config.change_60d_max is not None),
         ("ma_bullish", filters_config.require_ma_bullish),
@@ -853,11 +867,15 @@ def _required_daily_fields(filters_config: HardFilterConfig) -> list[str]:
         ),
         ("atr_20_pct", filters_config.atr_20_pct_min is not None or filters_config.atr_20_pct_max is not None),
     ]
-    return [field for field, enabled in checks if enabled]
+    required = [field for field, enabled in checks if enabled]
+    if profit_gap:
+        required.extend(["trade_date", "open", "high", "low", "close", "vol", "adj_factor", "up_limit"])
+    return required
 
 
 def _strategy_profile_keys(screening: ScreeningConfig) -> dict[str, list[str]]:
     profile_values = {
+        "profit_gap": asdict(screening.profit_gap) if screening.profit_gap else {},
         "scoring": screening.scoring_profile,
         "risk": screening.risk_profile,
         "portfolio": screening.portfolio_profile,

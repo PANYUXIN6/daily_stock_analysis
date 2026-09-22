@@ -137,87 +137,6 @@ class ConfigEnvCompatibilityTestCase(unittest.TestCase):
             "tencent,akshare_sina,efinance,akshare_em",
         )
 
-    @patch("src.config.setup_env")
-    @patch.object(Config, "_parse_litellm_yaml", return_value=[])
-    def test_generation_backend_env_defaults_to_litellm_contract(
-        self, _mock_parse_litellm_yaml, _mock_setup_env
-    ):
-        with patch.dict(os.environ, {"STOCK_LIST": "600519"}, clear=True):
-            config = Config._load_from_env()
-
-        self.assertEqual(config.generation_backend, "litellm")
-        self.assertEqual(config.generation_fallback_backend, "litellm")
-        self.assertEqual(config.agent_backend, "auto")
-        self.assertEqual(config.agent_generation_backend, "auto")
-
-    @patch("src.config.setup_env")
-    @patch.object(Config, "_parse_litellm_yaml", return_value=[])
-    def test_agent_backend_env_accepts_codex_app_server(
-        self, _mock_parse_litellm_yaml, _mock_setup_env
-    ):
-        with patch.dict(
-            os.environ,
-            {
-                "STOCK_LIST": "600519",
-                "AGENT_BACKEND": " CODEX_APP_SERVER ",
-            },
-            clear=True,
-        ):
-            config = Config._load_from_env()
-
-        self.assertEqual(config.agent_backend, "codex_app_server")
-
-    @patch("src.config.setup_env")
-    @patch.object(Config, "_parse_litellm_yaml", return_value=[])
-    def test_generation_backend_env_accepts_phase2_values(
-        self, _mock_parse_litellm_yaml, _mock_setup_env
-    ):
-        with patch.dict(
-            os.environ,
-            {
-                "STOCK_LIST": "600519",
-                "GENERATION_BACKEND": " codex_CLI ",
-                "GENERATION_FALLBACK_BACKEND": "",
-                "GENERATION_BACKEND_TIMEOUT_SECONDS": "300",
-                "GENERATION_BACKEND_MAX_OUTPUT_BYTES": "1048576",
-                "GENERATION_BACKEND_MAX_CONCURRENCY": "2",
-                "LOCAL_CLI_BACKEND_MAX_CONCURRENCY": "1",
-                "AGENT_GENERATION_BACKEND": " codex_cli ",
-            },
-            clear=True,
-        ):
-            config = Config._load_from_env()
-
-        self.assertEqual(config.generation_backend, "codex_cli")
-        self.assertEqual(config.generation_fallback_backend, "")
-        self.assertEqual(config.generation_backend_timeout_seconds, 300)
-        self.assertEqual(config.generation_backend_max_output_bytes, 1048576)
-        self.assertEqual(config.generation_backend_max_concurrency, 2)
-        self.assertEqual(config.local_cli_backend_max_concurrency, 1)
-        self.assertEqual(config.agent_generation_backend, "codex_cli")
-
-    @patch("src.config.setup_env")
-    @patch.object(Config, "_parse_litellm_yaml", return_value=[])
-    def test_generation_backend_env_clamps_phase2_numeric_maxima(
-        self, _mock_parse_litellm_yaml, _mock_setup_env
-    ):
-        with patch.dict(
-            os.environ,
-            {
-                "STOCK_LIST": "600519",
-                "GENERATION_BACKEND_TIMEOUT_SECONDS": "999999",
-                "GENERATION_BACKEND_MAX_OUTPUT_BYTES": "999999999",
-                "GENERATION_BACKEND_MAX_CONCURRENCY": "999",
-                "LOCAL_CLI_BACKEND_MAX_CONCURRENCY": "999",
-            },
-            clear=True,
-        ):
-            config = Config._load_from_env()
-
-        self.assertEqual(config.generation_backend_timeout_seconds, 3600)
-        self.assertEqual(config.generation_backend_max_output_bytes, 33554432)
-        self.assertEqual(config.generation_backend_max_concurrency, 16)
-        self.assertEqual(config.local_cli_backend_max_concurrency, 4)
 
     @patch("src.config.setup_env")
     @patch.object(Config, "_parse_litellm_yaml", return_value=[])
@@ -327,10 +246,10 @@ class ConfigEnvCompatibilityTestCase(unittest.TestCase):
     ) -> None:
         base_env = {
             "STOCK_LIST": "600519",
-            "OPENAI_API_KEYS": "base-key-12345",
+            "DEEPSEEK_API_KEYS": "base-key-12345",
             "OPENAI_BASE_URL": "https://openai.example.com/v1",
-            "LITELLM_MODEL": "openai/gpt-4.1",
-            "OPENAI_MODEL": "gpt-4.1",
+            "LITELLM_MODEL": "deepseek/deepseek-flash",
+            "OPENAI_MODEL": "deepseek/deepseek-flash",
         }
         with patch.dict(os.environ, base_env, clear=True):
             Config._instance = None
@@ -350,8 +269,6 @@ class ConfigEnvCompatibilityTestCase(unittest.TestCase):
 
         self.assertEqual(with_news_intel.litellm_model, baseline.litellm_model)
         self.assertEqual(with_news_intel.litellm_fallback_models, baseline.litellm_fallback_models)
-        self.assertEqual(with_news_intel.openai_api_key, baseline.openai_api_key)
-        self.assertEqual(with_news_intel.openai_base_url, baseline.openai_base_url)
         self.assertEqual(with_news_intel.news_intel_fetch_timeout_sec, 5.5)
         self.assertEqual(with_news_intel.news_intel_max_items_per_source, 25)
         self.assertEqual(with_news_intel.news_intel_retention_days, 45)
@@ -368,12 +285,12 @@ class ConfigEnvCompatibilityTestCase(unittest.TestCase):
         base_env = {
             "STOCK_LIST": "600519",
             "MARKET_REVIEW_REGION": "cn",
-            "LITELLM_MODEL": "openai/gpt-4.1",
-            "OPENAI_MODEL": "gpt-4.1",
+            "LITELLM_MODEL": "deepseek/deepseek-flash",
+            "OPENAI_MODEL": "deepseek/deepseek-flash",
             "OPENAI_BASE_URL": "https://openai.example.com/v1",
-            "OPENAI_API_KEY": "base-key-12345",
-            "LITELLM_FALLBACK_MODELS": "openai/gpt-5.5,openai/gpt-4o-mini",
-            "VISION_MODEL": "openai/gpt-4o-mini",
+            "DEEPSEEK_API_KEY": "base-key-12345",
+            "LITELLM_FALLBACK_MODELS": "deepseek/deepseek-v4-pro,deepseek/deepseek-flash",
+            "VISION_MODEL": "deepseek/deepseek-flash",
         }
         with patch.dict(os.environ, base_env, clear=True):
             baseline = Config._load_from_env()
@@ -386,9 +303,6 @@ class ConfigEnvCompatibilityTestCase(unittest.TestCase):
         self.assertEqual(with_jpkr.litellm_model, baseline.litellm_model)
         self.assertEqual(with_jpkr.litellm_fallback_models, baseline.litellm_fallback_models)
         self.assertEqual(with_jpkr.vision_model, baseline.vision_model)
-        self.assertEqual(with_jpkr.openai_model, baseline.openai_model)
-        self.assertEqual(with_jpkr.openai_api_key, baseline.openai_api_key)
-        self.assertEqual(with_jpkr.openai_base_url, baseline.openai_base_url)
 
     @patch("src.config.setup_env")
     @patch.object(Config, "_parse_litellm_yaml", return_value=[])
@@ -532,9 +446,9 @@ class ConfigEnvCompatibilityTestCase(unittest.TestCase):
             os.environ,
             {
                 "STOCK_LIST": "600519",
-                "LITELLM_MODEL": "openai/gpt-5.5",
-                "OPENAI_MODEL": "gpt-5.5",
-                "OPENAI_API_KEY": "sk-openai-test",
+                "LITELLM_MODEL": "deepseek/deepseek-v4-pro",
+                "OPENAI_MODEL": "deepseek/deepseek-v4-pro",
+                "DEEPSEEK_API_KEY": "sk-openai-test",
                 "OPENAI_BASE_URL": "https://openai.example/v1",
                 "NEWS_INTEL_RETENTION_DAYS": "14",
                 "NEWS_INTEL_FETCH_TIMEOUT_SEC": "12",
@@ -546,9 +460,7 @@ class ConfigEnvCompatibilityTestCase(unittest.TestCase):
         ):
             config = Config._load_from_env()
 
-        self.assertEqual(config.litellm_model, "openai/gpt-5.5")
-        self.assertEqual(config.openai_model, "gpt-5.5")
-        self.assertEqual(config.openai_base_url, "https://openai.example/v1")
+        self.assertEqual(config.litellm_model, "deepseek/deepseek-v4-pro")
         self.assertEqual(config.news_intel_retention_days, 14)
         self.assertEqual(config.news_intel_fetch_timeout_sec, 12.0)
         self.assertEqual(config.news_intel_max_items_per_source, 75)
@@ -840,9 +752,9 @@ class ConfigEnvCompatibilityTestCase(unittest.TestCase):
                 "\n".join(
                     [
                         "STOCK_LIST=600519",
-                        "LITELLM_MODEL=openai/gpt-5.5",
-                        "OPENAI_MODEL=gpt-5.5",
-                        "OPENAI_API_KEY=runtime-openai-key",
+                        "LITELLM_MODEL=deepseek/deepseek-v4-pro",
+                        "OPENAI_MODEL=deepseek/deepseek-v4-pro",
+                        "DEEPSEEK_API_KEY=runtime-openai-key",
                         "OPENAI_BASE_URL=https://openai.example/v1",
                         "CUSTOM_WEBHOOK_BODY_TEMPLATE={\"title\":$$title_json,\"content\":$$content_json}",
                     ]
@@ -860,10 +772,7 @@ class ConfigEnvCompatibilityTestCase(unittest.TestCase):
             ):
                 config = Config._load_from_env()
 
-        self.assertEqual(config.litellm_model, "openai/gpt-5.5")
-        self.assertEqual(config.openai_model, "gpt-5.5")
-        self.assertEqual(config.openai_api_key, "runtime-openai-key")
-        self.assertEqual(config.openai_base_url, "https://openai.example/v1")
+        self.assertEqual(config.litellm_model, "deepseek/deepseek-v4-pro")
         self.assertEqual(
             config.custom_webhook_body_template,
             '{"title":$title_json,"content":$content_json}',

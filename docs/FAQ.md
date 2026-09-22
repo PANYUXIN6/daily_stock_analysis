@@ -54,20 +54,19 @@
 
 ### Q5: GitHub Actions 运行失败，提示找不到环境变量？
 
-**现象**：Actions 日志显示 `GEMINI_API_KEY` 或 `STOCK_LIST` 未定义
+**现象**：Actions 日志显示 `DEEPSEEK_API_KEY` 或 `STOCK_LIST` 未定义
 
 **原因**：GitHub 区分 `Secrets`（加密）和 `Variables`（普通变量），配置位置不对会导致读取失败。
 
 **解决方案**：
 1. 进入仓库 `Settings` → `Secrets and variables` → `Actions`
 2. **Secrets**（点击 `New repository secret`）：存放敏感信息
-   - `GEMINI_API_KEY`
-   - `OPENAI_API_KEY`
+   - `DEEPSEEK_API_KEY`
    - `TELEGRAM_BOT_TOKEN`
    - 各类 Webhook URL
 3. **Variables**（点击 `Variables` 标签）：存放非敏感配置
    - `STOCK_LIST`
-   - `GEMINI_MODEL`
+   - `LITELLM_MODEL`
    - `REPORT_TYPE`
 
 > 兼容说明：每日分析 workflow 也会绑定名为 `STOCK_LIST` 的 Environment，因此误把 `STOCK_LIST` 填到该 Environment variables 中也能被读取；但推荐位置仍是 Repository variables。除非你希望每日任务等待人工审批，否则不要给该 Environment 配置 required reviewers、wait timer 或部署分支限制。
@@ -96,7 +95,7 @@
 
 ---
 
-### Q7: 如何配置代理访问 Gemini/OpenAI API？
+### Q7: 如何配置代理访问 DeepSeek API？
 
 **解决方案**：
 
@@ -115,21 +114,17 @@ PROXY_PORT=10809
 
 > 完整说明见 [LLM 配置指南](LLM_CONFIG_GUIDE.md)。
 
-**Q: 配置了 GEMINI_API_KEY 和 LLM_CHANNELS，为什么只用渠道？**
+**Q: 配置了 DEEPSEEK_API_KEY 和 LLM_CHANNELS，为什么只用渠道？**
 
 系统按优先级只取一种：高级模型路由 YAML（`LITELLM_CONFIG`）> `LLM_CHANNELS` > legacy keys。但 YAML 仅在文件可正常解析且产出了有效 `model_list` 时才生效；如果 YAML 路径无效或内容为空，系统会自动回退到 `LLM_CHANNELS` 或 legacy keys。一旦某一层级实际生效，更低优先级的配置不参与解析。
 
 **Q: check_env 输出“未配置可用 AI 模型”怎么办？**
 
-默认先选一种服务商并填写对应 API Key；如果需要固定主模型，再补 `LITELLM_MODEL=provider/model`；如果要多模型切换，再配置 `LLM_CHANNELS` 或高级模型路由 YAML。运行 `python scripts/check_env.py --config` 校验配置，`python scripts/check_env.py --llm` 实际调用 API 测试。
+填写 DeepSeek API Key；如果需要固定主模型，再补 `LITELLM_MODEL=deepseek/deepseek-flash`；如果要多模型切换，再配置 `LLM_CHANNELS` 或高级模型路由 YAML。运行 `python scripts/check_env.py --config` 校验配置，`python scripts/check_env.py --llm` 实际调用 API 测试。
 
-**Q: 如何同时使用多个模型（如 AIHubmix + DeepSeek + Gemini）？**
+**Q: 如何配置多个模型？**
 
-使用渠道模式：设置 `LLM_CHANNELS=aihubmix,deepseek,gemini`，并配置各渠道的 `LLM_{NAME}_BASE_URL`、`LLM_{NAME}_API_KEY`、`LLM_{NAME}_MODELS`。也可在 Web 设置页 → AI 模型 → AI 模型接入 中可视化配置。
-
-**Q: 问股/Agent 提示未配置可用 LLM，但我只有旧的 `GEMINI_*` / `OPENAI_*` / `ANTHROPIC_*` 配置，怎么办？**
-
-先确认当前是否启用了 `LITELLM_CONFIG` 或 `LLM_CHANNELS`；如果启用了，上层配置会覆盖 legacy keys。若你没有启用这两层，且 `AGENT_LITELLM_MODEL` 为空，问股 Agent 仍会自动继承 legacy provider 模型：`GEMINI_MODEL`、`OPENAI_MODEL`、`ANTHROPIC_MODEL` 分别映射到对应 provider 前缀的 LiteLLM 模型名。此次修复不会静默迁移或清空旧配置，只是把“真实缺失原因”直接返回到前端，便于你判断到底是缺 key、缺模型名，还是被上层配置覆盖。完整兼容语义见 [LLM 配置指南](LLM_CONFIG_GUIDE.md) 中“问股 Agent / LiteLLM 配置兼容说明”。
+使用 `DEEPSEEK_API_KEYS` 配置多 Key，使用 `LITELLM_FALLBACK_MODELS` 配置 DeepSeek 备用模型。详见 [模型配置](LLM_CONFIG_GUIDE.md)，其他厂商配置已不再支持。
 
 ---
 
@@ -190,29 +185,16 @@ PROXY_PORT=10809
 
 ## 🤖 AI 模型相关
 
-### Q11: Gemini API 返回 429 错误（请求过多）？
+### Q11: DeepSeek API 返回 429 错误（请求过多）？
 
-**现象**：日志显示 `Resource has been exhausted` 或 `429 Too Many Requests`
+使用 DeepSeek 官方 API，详见 [模型配置](LLM_CONFIG_GUIDE.md)。限流时增加 `LLM_REQUEST_DELAY` 或降低并发。
 
-**解决方案**：
-1. Gemini 免费版有速率限制（约 15 RPM）
-2. 减少同时分析的股票数量
-3. 增加请求延迟：
-   ```bash
-   GEMINI_REQUEST_DELAY=5
-   ANALYSIS_DELAY=10
-   ```
-4. 或切换到 OpenAI 兼容 API 作为备选
+### Q12: 如何使用 DeepSeek 模型？
 
----
+使用 DeepSeek 官方 API，详见 [模型配置](LLM_CONFIG_GUIDE.md)。限流时增加 `LLM_REQUEST_DELAY` 或降低并发。
 
-### Q12: 如何使用 DeepSeek 等国产模型？
-
-**配置方法**：
-
-```bash
-# 不需要配置 GEMINI_API_KEY
-OPENAI_API_KEY=sk-xxxxxxxx
+# 不需要配置 DEEPSEEK_API_KEY
+DEEPSEEK_API_KEY=sk-xxxxxxxx
 OPENAI_BASE_URL=https://api.deepseek.com
 OPENAI_MODEL=deepseek-v4-flash
 # deepseek-chat / deepseek-reasoner 仍兼容，但官方已标记为 2026/07/24 后废弃
@@ -222,51 +204,6 @@ OPENAI_MODEL=deepseek-v4-flash
 - DeepSeek: `https://api.deepseek.com`
 - 通义千问: `https://dashscope.aliyuncs.com/compatible-mode/v1`
 - Moonshot: `https://api.moonshot.cn/v1`
-
----
-
-### Q12b: 如何使用 Ollama 本地模型？
-
-**配置方法**：使用 `OLLAMA_API_BASE` + `LITELLM_MODEL`，或渠道模式（`LLM_CHANNELS=ollama` + `LLM_OLLAMA_BASE_URL` + `LLM_OLLAMA_MODELS`）。
-
-**避坑**：不要使用 `OPENAI_BASE_URL` 配置 Ollama，否则系统会错误拼接 URL（如 404、`api/generate/api/show`）。详见 [LLM 配置指南](LLM_CONFIG_GUIDE.md) 示例 4 与渠道示例。
-
----
-
-### Q12c: 运行时报 `OllamaException / APIConnectionError`（All LLM models failed）怎么办？
-
-**症状**：日志出现 `litellm.APIConnectionError: OllamaException` 或 `Analysis failed: All LLM models failed (tried 1 model(s))`。
-
-逐项排查以下 5 个检查点：
-
-1. **Ollama 服务是否已启动**
-   ```bash
-   # 查看进程
-   pgrep -a ollama
-   # 若无输出则先启动
-   ollama serve
-   ```
-   确认服务正在监听：`curl http://localhost:11434`，应返回 `Ollama is running`。
-
-2. **`OLLAMA_API_BASE` 是否配置正确**
-   - ✅ 正确：`OLLAMA_API_BASE=http://localhost:11434`
-   - ❌ 错误：把 Ollama 地址填到 `OPENAI_BASE_URL`，会导致 URL 路径拼错（如 `…/api/generate/api/show`）。
-
-3. **模型名称是否加了 `ollama/` 前缀**
-   - ✅ 正确：`LITELLM_MODEL=ollama/qwen3:8b`
-   - ❌ 错误：`LITELLM_MODEL=qwen3:8b`（缺少前缀，litellm 无法路由到 Ollama）
-
-4. **模型是否已下载到本地**
-   ```bash
-   ollama list          # 查看已有模型
-   ollama pull qwen3:8b # 如无则先拉取
-   ```
-
-5. **远程部署 / Docker 时的网络与防火墙**
-   - 若 Ollama 和程序不在同一主机，需将 `OLLAMA_API_BASE` 改为实际 IP，如 `http://192.168.1.100:11434`。
-   - 确认防火墙已放行 11434 端口，且 Ollama 启动时绑定了正确地址（`OLLAMA_HOST=0.0.0.0:11434`）。
-
-> 完整配置示例见 [LLM 配置指南 → 示例 4（Ollama）](LLM_CONFIG_GUIDE.md#example-4-ollama)。
 
 ---
 

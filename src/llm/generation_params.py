@@ -9,29 +9,6 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 
-# Kimi K2.6 is consumed through Moonshot's OpenAI-compatible API in this
-# repository. Official references:
-# - https://platform.kimi.ai/docs/guide/kimi-k2-6-quickstart
-# - https://platform.moonshot.ai/docs/guide/compatibility#parameters-differences-in-request-body
-# - https://huggingface.co/moonshotai/Kimi-K2.6
-# - https://docs.litellm.ai/docs/providers/openai_compatible
-_FIXED_TEMPERATURE_LITELLM_MODELS: Dict[str, Dict[str, float]] = {
-    "kimi-k2.6": {
-        "thinking": 1.0,
-        "non_thinking": 0.6,
-    },
-}
-
-
-@dataclass(frozen=True)
-class TemperatureDirective:
-    """Request-scoped temperature strategy for one LiteLLM model call."""
-
-    temperature: Optional[float] = None
-    omit_temperature: bool = False
-    reason: str = ""
-
-
 @dataclass(frozen=True)
 class GenerationParamRecovery:
     """A learned request-parameter repair for a LiteLLM model call."""
@@ -177,76 +154,6 @@ def resolve_litellm_thinking_enabled(
     return _parse_thinking_enabled(thinking_config)
 
 
-def _model_parts(model: str) -> List[str]:
-    return [part for part in re.split(r"[/:\s]+", (model or "").lower()) if part]
-
-
-def _matches_model_family(model: str, family: str) -> bool:
-    return any(part == family or part.startswith(f"{family}-") for part in _model_parts(model))
-
-
-def _should_omit_litellm_temperature(model: str) -> bool:
-    """Return whether a model family should rely on the provider default temperature."""
-    return any(
-        part.startswith(("gpt-5", "gpt5"))
-        or part in {"o1", "o3", "o4"}
-        or part.startswith(("o1-", "o3-", "o4-"))
-        for part in _model_parts(model)
-    )
-
-
-def get_fixed_litellm_temperature(
-    model: str,
-    model_list: Optional[List[Dict[str, Any]]] = None,
-    request_overrides: Optional[Dict[str, Any]] = None,
-) -> Optional[float]:
-    """Return a provider-mandated temperature for known strict models."""
-    normalized_model = resolve_litellm_wire_model(model, model_list).lower()
-    if not normalized_model:
-        return None
-    thinking_enabled = resolve_litellm_thinking_enabled(
-        model,
-        model_list=model_list,
-        request_overrides=request_overrides,
-    )
-    for model_name, temperatures in _FIXED_TEMPERATURE_LITELLM_MODELS.items():
-        if _matches_model_family(normalized_model, model_name):
-            if thinking_enabled is False and temperatures.get("non_thinking") is not None:
-                return temperatures["non_thinking"]
-            if temperatures.get("thinking") is not None:
-                return temperatures["thinking"]
-            if temperatures.get("non_thinking") is not None:
-                return temperatures["non_thinking"]
-    return None
-
-
-def resolve_litellm_temperature_directive(
-    model: str,
-    *,
-    model_list: Optional[List[Dict[str, Any]]] = None,
-    request_overrides: Optional[Dict[str, Any]] = None,
-) -> TemperatureDirective:
-    """Resolve the request-scoped temperature directive for a LiteLLM model."""
-    fixed_temperature = get_fixed_litellm_temperature(
-        model,
-        model_list=model_list,
-        request_overrides=request_overrides,
-    )
-    if fixed_temperature is not None:
-        return TemperatureDirective(
-            temperature=fixed_temperature,
-            reason="fixed_model_temperature",
-        )
-
-    wire_model = resolve_litellm_wire_model(model, model_list)
-    if _should_omit_litellm_temperature(wire_model):
-        return TemperatureDirective(
-            omit_temperature=True,
-            reason="provider_default_temperature",
-        )
-    return TemperatureDirective()
-
-
 def normalize_litellm_temperature(
     model: str,
     temperature: Optional[float],
@@ -256,13 +163,6 @@ def normalize_litellm_temperature(
     request_overrides: Optional[Dict[str, Any]] = None,
 ) -> float:
     """Return the legacy float temperature normalization for callers that need it."""
-    fixed_temperature = get_fixed_litellm_temperature(
-        model,
-        model_list=model_list,
-        request_overrides=request_overrides,
-    )
-    if fixed_temperature is not None:
-        return fixed_temperature
     if temperature is None:
         return default
     return float(temperature)
@@ -417,18 +317,7 @@ def apply_litellm_generation_params(
 ) -> Dict[str, Any]:
     """Return kwargs with model-compatible generation parameters applied."""
     updated = dict(call_kwargs)
-    effective_overrides = request_overrides if request_overrides is not None else updated
-    directive = resolve_litellm_temperature_directive(
-        model,
-        model_list=model_list,
-        request_overrides=effective_overrides,
-    )
-    if directive.omit_temperature:
-        updated.pop("temperature", None)
-    elif directive.temperature is not None:
-        updated["temperature"] = directive.temperature
-    else:
-        updated["temperature"] = default_temperature if temperature is None else float(temperature)
+    updated["temperature"] = default_temperature if temperature is None else float(temperature)
     cached_recovery = get_cached_litellm_generation_param_recovery(
         model,
         model_list=model_list,

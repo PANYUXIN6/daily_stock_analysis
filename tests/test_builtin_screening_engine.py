@@ -72,17 +72,13 @@ def test_bundled_strategies_are_loaded_from_the_internal_package() -> None:
 
     assert set(strategies) == {
         "balanced_alpha",
-        "blue_chip_income",
         "capital_heat",
-        "dual_low",
-        "low_volatility_quality",
         "momentum_quality",
+        "net_profit_gap",
         "oversold_reversal",
-        "quality_value",
         "shrink_pullback",
         "volume_breakout",
     }
-    assert strategies["dual_low"].screening.factor_weights["value"] < 0.40
 
 
 def test_list_strategies_preserves_legacy_strategies_dir_override() -> None:
@@ -390,7 +386,7 @@ def test_pipeline_uses_ranker_success_flag_instead_of_partial_llm_scores(monkeyp
     )
     config = ScreeningRuntimeConfig(
         strategies_dir=SCREENING_ROOT / "strategies",
-        llm_model="openai/gpt-5-mini",
+        llm_model="deepseek/deepseek-v4-pro",
         llm_api_key="test-key",
         post_analyzers=[],
         risk_enabled=False,

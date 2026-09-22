@@ -14,21 +14,7 @@ TEMPLATE_PATH = ROOT_DIR / "apps/dsa-web/src/components/settings/llmProviderTemp
 WORKFLOW_PATH = ROOT_DIR / ".github/workflows/00-daily-analysis.yml"
 ENV_EXAMPLE_PATH = ROOT_DIR / ".env.example"
 
-EXPECTED_TEMPLATE_CHANNELS = {
-    "aihubmix",
-    "deepseek",
-    "dashscope",
-    "zhipu",
-    "moonshot",
-    "minimax",
-    "volcengine",
-    "siliconflow",
-    "openrouter",
-    "gemini",
-    "anthropic",
-    "openai",
-    "ollama",
-}
+EXPECTED_TEMPLATE_CHANNELS = {"deepseek"}
 
 
 def _extract_provider_templates() -> dict[str, str]:
@@ -117,33 +103,6 @@ def test_daily_analysis_maps_prompt_cache_config() -> None:
         assert f"secrets.{key}" in env[key]
 
 
-def test_daily_analysis_maps_generation_backend_runtime_config() -> None:
-    env = _load_daily_analysis_env()
-
-    for key in (
-        "GENERATION_BACKEND",
-        "GENERATION_FALLBACK_BACKEND",
-        "GENERATION_BACKEND_TIMEOUT_SECONDS",
-        "GENERATION_BACKEND_MAX_OUTPUT_BYTES",
-        "GENERATION_BACKEND_MAX_CONCURRENCY",
-        "LOCAL_CLI_BACKEND_MAX_CONCURRENCY",
-        "AGENT_GENERATION_BACKEND",
-    ):
-        assert key in env
-        assert f"vars.{key}" in env[key]
-        assert f"secrets.{key}" in env[key]
-
-
-def test_daily_analysis_generation_fallback_defaults_to_litellm() -> None:
-    env = _load_daily_analysis_env()
-    expression = env["GENERATION_FALLBACK_BACKEND"]
-
-    assert expression == (
-        "${{ vars.GENERATION_FALLBACK_BACKEND || "
-        "secrets.GENERATION_FALLBACK_BACKEND || 'litellm' }}"
-    )
-
-
 def test_env_example_includes_provider_template_channel_examples() -> None:
     templates = _extract_provider_templates()
     env_example = ENV_EXAMPLE_PATH.read_text(encoding="utf-8")
@@ -153,12 +112,10 @@ def test_env_example_includes_provider_template_channel_examples() -> None:
         assert f"LLM_CHANNELS={channel}" in env_example
         assert f"LLM_{upper}_MODELS=" in env_example
 
-        if channel != "ollama":
-            assert f"LLM_{upper}_API_KEY=" in env_example
+        assert f"LLM_{upper}_API_KEY=" in env_example
         if base_url:
             assert f"LLM_{upper}_BASE_URL=" in env_example
-        if channel != "ollama":
-            assert f"LLM_{upper}_PROTOCOL=" in env_example
+        assert f"LLM_{upper}_PROTOCOL=" in env_example
 
     assert "LLM_CHANNELS=ark" not in env_example
     assert "LLM_ARK_" not in env_example

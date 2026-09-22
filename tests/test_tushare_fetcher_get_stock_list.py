@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Unit tests for TushareFetcher.get_stock_list(), _fetch_raw_data(), _normalize_data(), get_chip_distribution().
+"""Unit tests for TushareFetcher.get_stock_list(), _fetch_raw_data(), _normalize_data().
 
 This test file is intentionally isolated from other test modules.
 It loads repo-root `.env` and stubs optional runtime deps so it can run
@@ -219,18 +219,6 @@ class TestTushareFetcherNormalizeData(unittest.TestCase):
         out = fetcher._normalize_data(self._sample_daily_frame(), "510050")
         self.assertEqual(out.iloc[0]["volume"], 10000.0)
         self.assertEqual(out.iloc[0]["amount"], 50000.0)
-
-
-class TestTushareFetcherChipDistribution(unittest.TestCase):
-    """get_chip_distribution: HK early exit."""
-
-    @staticmethod
-    def _make_fetcher() -> TushareFetcher:
-        with patch.object(TushareFetcher, "_init_api", return_value=None):
-            fetcher = TushareFetcher()
-        fetcher._api = MagicMock()
-        fetcher.priority = 2
-        return fetcher
 
 
 if __name__ == "__main__":

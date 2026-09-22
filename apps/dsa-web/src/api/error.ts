@@ -438,9 +438,8 @@ export function parseApiError(error: unknown): ParsedApiError {
 
   const hasLlmProviderHint = includesAny(matchText, [
     'chat/completions',
-    'generativelanguage',
     'openai',
-    'gemini',
+    'deepseek',
   ]);
   if (status === 400 && hasLlmProviderHint) {
     return createParsedApiError({

@@ -805,10 +805,10 @@ describe('RunFlowGraph', () => {
             },
           },
           {
-            id: 'provider_news_searxng_2',
+            id: 'provider_news_bocha_2',
             lane: 'data_source',
             kind: 'data_source',
-            label: '新闻舆情 · SearXNG',
+            label: '新闻舆情 · Bocha',
             status: 'failed',
             startedAt: '2026-06-08T10:00:06',
             metadata: {
@@ -836,11 +836,11 @@ describe('RunFlowGraph', () => {
     expect(layoutRowFor('run-flow-node-provider_news_tavily_1')).toBe(
       layoutRowFor('run-flow-node-topology_data_news_search') + 1,
     );
-    expect(layoutRowFor('run-flow-node-provider_news_searxng_2')).toBe(
+    expect(layoutRowFor('run-flow-node-provider_news_bocha_2')).toBe(
       layoutRowFor('run-flow-node-provider_news_tavily_1') + 1,
     );
     expect(layoutRowFor('run-flow-node-daily')).toBeGreaterThan(
-      layoutRowFor('run-flow-node-provider_news_searxng_2'),
+      layoutRowFor('run-flow-node-provider_news_bocha_2'),
     );
     expect(screen.getByTestId('run-flow-expanded-group-topology_data_realtime_quote')).toBeInTheDocument();
     expect(screen.getByTestId('run-flow-expanded-group-topology_data_news_search')).toBeInTheDocument();

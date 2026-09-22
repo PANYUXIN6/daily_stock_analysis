@@ -116,7 +116,7 @@ const readPersistedScreenTask = (): PersistedScreenTask | null => {
       taskId: parsed.taskId,
       runId: typeof parsed.runId === 'string' && parsed.runId.trim() ? parsed.runId : undefined,
       market: typeof parsed.market === 'string' && parsed.market.trim() ? parsed.market : 'cn',
-      strategy: typeof parsed.strategy === 'string' && parsed.strategy.trim() ? parsed.strategy : 'dual_low',
+      strategy: typeof parsed.strategy === 'string' && parsed.strategy.trim() ? parsed.strategy : 'balanced_alpha',
       maxResults: Number.isFinite(restoredMaxResults) ? Math.min(100, Math.max(1, restoredMaxResults)) : 3,
     };
   } catch {
@@ -280,6 +280,11 @@ const getLocalFactorReason = (item: ScreeningCandidate) => {
 };
 
 const getCandidateReason = (item: ScreeningCandidate) => {
+  const profitGap = item.postAnalysisSummaries?.netProfitGap
+    || item.postAnalysisSummaries?.net_profit_gap;
+  if (profitGap) {
+    return profitGap;
+  }
   if (item.llmThesis || item.llmScore != null) {
     return item.reason || item.llmThesis || 'LLM 已完成相对排序。';
   }
@@ -345,7 +350,7 @@ const summarizeScreeningDiagnostic = (detail: string) => {
   if (/RemoteDisconnected|Connection aborted|ProtocolError|ConnectionPool|Max retries exceeded|ProxyError|NameResolutionError/i.test(detail)) {
     return '网络连接中断';
   }
-  if (/missing .*api key|GEMINI_API_KEY|GOOGLE_API_KEY|gemini_api_key/i.test(detail)) {
+  if (/missing .*api key|DEEPSEEK_API_KEY/i.test(detail)) {
     return '缺少可用 LLM API Key';
   }
   if (/returned no data|empty/i.test(detail)) {
@@ -837,7 +842,7 @@ const StockScreeningPage: React.FC = () => {
   const [enabled, setEnabled] = useState(false);
   const [available, setAvailable] = useState(false);
   const [market, setMarket] = useState(restoredTask?.market || 'cn');
-  const [strategy, setStrategy] = useState(restoredTask?.strategy || 'dual_low');
+  const [strategy, setStrategy] = useState(restoredTask?.strategy || 'balanced_alpha');
   const [strategies, setStrategies] = useState<ScreeningStrategy[]>([]);
   const [maxResults, setMaxResults] = useState(restoredTask?.maxResults || 3);
   const [candidates, setCandidates] = useState<ScreeningCandidate[]>([]);

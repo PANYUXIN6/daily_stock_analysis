@@ -466,6 +466,13 @@ def _format_dsa_context_for_prompt(p: Pick) -> str:
         parts.append(f"summary={_truncate_text(p.dsa_analysis_summary, 240)}")
 
     context = p.dsa_context if isinstance(p.dsa_context, dict) else {}
+    gap = context.get("profit_gap")
+    if isinstance(gap, dict):
+        verified = {key: gap.get(key) for key in (
+            "profit_yoy_pct", "core_profit_ratio",
+            "event_trade_date", "as_of", "observation_days", "volume", "fundamental_note",
+        )}
+        parts.insert(0, "verified_profit_gap=" + json.dumps(verified, ensure_ascii=False))
     quote = context.get("quote") if isinstance(context.get("quote"), dict) else {}
     if quote:
         parts.append(
@@ -612,7 +619,7 @@ def _extract_completion_text(response: object) -> str:
     if content.strip():
         return content
 
-    # If provider returns segmented blocks (LiteLLM, MiniMax, etc.), prefer
+    # If provider returns segmented blocks through LiteLLM, prefer
     # extracting text from content_blocks before treating the response as empty.
     content_blocks = None
     for owner in (choice, message):
@@ -1080,21 +1087,13 @@ def _channel_matches_model(channel: dict[str, object], model: str) -> bool:
     models = channel.get("models", [])
     if not isinstance(models, list) or not models:
         return False
-    normalized = {_normalize_model_name(str(item), str(channel.get("protocol", "openai"))) for item in models}
+    normalized = {_normalize_model_name(str(item), str(channel.get("protocol", "deepseek"))) for item in models}
     return model in normalized or model.split("/", 1)[-1] in {item.split("/", 1)[-1] for item in normalized}
 
 
 def _normalize_model_name(model: str, protocol: str) -> str:
-    model = model.strip()
-    if "/" in model:
-        return model
-    if protocol == "ollama":
-        return f"ollama/{model}"
-    if protocol == "gemini":
-        return f"gemini/{model}"
-    if protocol == "deepseek":
-        return f"deepseek/{model}"
-    return f"openai/{model}"
+    from src.config import normalize_llm_channel_model
+    return normalize_llm_channel_model(model, protocol)
 
 
 def _unique_attempts(items: list[dict[str, object]]) -> list[dict[str, object]]:

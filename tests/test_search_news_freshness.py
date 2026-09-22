@@ -3,18 +3,11 @@
 Unit tests for strict news freshness filtering and strategy window logic (Issue #697).
 """
 
-import sys
 import unittest
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-# Mock newspaper before search_service import (optional dependency)
-if "newspaper" not in sys.modules:
-    mock_np = MagicMock()
-    mock_np.Article = MagicMock()
-    mock_np.Config = MagicMock()
-    sys.modules["newspaper"] = mock_np
 
 from src.search_service import SearchResponse, SearchResult, SearchService
 from src.services.run_diagnostics import (
@@ -62,7 +55,6 @@ class SearchNewsFreshnessTestCase(unittest.TestCase):
     ):
         service = SearchService(
             bocha_keys=["dummy_key"],
-            searxng_public_instances_enabled=False,
             news_max_age_days=news_max_age_days,
             news_strategy_profile=news_strategy_profile,
         )
@@ -161,7 +153,6 @@ class SearchNewsFreshnessTestCase(unittest.TestCase):
 
         service = SearchService(
             bocha_keys=["dummy_key"],
-            searxng_public_instances_enabled=False,
             news_max_age_days=3,
             news_strategy_profile="short",
         )
@@ -190,7 +181,6 @@ class SearchNewsFreshnessTestCase(unittest.TestCase):
         fresh = today.isoformat()
         service = SearchService(
             bocha_keys=["dummy_key"],
-            searxng_public_instances_enabled=False,
             news_max_age_days=3,
             news_strategy_profile="short",
         )
@@ -199,12 +189,12 @@ class SearchNewsFreshnessTestCase(unittest.TestCase):
             name="Tavily",
             search=MagicMock(return_value=_response([_result("too_old", old)])),
         )
-        searxng = SimpleNamespace(
+        bocha = SimpleNamespace(
             is_available=True,
-            name="SearXNG",
+            name="Bocha",
             search=MagicMock(return_value=_response([_result("贵州茅台 600519 最新公告", fresh)])),
         )
-        service._providers = [tavily, searxng]
+        service._providers = [tavily, bocha]
 
         token = activate_run_diagnostic_context(
             trace_id="trace-news",
@@ -222,7 +212,7 @@ class SearchNewsFreshnessTestCase(unittest.TestCase):
         self.assertEqual([item.title for item in response.results], ["贵州茅台 600519 最新公告"])
         provider_runs = diagnostics["provider_runs"]
         self.assertEqual([run["data_type"] for run in provider_runs], ["news_search", "news_search"])
-        self.assertEqual([run["provider"] for run in provider_runs], ["Tavily", "SearXNG"])
+        self.assertEqual([run["provider"] for run in provider_runs], ["Tavily", "Bocha"])
         self.assertFalse(provider_runs[0]["success"])
         self.assertTrue(provider_runs[1]["success"])
         self.assertEqual(provider_runs[1]["record_count"], 1)
@@ -232,7 +222,6 @@ class SearchNewsFreshnessTestCase(unittest.TestCase):
         fresh = datetime.now().date().isoformat()
         service = SearchService(
             bocha_keys=["dummy_key"],
-            searxng_public_instances_enabled=False,
             news_max_age_days=3,
             news_strategy_profile="short",
         )
@@ -266,7 +255,6 @@ class SearchNewsFreshnessTestCase(unittest.TestCase):
         fresh = datetime.now().date().isoformat()
         service = SearchService(
             bocha_keys=["dummy_key"],
-            searxng_public_instances_enabled=False,
             news_max_age_days=3,
             news_strategy_profile="short",
         )
@@ -297,7 +285,6 @@ class SearchNewsFreshnessTestCase(unittest.TestCase):
         fresh = datetime.now().date().isoformat()
         service = SearchService(
             bocha_keys=["dummy_key"],
-            searxng_public_instances_enabled=False,
             news_max_age_days=3,
             news_strategy_profile="short",
         )
@@ -331,7 +318,6 @@ class SearchNewsFreshnessTestCase(unittest.TestCase):
         fresh = datetime.now().date().isoformat()
         service = SearchService(
             bocha_keys=["dummy_key"],
-            searxng_public_instances_enabled=False,
             news_max_age_days=3,
             news_strategy_profile="short",
         )
@@ -369,7 +355,6 @@ class SearchNewsFreshnessTestCase(unittest.TestCase):
         fresh = datetime.now().date().isoformat()
         service = SearchService(
             bocha_keys=["dummy_key"],
-            searxng_public_instances_enabled=False,
             news_max_age_days=3,
             news_strategy_profile="short",
         )
@@ -419,7 +404,6 @@ class SearchNewsFreshnessTestCase(unittest.TestCase):
         fresh = datetime.now().date().isoformat()
         service = SearchService(
             bocha_keys=["dummy_key"],
-            searxng_public_instances_enabled=False,
             news_max_age_days=3,
             news_strategy_profile="short",
         )
@@ -446,7 +430,6 @@ class SearchNewsFreshnessTestCase(unittest.TestCase):
         fresh = datetime.now().date().isoformat()
         service = SearchService(
             bocha_keys=["dummy_key"],
-            searxng_public_instances_enabled=False,
             news_max_age_days=3,
             news_strategy_profile="short",
         )
@@ -498,7 +481,6 @@ class SearchNewsFreshnessTestCase(unittest.TestCase):
         fresh = datetime.now().date().isoformat()
         service = SearchService(
             bocha_keys=["dummy_key"],
-            searxng_public_instances_enabled=False,
             news_max_age_days=3,
             news_strategy_profile="short",
         )
@@ -1476,7 +1458,6 @@ class SearchNewsFreshnessTestCase(unittest.TestCase):
         fresh = datetime.now().date().isoformat()
         service = SearchService(
             bocha_keys=["dummy_key"],
-            searxng_public_instances_enabled=False,
             news_max_age_days=3,
             news_strategy_profile="short",
         )
@@ -1525,7 +1506,6 @@ class SearchNewsFreshnessTestCase(unittest.TestCase):
         fresh = datetime.now().date().isoformat()
         service = SearchService(
             bocha_keys=["dummy_key"],
-            searxng_public_instances_enabled=False,
             news_max_age_days=3,
             news_strategy_profile="short",
         )
@@ -1902,7 +1882,7 @@ class SearchNewsFreshnessTestCase(unittest.TestCase):
     def test_search_stock_events_reuses_search_cache(self) -> None:
         service = SearchService(
             bocha_keys=["dummy_key"],
-            searxng_public_instances_enabled=False,
+
         )
         provider = SimpleNamespace(
             is_available=True,

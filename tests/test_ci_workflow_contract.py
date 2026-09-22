@@ -120,17 +120,16 @@ def test_heavy_ci_jobs_are_path_filtered_and_backend_tests_are_sharded() -> None
     backend_tests_job = ci["jobs"]["backend-tests"]
     backend_gate_job = ci["jobs"]["backend-gate"]
     docker_job = ci["jobs"]["docker-build"]
-    assert backend_tests_job["needs"] == ["changes", "ai-governance"]
+    assert backend_tests_job["needs"] == ["changes"]
     assert backend_tests_job["if"] == "needs.changes.outputs.backend == 'true'"
     assert backend_tests_job["strategy"]["fail-fast"] == "false"
     assert backend_tests_job["strategy"]["matrix"]["shard"] == ["1", "2", "3"]
     assert backend_gate_job["needs"] == [
         "changes",
-        "ai-governance",
         "backend-tests",
     ]
     assert backend_gate_job["if"] == "always()"
-    assert docker_job["needs"] == ["changes", "ai-governance"]
+    assert docker_job["needs"] == ["changes"]
     assert docker_job["if"] == "needs.changes.outputs.docker == 'true'"
 
     install_step = next(
@@ -199,7 +198,6 @@ def test_backend_filter_covers_mixed_changes_and_shared_web_assets() -> None:
     assert outputs(["docs/alerts.md"])[0] is True
     assert outputs(["tests/fixtures/notification_reports/aggregate_report.md"])[0] is True
     assert outputs(["THIRD_PARTY_NOTICES.md"])[0] is True
-    assert outputs(["docs/CONTRIBUTING.md"]) == (False, False, False)
     assert outputs(["README.md"]) == (False, False, False)
     assert outputs(["LICENSE"]) == (False, False, False)
     assert outputs(["apps/dsa-web/README.md"]) == (False, False, False)

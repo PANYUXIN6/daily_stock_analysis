@@ -35,12 +35,6 @@ from src.agent.provider_trace import (
     trace_model_matches,
 )
 from src.llm.errors import call_litellm_with_param_recovery
-from src.llm.backend_registry import (
-    AUTO_AGENT_BACKEND_ID,
-    GENERATION_ONLY_BACKEND_IDS,
-    LITELLM_BACKEND_ID,
-    resolve_agent_generation_backend_id,
-)
 from src.llm.generation_backend import GenerationError, GenerationErrorCode
 from src.llm.generation_params import apply_litellm_generation_params, resolve_litellm_wire_model
 from src.llm.usage import attach_message_hmacs, extract_usage_payload, normalize_litellm_usage
@@ -87,71 +81,21 @@ class LLMResponse:
     content: Optional[str] = None          # text response (final answer)
     tool_calls: List[ToolCall] = field(default_factory=list)  # tool calls to execute
     reasoning_content: Optional[str] = None  # Chain-of-thought (CoT) from DeepSeek thinking mode; must be passed back in multi-turn assistant messages; None for other providers
-    provider_blocks: List[Dict[str, Any]] = field(default_factory=list)  # Opaque provider content blocks (e.g. Claude thinking/redacted_thinking)
+    provider_blocks: List[Dict[str, Any]] = field(default_factory=list)  # Opaque provider content blocks from stored tool traces
     usage: Dict[str, Any] = field(default_factory=dict)       # token usage info
     provider: str = ""                     # which provider handled this call
-    model: str = ""                        # full model name used (e.g. gemini/gemini-2.0-flash), for report meta
+    model: str = ""                        # full model name used (e.g. deepseek/deepseek-flash), for report meta
     raw: Any = None                        # raw provider response for debugging
 
 
 # Models that auto-return reasoning_content; do NOT send extra_body (may cause 400).
-_AUTO_THINKING_MODELS: List[str] = ["deepseek-reasoner", "deepseek-r1", "qwq"]
+_AUTO_THINKING_MODELS: List[str] = ["deepseek-reasoner", "deepseek-r1"]
 
 # Models that need explicit opt-in via extra_body; payload decoupled from model name.
 _OPT_IN_THINKING_MODELS: Dict[str, dict] = {
     "deepseek-chat": {"thinking": {"type": "enabled"}},
-}
-
-# Custom model pricing for models not in LiteLLM's built-in price list.
-# Official MiniMax pricing: https://platform.minimax.io/docs/guides/pricing-paygo
-# - MiniMax-M3: $0.6/M input tokens, $2.4/M output tokens for prompts <=512K input
-#   tokens. Officially supports up to 1M input tokens with a separate higher
-#   price tier for the >512K bucket; we conservatively register only the
-#   <=512K bucket here because the cost tracker carries a single per-token
-#   price and the higher-tier price is not modeled. Long prompts will be
-#   cost-estimated using the <=512K rate; treat the estimate as a floor in
-#   that case.
-# - MiniMax-M2.7: $0.3/M input tokens, $1.2/M output tokens.
-# - MiniMax-M2.5: kept as legacy so existing user configs continue to report
-#   accurate cost. Still listed as a Legacy Model on the official pricing
-#   page; remove only after we have user-facing migration guidance.
-_CUSTOM_MODEL_PRICING: Dict[str, dict] = {
-    "MiniMax-M3": {
-        "supports_function_calling": True,
-        "supports_vision": True,
-        "supports_audio_input": False,
-        "supports_audio_output": False,
-        # Project-conservative bound for the <=512K input-token price tier.
-        # MiniMax-M3 supports up to 1M input tokens officially, but pricing
-        # changes above 512K; see comment block above.
-        "context_window": 512000,
-        "max_tokens": 128000,
-        "input_cost_per_token": 0.0000006,   # $0.6 / 1M tokens (<=512K input bucket)
-        "output_cost_per_token": 0.0000024,   # $2.4 / 1M tokens (<=512K input bucket)
-    },
-    "MiniMax-M2.7": {
-        "supports_function_calling": True,
-        "supports_vision": False,
-        "supports_audio_input": False,
-        "supports_audio_output": False,
-        "context_window": 100000,
-        "max_tokens": 10000,
-        "input_cost_per_token": 0.0000003,   # $0.3 / 1M tokens
-        "output_cost_per_token": 0.0000012,   # $1.2 / 1M tokens
-    },
-    # Legacy model retained for backward compatibility with existing user
-    # configs; values match the previous M2.5 entry to avoid silently
-    # zero-costing prior cost estimates.
-    "MiniMax-M2.5": {
-        "supports_function_calling": True,
-        "supports_vision": False,
-        "supports_audio_input": False,
-        "supports_audio_output": False,
-        "context_window": 245760,
-        "max_tokens": 8192,
-        "input_cost_per_token": 0.0000003,   # $0.3 / 1M tokens (legacy)
-        "output_cost_per_token": 0.0000012,   # $1.2 / 1M tokens (legacy)
-    },
+    "deepseek-flash": {"thinking": {"type": "enabled"}},
+    "deepseek-v4-pro": {"thinking": {"type": "enabled"}},
 }
 
 _FALLBACK_MODEL_PRICING: Dict[str, Any] = {
@@ -174,7 +118,7 @@ def _split_provider_model(model: str) -> Tuple[str, str]:
     if "/" in normalized:
         provider, remainder = normalized.split("/", 1)
         return provider.lower(), remainder.strip()
-    return "openai", normalized
+    return "deepseek", normalized
 
 
 def _object_to_dict(value: Any) -> Dict[str, Any]:
@@ -336,7 +280,7 @@ def resolve_fallback_litellm_wire_models(
 class LLMToolAdapter:
     """Unified adapter for tool-calling via LiteLLM.
 
-    Supports all providers (Gemini, Anthropic, OpenAI, DeepSeek, etc.) through
+    Supports DeepSeek through
     a single litellm.completion() interface with optional Router for multi-key
     load balancing.
     """
@@ -348,27 +292,9 @@ class LLMToolAdapter:
         self._legacy_router_model_list: List[Dict[str, Any]] = []
         self._litellm_available = False
         self._backend_error: Optional[GenerationError] = None
-        self._generation_backend_id = ""
         self._route_resolution: AgentLiteLLMRouteResolution = AgentLiteLLMRouteResolution(False)
-        self._register_custom_model_pricing()
         self._init_litellm()
 
-    @staticmethod
-    def _register_custom_model_pricing() -> None:
-        """Register custom model pricing for models not in LiteLLM's built-in price list.
-
-        This prevents cost calculation errors for MiniMax-M2.7 and similar models.
-        """
-        for model_name, pricing in _CUSTOM_MODEL_PRICING.items():
-            try:
-                litellm.register_model(
-                    {
-                        model_name: pricing
-                    }
-                )
-                logger.debug(f"Registered custom pricing for {model_name}")
-            except Exception as e:
-                logger.debug(f"Model {model_name} may already be registered or pricing error: {e}")
     def _has_channel_config(self) -> bool:
         """Check if multi-channel config (channels / YAML) is active."""
         return bool(self._config.llm_model_list) and not all(
@@ -379,32 +305,6 @@ class LLMToolAdapter:
         """Initialize litellm Router from channels / YAML / legacy keys."""
         config = self._config
         self._legacy_router_model_list = []
-        try:
-            self._generation_backend_id = resolve_agent_generation_backend_id(config)
-        except GenerationError as exc:
-            self._backend_error = exc
-            logger.error("Agent LLM backend configuration error: %s", exc.message)
-            return
-        if self._generation_backend_id != LITELLM_BACKEND_ID:
-            self._backend_error = GenerationError(
-                error_code=GenerationErrorCode.UNSUPPORTED_TOOL_CALLING,
-                stage="generation",
-                retryable=False,
-                fallbackable=False,
-                backend=self._generation_backend_id,
-                provider=self._generation_backend_id,
-                details={
-                    "field": "AGENT_GENERATION_BACKEND",
-                    "requested_backend": self._generation_backend_id,
-                    "supported_tool_backend": LITELLM_BACKEND_ID,
-                },
-            )
-            logger.error(
-                "Agent LLM backend %s does not support tool calling",
-                self._generation_backend_id,
-            )
-            return
-
         self._route_resolution = resolve_agent_litellm_route(config)
         litellm_model = self._route_resolution.primary_model or get_effective_agent_primary_model(config)
         if not self._route_resolution.available and litellm_model:
@@ -413,7 +313,7 @@ class LLMToolAdapter:
                 stage="generation",
                 retryable=False,
                 fallbackable=False,
-                backend=LITELLM_BACKEND_ID,
+                backend="litellm",
                 provider="agent",
                 details={
                     "field": "AGENT_LITELLM_MODEL",
@@ -424,34 +324,6 @@ class LLMToolAdapter:
             logger.error("Agent LLM unavailable: %s", self._route_resolution.reason)
             return
         if not litellm_model:
-            generation_backend = str(
-                getattr(config, "generation_backend", LITELLM_BACKEND_ID) or LITELLM_BACKEND_ID
-            ).strip().lower()
-            agent_backend = str(
-                getattr(config, "agent_generation_backend", AUTO_AGENT_BACKEND_ID)
-                or AUTO_AGENT_BACKEND_ID
-            ).strip().lower()
-            if generation_backend in GENERATION_ONLY_BACKEND_IDS and agent_backend == AUTO_AGENT_BACKEND_ID:
-                self._backend_error = GenerationError(
-                    error_code=GenerationErrorCode.UNSUPPORTED_TOOL_CALLING,
-                    stage="generation",
-                    retryable=False,
-                    fallbackable=False,
-                    backend=generation_backend,
-                    provider=generation_backend,
-                    details={
-                        "field": "AGENT_GENERATION_BACKEND",
-                        "requested_backend": AUTO_AGENT_BACKEND_ID,
-                        "generation_backend": generation_backend,
-                        "supported_tool_backend": LITELLM_BACKEND_ID,
-                        "reason": "litellm_agent_backend_unavailable",
-                    },
-                )
-                logger.error(
-                    "Agent auto backend cannot inherit %s because it does not support tool calling",
-                    generation_backend,
-                )
-                return
             logger.warning("Agent LLM: no effective primary model configured")
             return
 
@@ -464,7 +336,7 @@ class LLMToolAdapter:
                     stage="generation",
                     retryable=False,
                     fallbackable=False,
-                    backend=LITELLM_BACKEND_ID,
+                    backend="litellm",
                     provider="agent",
                     details={
                         "field": "AGENT_LITELLM_MODEL",
@@ -472,7 +344,7 @@ class LLMToolAdapter:
                         "primary_model": litellm_model,
                     },
                 )
-                logger.warning("Agent LLM: no Agent-safe channel deployments after Hermes filtering")
+                logger.warning("Agent LLM: no Agent-safe channel deployments for the configured model")
                 return
             self._router = Router(
                 model_list=model_list,
@@ -673,7 +545,7 @@ class LLMToolAdapter:
         """Return LiteLLM provider namespace for model fallback grouping."""
         if "/" in model:
             return model.split("/", 1)[0]
-        return "openai"
+        return "deepseek"
 
     def _call_litellm_model(
         self,
@@ -770,9 +642,7 @@ class LLMToolAdapter:
                 logger=logger,
             )
         else:
-            # Legacy/direct-env path: direct call (also handles direct-env
-            # providers like groq/ or bedrock/ that are not in the Router
-            # model_list even when channel mode is active)
+            # Direct DeepSeek call for a model outside the configured router.
             response = call_litellm_with_param_recovery(
                 lambda kwargs: litellm.completion(**kwargs),
                 model=model,
@@ -878,17 +748,14 @@ class LLMToolAdapter:
 
         provider_blocks, provider_text = _extract_provider_blocks(choice)
 
-        # Handle MiniMax-specific content_blocks format
-        # MiniMax-M3 may return content_blocks at choice level or inside message
-        # Check both possible locations for content_blocks to ensure consistency
-        # Concatenate ALL text blocks to avoid truncating multi-block responses
+        # Preserve text returned as structured content blocks.
         text_content = choice.message.content
         if isinstance(text_content, list):
             text_content = provider_text
         if text_content is None:
             text_content = provider_text
 
-        # DeepSeek/Qwen thinking mode; not in standard OpenAI type, accessed via getattr
+        # DeepSeek thinking mode; not in standard OpenAI type, accessed via getattr
         reasoning_content = getattr(choice.message, "reasoning_content", None)
 
         if choice.message.tool_calls:
@@ -961,25 +828,10 @@ def register_fallback_model_pricing(models: Iterable[str]) -> None:
         cost_map = {}
     for model in models:
         provider, wire_model = _split_provider_model(str(model))
-        if provider != "openai":
+        if provider != "deepseek":
             continue
         if not wire_model or wire_model.startswith("__legacy_"):
             continue
-        custom_pricing = _CUSTOM_MODEL_PRICING.get(wire_model)
-        if custom_pricing is not None:
-            if wire_model in cost_map:
-                continue
-            try:
-                register({wire_model: dict(custom_pricing)})
-                logger.debug("Registered custom pricing for %s", wire_model)
-            except Exception as exc:
-                logger.debug(
-                    "Custom pricing registration failed for %s, will try fallback pricing: %s",
-                    wire_model,
-                    exc,
-                )
-            else:
-                continue
         if wire_model in cost_map or wire_model in _FALLBACK_MODEL_PRICING_REGISTERED:
             continue
         try:

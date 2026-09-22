@@ -42,7 +42,7 @@ PR2 继续覆盖高频、易填错配置项：
 
 - AI 模型运行时：Agent 主模型、fallback 模型、高级 YAML 路由、temperature、provider API Key、OpenAI-compatible Base URL。
 - LLM Channels 编辑器内部字段：渠道名、协议、Base URL、API Key、模型列表、运行时能力检测、主模型、Agent 主模型、fallback、Vision 和 temperature。
-- 数据源与搜索：Tushare、股票索引远程更新开关、实时行情优先级、实时技术指标、搜索 API Key、SearXNG、筹码分布、新闻窗口。
+- 数据源与搜索：Tushare、股票索引远程更新开关、实时行情优先级、实时技术指标、搜索 API Key分布、新闻窗口。
 - 通知：Webhook、Telegram、邮件、Discord/Slack 等聊天平台、报告输出、Webhook SSL 校验。
 - WebUI / auth / schedule / proxy：Host、Port、登录保护、可信反向代理、定时任务、交易日检查、网络代理。
 
@@ -53,8 +53,8 @@ PR3 registered-field slice / 阶段性补齐：聚焦 Web 设置页中实际展�
 - 报告配置（9 字段）：仅推送摘要、显示模型名、模板目录、渲染引擎、完整性校验/重试、历史信号对比、逐股推送、合并邮件。
 - 通知路由配置（9 字段）：报告/告警/系统错误渠道路由、去重/冷却、静默时段/时区、最低等级、每日摘要（预留）。
 - 系统运行时（7 字段）：日志级别、调试模式、最大并发、分析间隔、大盘分析开关/市场/配色。
-- AI legacy 与 Anspire 配置：provider 专用多 Key、模型名、温度、Vision 模型、max tokens 与 Anspire LLM 网关字段。
-- 数据源与搜索：TickFlow、SerpAPI、Brave、Bocha、MiniMax、SearXNG 公共实例、BIAS 阈值和 Pytdx 服务器字段。
+- DeepSeek 配置：多 Key、主模型、温度、Vision 模型与 max tokens。
+- 数据源与搜索：TickFlow、Bocha、Tavily、BIAS 阈值和 Pytdx 服务器字段。
 - 通知高级字段：飞书高级安全/应用字段、Telegram topic、Discord/Slack 高级字段、Pushover、ntfy、Gotify、PushPlus、ServerChan3、AstrBot 和自定义 Webhook 高级模板/鉴权字段。
 
 Issue #1512 收口后，Web 设置页只展示后端配置注册表中的正式字段。未注册的 `.env` key 不再作为普通可编辑设置项展示，避免 raw key、`Auto-inferred field metadata.` 和无 help 按钮的配置项进入中文界面；这些 key 仍可通过 `.env` 文件或导入/导出能力保留和维护。

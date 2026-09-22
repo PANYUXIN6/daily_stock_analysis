@@ -103,11 +103,9 @@ def check_config():
     if config.tushare_token:
         print(f"    Token 前8位: {config.tushare_token[:8]}...")
     
-    print(f"  Gemini API Key: {'已配置 ✓' if config.gemini_api_key else '未配置 ✗'}")
-    if config.gemini_api_key:
-        print(f"    Key 前8位: {config.gemini_api_key[:8]}...")
-    print(f"  Gemini 主模型: {config.gemini_model}")
-    print(f"  Gemini 备选模型: {config.gemini_model_fallback}")
+    print(f"  DeepSeek API Key: {'已配置 ✓' if config.deepseek_api_keys else '未配置 ✗'}")
+    print(f"  DeepSeek 主模型: {config.litellm_model}")
+    print(f"  DeepSeek 备选模型: {config.litellm_fallback_models}")
     
     print(f"  企业微信 Webhook: {'已配置 ✓' if config.wechat_webhook_url else '未配置 ✗'}")
     
@@ -240,32 +238,32 @@ def check_data_fetch(stock_code: str = "600519"):
 
 def check_llm():
     """测试 LLM 调用"""
-    print_header("4. LLM (Gemini) 调用测试")
+    print_header("4. LLM (DeepSeek) 调用测试")
     
-    from src.analyzer import GeminiAnalyzer
+    from src.analyzer import DeepSeekAnalyzer
     from src.config import get_config
     import time
     
     config = get_config()
     
     print_section("模型配置")
-    print(f"  主模型: {config.gemini_model}")
-    print(f"  备选模型: {config.gemini_model_fallback}")
+    print(f"  主模型: {config.litellm_model}")
+    print(f"  备选模型: {config.litellm_fallback_models}")
     
     # 检查网络连接
     print_section("网络连接检查")
     try:
         import socket
         socket.setdefaulttimeout(10)
-        socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect(("generativelanguage.googleapis.com", 443))
-        print(f"  ✓ 可以连接到 Google API 服务器")
+        socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect(("api.deepseek.com", 443))
+        print(f"  ✓ 可以连接到 DeepSeek API 服务器")
     except Exception as e:
-        print(f"  ✗ 无法连接到 Google API 服务器: {e}")
+        print(f"  ✗ 无法连接到 DeepSeek API 服务器: {e}")
         print(f"  提示: 请检查网络连接或配置代理")
         print(f"  提示: 可以设置环境变量 HTTPS_PROXY=http://your-proxy:port")
         return False
     
-    analyzer = GeminiAnalyzer()
+    analyzer = DeepSeekAnalyzer()
     
     print_section("模型初始化")
     if analyzer.is_available():
@@ -298,7 +296,7 @@ def check_llm():
     
     print_section("发送测试请求")
     print(f"  测试股票: 贵州茅台 (600519)")
-    print(f"  正在调用 Gemini API（超时: 60秒）...")
+    print(f"  正在调用 DeepSeek API（超时: 60秒）...")
     
     start_time = time.time()
     
@@ -336,7 +334,7 @@ def check_llm():
         elif 'invalid' in error_str or 'api key' in error_str:
             print(f"\n  诊断: API Key 可能无效")
         elif 'model' in error_str:
-            print(f"\n  诊断: 模型名称可能不正确，尝试修改 .env 中的 GEMINI_MODEL")
+            print(f"\n  诊断: 模型名称可能不正确，尝试修改 .env 中的 LITELLM_MODEL")
         
         return False
 

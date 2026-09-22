@@ -50,12 +50,12 @@ def _verified_caps(
     return ProviderCacheCaps(
         schema_version="provider_cache_caps_v1",
         provider=provider,
-        api_surface=api_surface or ("chat_completions" if provider != "anthropic" else "anthropic_messages"),
+        api_surface=api_surface or "chat_completions",
         gateway=gateway,
         cloud_platform="none",
         model_pattern=model_pattern,
         verification_status="smoke_tested",
-        cache_activation="routing_hint_only" if provider == "openai" else "explicit_breakpoint",
+        cache_activation="routing_hint_only" if provider == "deepseek" else "explicit_breakpoint",
         directive_support=directive_support,
         retention_policy_support=RetentionPolicySupport(),
         usage_paths={},
@@ -82,143 +82,53 @@ def test_registry_returns_unknown_for_unregistered_openai_compatible_gateway():
     assert not caps.directive_support.prompt_cache_key
 
 
-def test_registry_does_not_match_qwen_openai_compatible_route_to_dashscope_native_caps():
-    route_context = build_provider_cache_route_context(model="openai/qwen-max", provider="openai_compatible")
-
-    caps = resolve_provider_cache_caps(route_context)
-
-    assert route_context.api_surface == "chat_completions"
-    assert caps.provider == "unknown"
 
 
-def test_route_context_uses_explicit_responses_surface_from_model_list():
-    route_context = build_provider_cache_route_context(
-        model="openai/gpt-5.6-sol",
-        provider="openai",
-        model_list=[
-            {
-                "model_name": "openai/gpt-5.6-sol",
-                "litellm_params": {"model": "openai/responses/gpt-5.6-sol"},
-                "model_info": {"dsa_api_surface": "responses"},
-            }
-        ],
-    )
-
-    assert route_context.api_surface == "responses"
 
 
-def test_route_context_marks_mixed_surface_alias_unknown():
-    route_context = build_provider_cache_route_context(
-        model="openai/shared-model",
-        provider="openai",
-        model_list=[
-            {
-                "model_name": "openai/shared-model",
-                "litellm_params": {"model": "openai/responses/shared-model"},
-                "model_info": {"dsa_api_surface": "responses"},
-            },
-            {
-                "model_name": "openai/shared-model",
-                "litellm_params": {"model": "openai/shared-model"},
-            },
-        ],
-    )
-
-    assert route_context.api_surface == "unknown"
-    assert resolve_provider_cache_caps(route_context).provider == "unknown"
 
 
-def test_registry_matches_dashscope_native_surface_only_for_native_route():
-    caps = resolve_provider_cache_caps(
-        ProviderCacheRouteContext(
-            model="qwen-max",
-            provider="dashscope",
-            api_surface="dashscope_native",
-        )
-    )
-
-    assert caps.provider == "dashscope"
-    assert caps.api_surface == "dashscope_native"
 
 
-def test_registry_rejects_openrouter_when_gateway_context_is_missing():
-    caps = resolve_provider_cache_caps(
-        ProviderCacheRouteContext(
-            model="openai/~anthropic/claude-sonnet",
-            provider="openrouter",
-            api_surface="openrouter_chat_completions",
-            gateway=None,
-        )
-    )
-
-    assert caps.provider == "unknown"
 
 
 def test_registry_honors_exact_and_prefix_model_patterns():
     prefix_caps = _verified_caps(
-        "openai",
+        "deepseek",
         DirectiveSupport(prompt_cache_key=True),
-        model_pattern="openai/gpt-4*",
+        model_pattern="deepseek/deepseek-flash*",
     )
 
     with patch("src.llm.provider_cache.PROVIDER_CACHE_REGISTRY", (prefix_caps,)):
         matched = resolve_provider_cache_caps(
             ProviderCacheRouteContext(
-                model="openai/gpt-4o",
-                provider="openai",
+                model="deepseek/deepseek-flash",
+                provider="deepseek",
                 api_surface="chat_completions",
             )
         )
         rejected = resolve_provider_cache_caps(
             ProviderCacheRouteContext(
                 model="openai/o3",
-                provider="openai",
+                provider="deepseek",
                 api_surface="chat_completions",
             )
         )
 
-    assert matched.provider == "openai"
+    assert matched.provider == "deepseek"
     assert rejected.provider == "unknown"
 
 
-def test_provider_family_resolver_preserves_wrapped_openai_compatible_families():
-    assert infer_provider_family(model="openai/qwen-max") == "qwen"
-    assert infer_provider_family(model="openai/kimi-k2") == "kimi"
-    assert infer_provider_family(model="openai/moonshot-v1-128k") == "moonshot"
-    assert infer_provider_family(model="openai/minimax-text-01") == "minimax"
-    assert infer_provider_family(model="openai/~anthropic/claude-sonnet") == "openrouter"
 
 
-def test_provider_family_resolver_does_not_infer_family_from_unknown_api_base_substrings():
-    assert (
-        infer_provider_family(
-            model="custom-model",
-            provider="openai_compatible",
-            api_base="https://openrouter.ai/api/v1",
-        )
-        == "openrouter"
-    )
-    assert (
-        infer_provider_family(
-            model="openai/custom-model",
-            provider="openai_compatible",
-            api_base="https://gateway.qwen-proxy.example/v1",
-        )
-        == "openai_compatible"
-    )
-    assert (
-        infer_provider_family(
-            model="custom-model",
-            provider="openai_compatible",
-            api_base="https://deepseek-compatible.internal/v1",
-        )
-        == "openai_compatible"
-    )
+def test_provider_family_resolver_only_recognizes_deepseek_models():
+    assert infer_provider_family(model="deepseek/deepseek-flash") == "deepseek"
+    assert infer_provider_family(model="custom-model", api_base="https://deepseek-compatible.example") == "unknown"
 
 
 def test_hints_disabled_preserves_request_shape_and_input_object():
     original = {
-        "model": "openai/gpt-4o",
+        "model": "deepseek/deepseek-flash",
         "messages": [{"role": "user", "content": "hello"}],
         "extra_body": {"thinking": {"type": "enabled"}},
     }
@@ -226,7 +136,7 @@ def test_hints_disabled_preserves_request_shape_and_input_object():
 
     result = apply_prompt_cache_hints(
         original,
-        ProviderCacheRouteContext(model="openai/gpt-4o", provider="openai"),
+        ProviderCacheRouteContext(model="deepseek/deepseek-flash", provider="deepseek"),
         _config(llm_prompt_cache_hints_enabled=False),
     )
 
@@ -237,11 +147,11 @@ def test_hints_disabled_preserves_request_shape_and_input_object():
 
 
 def test_openai_doc_only_caps_do_not_emit_prompt_cache_key_until_verified():
-    original = {"model": "openai/gpt-4o", "messages": [{"role": "user", "content": "hello"}]}
+    original = {"model": "deepseek/deepseek-flash", "messages": [{"role": "user", "content": "hello"}]}
 
     result = apply_prompt_cache_hints(
         original,
-        ProviderCacheRouteContext(model="openai/gpt-4o", provider="openai", api_surface="chat_completions"),
+        ProviderCacheRouteContext(model="deepseek/deepseek-flash", provider="deepseek", api_surface="chat_completions"),
         _config(llm_prompt_cache_hints_enabled=True, llm_prompt_cache_diagnostics_level="basic"),
     )
 
@@ -251,201 +161,41 @@ def test_openai_doc_only_caps_do_not_emit_prompt_cache_key_until_verified():
     assert result.diagnostics["verification_status"] == "doc_only"
 
 
-def test_verified_openai_prompt_cache_key_uses_hmac_without_mutating_input(monkeypatch):
-    monkeypatch.setenv("LLM_USAGE_HMAC_SECRET", "cache-secret")
-    monkeypatch.setenv("LLM_USAGE_HMAC_KEY_VERSION", "cache-v1")
-    original = {"model": "openai/gpt-4o", "messages": [{"role": "user", "content": "hello"}]}
-    before = copy.deepcopy(original)
-    caps = _verified_caps("openai", DirectiveSupport(prompt_cache_key=True))
-
-    with patch("src.llm.provider_cache.resolve_provider_cache_caps", return_value=caps):
-        result = apply_prompt_cache_hints(
-            original,
-            ProviderCacheRouteContext(model="openai/gpt-4o", provider="openai"),
-            _config(llm_prompt_cache_hints_enabled=True, llm_prompt_cache_diagnostics_level="debug"),
-        )
-
-    assert result.hint_applied
-    assert len(result.call_kwargs["prompt_cache_key"]) == 64
-    assert result.call_kwargs["prompt_cache_key"] != "hello"
-    assert original == before
-    assert result.diagnostics["route_key_hmac"]
 
 
-def test_anthropic_lowering_adds_cache_control_to_system_prefix_only():
-    original = {
-        "model": "anthropic/claude-sonnet-4-6",
-        "messages": [
-            {"role": "system", "content": "stable rules"},
-            {"role": "user", "content": "dynamic quote 600519"},
-        ],
-    }
-    caps = _verified_caps("anthropic", DirectiveSupport(block_cache_control=True))
-
-    with patch("src.llm.provider_cache.resolve_provider_cache_caps", return_value=caps):
-        result = apply_prompt_cache_hints(
-            original,
-            ProviderCacheRouteContext(model="anthropic/claude-sonnet-4-6", provider="anthropic"),
-            _config(llm_prompt_cache_hints_enabled=True),
-        )
-
-    assert result.hint_applied
-    lowered_messages = result.call_kwargs["messages"]
-    assert lowered_messages[0]["content"][0]["cache_control"] == {"type": "ephemeral"}
-    assert lowered_messages[0]["content"][0]["text"] == "stable rules"
-    assert lowered_messages[1]["content"] == "dynamic quote 600519"
-    assert original["messages"][0]["content"] == "stable rules"
 
 
 def test_repeated_lowering_from_shared_input_does_not_cross_pollute_results():
     original = {
-        "model": "anthropic/claude-sonnet-4-6",
+        "model": "deepseek/deepseek-v4-pro",
         "messages": [
             {"role": "system", "content": "stable rules"},
             {"role": "user", "content": "dynamic quote 600519"},
         ],
     }
     before = copy.deepcopy(original)
-    caps = _verified_caps("anthropic", DirectiveSupport(block_cache_control=True))
+    caps = _verified_caps("deepseek", DirectiveSupport(block_cache_control=True))
 
     with patch("src.llm.provider_cache.resolve_provider_cache_caps", return_value=caps):
         first = apply_prompt_cache_hints(
             original,
-            ProviderCacheRouteContext(model="anthropic/claude-sonnet-4-6", provider="anthropic"),
+            ProviderCacheRouteContext(model="deepseek/deepseek-v4-pro", provider="deepseek"),
             _config(llm_prompt_cache_hints_enabled=True),
         )
         second = apply_prompt_cache_hints(
             original,
-            ProviderCacheRouteContext(model="anthropic/claude-sonnet-4-6", provider="anthropic"),
+            ProviderCacheRouteContext(model="deepseek/deepseek-v4-pro", provider="deepseek"),
             _config(llm_prompt_cache_hints_enabled=True),
         )
 
     assert original == before
     assert first.call_kwargs is not second.call_kwargs
     assert first.call_kwargs["messages"] is not second.call_kwargs["messages"]
-    first.call_kwargs["messages"][0]["content"][0]["text"] = "mutated first result"
-    assert second.call_kwargs["messages"][0]["content"][0]["text"] == "stable rules"
+    first.call_kwargs["messages"][0]["content"] = "mutated first result"
+    assert second.call_kwargs["messages"][0]["content"] == "stable rules"
     assert original["messages"][0]["content"] == "stable rules"
 
 
-def test_litellm_openai_prompt_cache_key_is_not_passed_through_without_verified_capture():
-    sanitized_env = os.environ.copy()
-    for key in (
-        "OPENAI_API_KEY",
-        "OPENAI_API_BASE",
-        "OPENAI_BASE_URL",
-        "OPENAI_API_TYPE",
-        "OPENAI_API_VERSION",
-        "AZURE_API_KEY",
-        "AZURE_API_BASE",
-        "AZURE_OPENAI_ENDPOINT",
-        "LITELLM_API_KEY",
-        "LITELLM_BASE_URL",
-        "HTTP_PROXY",
-        "HTTPS_PROXY",
-        "ALL_PROXY",
-        "http_proxy",
-        "https_proxy",
-        "all_proxy",
-    ):
-        sanitized_env.pop(key, None)
-    sanitized_env["NO_PROXY"] = "127.0.0.1,localhost"
-    sanitized_env["no_proxy"] = "127.0.0.1,localhost"
-
-    script = textwrap.dedent(
-        """
-        import json
-        import threading
-        from http.server import BaseHTTPRequestHandler, HTTPServer
-
-        try:
-            import litellm
-        except ModuleNotFoundError:
-            print("LITELLM_MISSING")
-            raise SystemExit(77)
-
-        captured = {}
-        request_seen = threading.Event()
-
-        class CaptureHandler(BaseHTTPRequestHandler):
-            def do_POST(self):
-                length = int(self.headers.get("content-length", "0") or "0")
-                captured["body"] = json.loads(self.rfile.read(length).decode("utf-8"))
-                request_seen.set()
-                payload = {
-                    "id": "chatcmpl-test",
-                    "object": "chat.completion",
-                    "created": 0,
-                    "model": "test-model",
-                    "choices": [
-                        {
-                            "index": 0,
-                            "message": {"role": "assistant", "content": "ok"},
-                            "finish_reason": "stop",
-                        }
-                    ],
-                    "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2},
-                }
-                response = json.dumps(payload).encode("utf-8")
-                self.send_response(200)
-                self.send_header("content-type", "application/json")
-                self.send_header("content-length", str(len(response)))
-                self.end_headers()
-                self.wfile.write(response)
-
-            def log_message(self, *args):
-                return
-
-        try:
-            server = HTTPServer(("127.0.0.1", 0), CaptureHandler)
-        except PermissionError as exc:
-            print(f"LOCAL_SOCKET_UNAVAILABLE={exc}")
-            raise SystemExit(78)
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        thread.start()
-        try:
-            litellm.completion(
-                model="openai/test-model",
-                api_base=f"http://127.0.0.1:{server.server_port}/v1",
-                api_key="sk-test",
-                messages=[{"role": "user", "content": "hello"}],
-                prompt_cache_key="cache-key",
-                max_tokens=1,
-                timeout=5,
-                num_retries=0,
-            )
-            if not request_seen.wait(timeout=10):
-                raise AssertionError("LiteLLM did not send request to local capture server")
-        finally:
-            server.shutdown()
-            thread.join(timeout=5)
-
-        print("CAPTURED_BODY=" + json.dumps(captured["body"], sort_keys=True))
-        """
-    )
-
-    completed = subprocess.run(
-        [sys.executable, "-c", script],
-        capture_output=True,
-        env=sanitized_env,
-        text=True,
-        timeout=15,
-    )
-    if completed.returncode == 77:
-        if "LOCAL_SOCKET_UNAVAILABLE" in completed.stdout + completed.stderr:
-            pytest.skip("local loopback sockets are unavailable")
-        pytest.skip("litellm is not installed")
-    if completed.returncode == 78:
-        pytest.skip("local socket creation is not permitted in this environment")
-    assert completed.returncode == 0, completed.stdout + completed.stderr
-    captured_line = next(
-        (line for line in completed.stdout.splitlines() if line.startswith("CAPTURED_BODY=")),
-        None,
-    )
-    assert captured_line, completed.stdout + completed.stderr
-    body = json.loads(captured_line.removeprefix("CAPTURED_BODY="))
-    assert body["messages"] == [{"role": "user", "content": "hello"}]
-    assert "prompt_cache_key" not in body
 
 
 def test_domain_hmac_separates_prompt_cache_route_and_deepseek_domains(monkeypatch):
@@ -464,15 +214,15 @@ def test_domain_hmac_separates_prompt_cache_route_and_deepseek_domains(monkeypat
 def test_debug_diagnostics_do_not_include_raw_prompt_or_request_body(monkeypatch):
     monkeypatch.setenv("LLM_USAGE_HMAC_SECRET", "cache-secret")
     original = {
-        "model": "openai/gpt-4o",
+        "model": "deepseek/deepseek-flash",
         "messages": [{"role": "user", "content": "SECRET_PROMPT 600519 https://hooks.example"}],
     }
-    caps = _verified_caps("openai", DirectiveSupport(prompt_cache_key=True))
+    caps = _verified_caps("deepseek", DirectiveSupport(prompt_cache_key=True))
 
     with patch("src.llm.provider_cache.resolve_provider_cache_caps", return_value=caps):
         result = apply_prompt_cache_hints(
             original,
-            ProviderCacheRouteContext(model="openai/gpt-4o", provider="openai"),
+            ProviderCacheRouteContext(model="deepseek/deepseek-flash", provider="deepseek"),
             _config(llm_prompt_cache_hints_enabled=True, llm_prompt_cache_diagnostics_level="debug"),
         )
 

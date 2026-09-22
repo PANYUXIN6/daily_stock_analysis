@@ -20,7 +20,6 @@ AkshareFetcher - 主数据源 (Priority 1)
 
 增强数据：
 - 实时行情：量比、换手率、市盈率、市净率、总市值、流通市值
-- 筹码分布：获利比例、平均成本、筹码集中度
 """
 
 import logging
@@ -48,8 +47,8 @@ from src.config import get_config
 from src.services.stock_list_parser import ParseStatus, parse_analysis_target
 from .base import BaseFetcher, DataFetchError, RateLimitError, STANDARD_COLUMNS, is_bse_code, is_st_stock, is_kc_cy_stock, normalize_stock_code
 from .realtime_types import (
-    UnifiedRealtimeQuote, ChipDistribution, RealtimeSource,
-    get_realtime_circuit_breaker, get_chip_circuit_breaker,
+    UnifiedRealtimeQuote, RealtimeSource,
+    get_realtime_circuit_breaker,
     safe_float, safe_int  # 使用统一的类型转换函数
 )
 
@@ -1358,77 +1357,10 @@ class AkshareFetcher(BaseFetcher):
             return None
     
 
-    def get_chip_distribution(self, stock_code: str) -> Optional[ChipDistribution]:
-        """
-        获取筹码分布数据
-        
-        数据来源：ak.stock_cyq_em()
-        包含：获利比例、平均成本、筹码集中度
-        
-        注意：ETF/指数没有筹码分布数据，会直接返回 None
-        
-        Args:
-            stock_code: 股票代码
-            
-        Returns:
-            ChipDistribution 对象（最新一天的数据），获取失败返回 None
-        """
-        import akshare as ak
-
-        # ETF/指数没有筹码分布数据
-        if _is_etf_code(stock_code):
-            logger.debug(f"[API跳过] {stock_code} 是 ETF/指数，无筹码分布数据")
-            return None
-        
-        try:
-            # 防封禁策略
-            self._set_random_user_agent()
-            self._enforce_rate_limit()
-            
-            logger.info(f"[API调用] ak.stock_cyq_em(symbol={stock_code}) 获取筹码分布...")
-            import time as _time
-            api_start = _time.time()
-            
-            df = ak.stock_cyq_em(symbol=stock_code)
-            
-            api_elapsed = _time.time() - api_start
-            
-            if df.empty:
-                logger.warning(f"[API返回] ak.stock_cyq_em 返回空数据, 耗时 {api_elapsed:.2f}s")
-                return None
-            
-            logger.info(f"[API返回] ak.stock_cyq_em 成功: 返回 {len(df)} 天数据, 耗时 {api_elapsed:.2f}s")
-            logger.debug(f"[API返回] 筹码数据列名: {list(df.columns)}")
-            
-            # 取最新一天的数据
-            latest = df.iloc[-1]
-            
-            # 使用 realtime_types.py 中的统一转换函数
-            chip = ChipDistribution(
-                code=stock_code,
-                date=str(latest.get('日期', '')),
-                profit_ratio=safe_float(latest.get('获利比例')),
-                avg_cost=safe_float(latest.get('平均成本')),
-                cost_90_low=safe_float(latest.get('90成本-低')),
-                cost_90_high=safe_float(latest.get('90成本-高')),
-                concentration_90=safe_float(latest.get('90集中度')),
-                cost_70_low=safe_float(latest.get('70成本-低')),
-                cost_70_high=safe_float(latest.get('70成本-高')),
-                concentration_70=safe_float(latest.get('70集中度')),
-            )
-            
-            logger.info(f"[筹码分布] {stock_code} 日期={chip.date}: 获利比例={chip.profit_ratio:.1%}, "
-                       f"平均成本={chip.avg_cost}, 90%集中度={chip.concentration_90:.2%}, "
-                       f"70%集中度={chip.concentration_70:.2%}")
-            return chip
-            
-        except Exception as e:
-            logger.error(f"[API错误] 获取 {stock_code} 筹码分布失败: {e}")
-            return None
     
     def get_enhanced_data(self, stock_code: str, days: int = 60) -> Dict[str, Any]:
         """
-        获取增强数据（历史K线 + 实时行情 + 筹码分布）
+        获取增强数据（历史K线 + 实时行情）
         
         Args:
             stock_code: 股票代码
@@ -1441,7 +1373,6 @@ class AkshareFetcher(BaseFetcher):
             'code': stock_code,
             'daily_data': None,
             'realtime_quote': None,
-            'chip_distribution': None,
         }
         
         # 获取日线数据
@@ -1454,8 +1385,6 @@ class AkshareFetcher(BaseFetcher):
         # 获取实时行情
         result['realtime_quote'] = self.get_realtime_quote(stock_code)
         
-        # 获取筹码分布
-        result['chip_distribution'] = self.get_chip_distribution(stock_code)
         
         return result
 
@@ -2052,15 +1981,6 @@ if __name__ == "__main__":
             print("Failed to compute market stats.")
     except Exception as e:
         print(f"Failed to compute market stats: {e}")
-
-    # 测试筹码分布数据
-    print("\n" + "=" * 50)
-    print("测试筹码分布数据获取")
-    print("=" * 50)
-    try:
-        chip = fetcher.get_chip_distribution('600519')  # 茅台
-    except Exception as e:
-        print(f"[筹码分布] 获取失败: {e}")
 
     # 测试行业板块排名
     print("\n" + "=" * 50)

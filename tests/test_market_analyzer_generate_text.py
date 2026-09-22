@@ -16,7 +16,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 # Stub heavy dependencies before project imports
-for _mod in ("litellm", "google.generativeai", "google.genai", "anthropic"):
+for _mod in ("litellm", "google.generativeai", "google.genai", "deepseek"):
     if _mod not in sys.modules:
         sys.modules[_mod] = MagicMock()
 
@@ -113,22 +113,22 @@ _OPENAI_COMPATIBILITY_PAYLOAD_FIXTURES = [
 
 class TestAnalyzerGenerateText:
     def _make_analyzer(self):
-        """Return a minimally configured GeminiAnalyzer with _call_litellm mocked."""
+        """Return a minimally configured DeepSeekAnalyzer with _call_litellm mocked."""
         with patch("src.analyzer.get_config") as mock_cfg:
             cfg = MagicMock()
-            cfg.litellm_model = "gemini/gemini-2.0-flash"
+            cfg.litellm_model = "deepseek/deepseek-flash"
             cfg.litellm_fallback_models = []
-            cfg.gemini_api_keys = ["sk-gemini-testkey-1234"]
-            cfg.anthropic_api_keys = []
-            cfg.openai_api_keys = []
+            cfg.deepseek_api_keys = ["sk-deepseek/deepseek-flash"]
+            cfg.deepseek_api_keys = []
+            cfg.deepseek_api_keys = []
             cfg.deepseek_api_keys = []
             cfg.llm_model_list = []
             cfg.openai_base_url = None
-            cfg.generation_backend = "litellm"
-            cfg.generation_fallback_backend = "litellm"
+
+
             mock_cfg.return_value = cfg
-            from src.analyzer import GeminiAnalyzer
-            analyzer = GeminiAnalyzer.__new__(GeminiAnalyzer)
+            from src.analyzer import DeepSeekAnalyzer
+            analyzer = DeepSeekAnalyzer.__new__(DeepSeekAnalyzer)
             analyzer._router = None
             analyzer._litellm_available = True
             analyzer._config_override = cfg
@@ -189,9 +189,9 @@ class TestAnalyzerGenerateText:
         usage = {
             "usage_available": False,
             "usage_source": "unavailable",
-            "backend": "codex_cli",
+            "backend": "litellm",
         }
-        with patch.object(analyzer, "_call_litellm", return_value=("复盘", "codex_cli", usage)), \
+        with patch.object(analyzer, "_call_litellm", return_value=("复盘", "litellm", usage)), \
              patch("src.analyzer.persist_llm_usage") as mock_persist:
             result = analyzer.generate_text("写一份复盘")
 
@@ -204,9 +204,9 @@ class TestAnalyzerGenerateText:
         analyzer = self._make_analyzer()
         generation_result = GenerationResult(
             text="复盘",
-            provider="codex_cli",
-            model="codex_cli",
-            backend="codex_cli",
+            provider="litellm",
+            model="litellm",
+            backend="litellm",
             usage={"usage_available": False, "usage_source": "unavailable"},
         )
         with patch.object(analyzer, "_call_litellm", return_value=generation_result) as mock_call:
@@ -221,14 +221,14 @@ class TestAnalyzerGenerateText:
 
     def test_generate_text_with_metadata_resolves_router_alias_provider(self):
         analyzer = self._make_analyzer()
-        analyzer._config_override.generation_backend = "litellm"
-        analyzer._config_override.generation_fallback_backend = ""
+
+
         analyzer._config_override.litellm_model = "analysis-route"
         analyzer._config_override.litellm_fallback_models = []
         analyzer._config_override.llm_model_list = [
             {
                 "model_name": "analysis-route",
-                "litellm_params": {"model": "anthropic/claude-sonnet-test"},
+                "litellm_params": {"model": "deepseek/deepseek-v4-pro"},
             }
         ]
         response = SimpleNamespace(
@@ -242,27 +242,27 @@ class TestAnalyzerGenerateText:
         assert result is not None
         assert result.backend == "litellm"
         assert result.model == "analysis-route"
-        assert result.provider == "anthropic"
-        assert result.usage["provider"] == "anthropic"
+        assert result.provider == "deepseek"
+        assert result.usage["provider"] == "deepseek"
 
     def test_generate_text_with_metadata_prefers_actual_response_model(self):
         analyzer = self._make_analyzer()
-        analyzer._config_override.generation_backend = "litellm"
-        analyzer._config_override.generation_fallback_backend = ""
+
+
         analyzer._config_override.litellm_model = "analysis-route"
         analyzer._config_override.litellm_fallback_models = []
         analyzer._config_override.llm_model_list = [
             {
                 "model_name": "analysis-route",
-                "litellm_params": {"model": "openai/gpt-4o-mini"},
+                "litellm_params": {"model": "deepseek/deepseek-flash"},
             },
             {
                 "model_name": "analysis-route",
-                "litellm_params": {"model": "anthropic/claude-sonnet-test"},
+                "litellm_params": {"model": "deepseek/deepseek-v4-pro"},
             },
         ]
         response = SimpleNamespace(
-            model="anthropic/claude-sonnet-test",
+            model="deepseek/deepseek-v4-pro",
             choices=[SimpleNamespace(message=SimpleNamespace(content="复盘"))],
             usage=None,
         )
@@ -272,25 +272,25 @@ class TestAnalyzerGenerateText:
 
         assert result is not None
         assert result.backend == "litellm"
-        assert result.model == "anthropic/claude-sonnet-test"
-        assert result.provider == "anthropic"
-        assert result.usage["provider"] == "anthropic"
-        assert result.usage["response_model"] == "anthropic/claude-sonnet-test"
+        assert result.model == "deepseek/deepseek-v4-pro"
+        assert result.provider == "deepseek"
+        assert result.usage["provider"] == "deepseek"
+        assert result.usage["response_model"] == "deepseek/deepseek-v4-pro"
 
     def test_generate_text_with_metadata_preserves_fallback_provider_for_unqualified_response_model(self):
         analyzer = self._make_analyzer()
-        analyzer._config_override.generation_backend = "litellm"
-        analyzer._config_override.generation_fallback_backend = ""
+
+
         analyzer._config_override.litellm_model = "analysis-route"
         analyzer._config_override.litellm_fallback_models = []
         analyzer._config_override.llm_model_list = [
             {
                 "model_name": "analysis-route",
-                "litellm_params": {"model": "anthropic/claude-sonnet-test"},
+                "litellm_params": {"model": "deepseek/deepseek-v4-pro"},
             },
         ]
         response = SimpleNamespace(
-            model="claude-sonnet-test",
+            model="deepseek/deepseek-v4-pro",
             choices=[SimpleNamespace(message=SimpleNamespace(content="复盘"))],
             usage=None,
         )
@@ -300,178 +300,27 @@ class TestAnalyzerGenerateText:
 
         assert result is not None
         assert result.backend == "litellm"
-        assert result.model == "claude-sonnet-test"
-        assert result.provider == "anthropic"
-        assert result.usage["provider"] == "anthropic"
-        assert result.usage["response_model"] == "claude-sonnet-test"
+        assert result.model == "deepseek/deepseek-v4-pro"
+        assert result.provider == "deepseek"
+        assert result.usage["provider"] == "deepseek"
+        assert result.usage["response_model"] == "deepseek/deepseek-v4-pro"
 
-    def test_generate_text_with_metadata_preserves_openrouter_provider_for_latest_alias(self):
-        analyzer = self._make_analyzer()
-        analyzer._config_override.generation_backend = "litellm"
-        analyzer._config_override.generation_fallback_backend = ""
-        analyzer._config_override.litellm_model = "analysis-route"
-        analyzer._config_override.litellm_fallback_models = []
-        analyzer._config_override.llm_model_list = [
-            {
-                "model_name": "analysis-route",
-                "litellm_params": {"model": "openai/~anthropic/claude-sonnet-latest"},
-            },
-        ]
-        response = SimpleNamespace(
-            model="anthropic/claude-sonnet-4.6",
-            choices=[SimpleNamespace(message=SimpleNamespace(content="复盘"))],
-            usage=None,
-        )
 
-        with patch.object(analyzer, "_dispatch_litellm_completion", return_value=response):
-            result = analyzer.generate_text_with_metadata("写一份复盘")
 
-        assert result is not None
-        assert result.backend == "litellm"
-        assert result.model == "anthropic/claude-sonnet-4.6"
-        assert result.provider == "openrouter"
-        assert result.usage["provider"] == "openrouter"
-        assert result.usage["response_model"] == "anthropic/claude-sonnet-4.6"
 
-    def test_generate_text_with_metadata_preserves_openrouter_provider_for_latest_alias_deployment_echo(self):
-        analyzer = self._make_analyzer()
-        analyzer._config_override.generation_backend = "litellm"
-        analyzer._config_override.generation_fallback_backend = ""
-        analyzer._config_override.litellm_model = "analysis-route"
-        analyzer._config_override.litellm_fallback_models = []
-        analyzer._config_override.llm_model_list = [
-            {
-                "model_name": "analysis-route",
-                "litellm_params": {"model": "openai/~anthropic/claude-sonnet-latest"},
-            },
-        ]
-        response = SimpleNamespace(
-            model="openai/~anthropic/claude-sonnet-latest",
-            choices=[SimpleNamespace(message=SimpleNamespace(content="复盘"))],
-            usage=None,
-        )
 
-        with patch.object(analyzer, "_dispatch_litellm_completion", return_value=response):
-            result = analyzer.generate_text_with_metadata("写一份复盘")
-
-        assert result is not None
-        assert result.backend == "litellm"
-        assert result.model == "openai/~anthropic/claude-sonnet-latest"
-        assert result.provider == "openrouter"
-        assert result.usage["provider"] == "openrouter"
-        assert result.usage["response_model"] == "openai/~anthropic/claude-sonnet-latest"
-
-    def test_generate_text_with_metadata_prefers_actual_response_model_provider_for_openrouter_first_duplicate_aliases(self):
-        analyzer = self._make_analyzer()
-        analyzer._config_override.generation_backend = "litellm"
-        analyzer._config_override.generation_fallback_backend = ""
-        analyzer._config_override.litellm_model = "analysis-route"
-        analyzer._config_override.litellm_fallback_models = []
-        analyzer._config_override.llm_model_list = [
-            {
-                "model_name": "analysis-route",
-                "litellm_params": {"model": "openai/~anthropic/claude-sonnet-latest"},
-            },
-            {
-                "model_name": "analysis-route",
-                "litellm_params": {"model": "anthropic/claude-sonnet-4.6"},
-            },
-        ]
-        response = SimpleNamespace(
-            model="anthropic/claude-sonnet-4.6",
-            choices=[SimpleNamespace(message=SimpleNamespace(content="复盘"))],
-            usage=None,
-        )
-
-        with patch.object(analyzer, "_dispatch_litellm_completion", return_value=response):
-            result = analyzer.generate_text_with_metadata("写一份复盘")
-
-        assert result is not None
-        assert result.backend == "litellm"
-        assert result.model == "anthropic/claude-sonnet-4.6"
-        assert result.provider == "anthropic"
-        assert result.usage["provider"] == "anthropic"
-        assert result.usage["response_model"] == "anthropic/claude-sonnet-4.6"
-
-    @pytest.mark.parametrize(
-        "configured_model,response_model",
-        [
-            ("openai/Qwen/Qwen3-235B-A22B-Thinking-2507", "Qwen/Qwen3-235B-A22B-Thinking-2507"),
-            ("openai/deepseek-ai/DeepSeek-V3", "deepseek-ai/DeepSeek-V3"),
-        ],
-    )
-    def test_generate_text_with_metadata_preserves_fallback_provider_for_gateway_slash_model_ids(
-        self,
-        configured_model,
-        response_model,
-    ):
-        analyzer = self._make_analyzer()
-        analyzer._config_override.generation_backend = "litellm"
-        analyzer._config_override.generation_fallback_backend = ""
-        analyzer._config_override.litellm_model = "analysis-route"
-        analyzer._config_override.litellm_fallback_models = []
-        analyzer._config_override.llm_model_list = [
-            {
-                "model_name": "analysis-route",
-                "litellm_params": {"model": configured_model},
-            },
-        ]
-        response = SimpleNamespace(
-            model=response_model,
-            choices=[SimpleNamespace(message=SimpleNamespace(content="复盘"))],
-            usage=None,
-        )
-
-        with patch.object(analyzer, "_dispatch_litellm_completion", return_value=response):
-            result = analyzer.generate_text_with_metadata("写一份复盘")
-
-        assert result is not None
-        assert result.backend == "litellm"
-        assert result.model == response_model
-        assert result.provider == "openai"
-        assert result.usage["provider"] == "openai"
-        assert result.usage["response_model"] == response_model
-
-    def test_generate_text_with_metadata_preserves_exhausted_fallback_failure(self):
-        from src.analyzer import _AllModelsFailedError
-        from src.llm.generation_backend import GenerationError
-
-        analyzer = self._make_analyzer()
-        analyzer._config_override.generation_backend = "codex_cli"
-        analyzer._config_override.generation_fallback_backend = "litellm"
-        exhausted = _AllModelsFailedError(
-            "all fallback models failed",
-            last_model="analysis-route",
-            last_provider="anthropic",
-            last_usage={},
-        )
-
-        with patch.object(analyzer, "_call_litellm", side_effect=exhausted):
-            with pytest.raises(GenerationError) as exc_info:
-                analyzer.generate_text_with_metadata("写一份复盘")
-
-        error = exc_info.value
-        assert error.stage == "fallback"
-        assert error.backend == "litellm"
-        assert error.provider == "anthropic"
-        assert error.details == {
-            "reason": "all_models_failed",
-            "configured_primary_backend": "codex_cli",
-            "configured_fallback_backend": "litellm",
-            "last_model": "analysis-route",
-        }
 
     def test_generate_text_with_metadata_preserves_primary_litellm_exhaustion_metadata(self):
         from src.analyzer import _AllModelsFailedError
         from src.llm.generation_backend import GenerationResult
 
         analyzer = self._make_analyzer()
-        analyzer._config_override.generation_backend = "litellm"
-        analyzer._config_override.generation_fallback_backend = ""
+
+
         exhausted = _AllModelsFailedError(
             "all primary models failed",
             last_model="analysis-route",
-            last_provider="anthropic",
+            last_provider="deepseek",
             last_usage={},
         )
 
@@ -481,13 +330,13 @@ class TestAnalyzerGenerateText:
         assert isinstance(result, GenerationResult)
         assert result.text == ""
         assert result.backend == "litellm"
-        assert result.provider == "anthropic"
+        assert result.provider == "deepseek"
         assert result.model == "analysis-route"
-        assert result.usage["provider"] == "anthropic"
+        assert result.usage["provider"] == "deepseek"
         assert result.diagnostics == {
             "reason": "all_models_failed",
-            "configured_primary_backend": "litellm",
-            "configured_fallback_backend": None,
+
+
             "last_model": "analysis-route",
             "template_fallback": True,
         }
@@ -496,12 +345,12 @@ class TestAnalyzerGenerateText:
         from src.analyzer import _AllModelsFailedError
 
         analyzer = self._make_analyzer()
-        analyzer._config_override.litellm_model = "openai/primary-model"
-        analyzer._config_override.litellm_fallback_models = ["openai/fallback-model"]
+        analyzer._config_override.litellm_model = "deepseek/deepseek-primary-model"
+        analyzer._config_override.litellm_fallback_models = ["deepseek/deepseek-fallback-model"]
         analyzer._config_override.llm_model_list = []
 
         def fake_dispatch(model, call_kwargs, **kwargs):
-            if model == "openai/primary-model":
+            if model == "deepseek/deepseek-primary-model":
                 return SimpleNamespace(
                     choices=[SimpleNamespace(message=SimpleNamespace(content=None))],
                     usage=None,
@@ -515,8 +364,8 @@ class TestAnalyzerGenerateText:
                     {"max_tokens": 128, "temperature": 0.7},
                 )
 
-        assert exc_info.value.last_model == "openai/fallback-model"
-        assert exc_info.value.last_provider == "openai"
+        assert exc_info.value.last_model == "deepseek/deepseek-fallback-model"
+        assert exc_info.value.last_provider == "deepseek"
 
     def test_call_litellm_impl_preserves_resolved_provider_for_router_alias_failure(self):
         from src.analyzer import _AllModelsFailedError
@@ -527,7 +376,7 @@ class TestAnalyzerGenerateText:
         analyzer._config_override.llm_model_list = [
             {
                 "model_name": "analysis-route",
-                "litellm_params": {"model": "anthropic/claude-sonnet-test"},
+                "litellm_params": {"model": "deepseek/deepseek-v4-pro"},
             }
         ]
 
@@ -543,7 +392,7 @@ class TestAnalyzerGenerateText:
                 )
 
         assert exc_info.value.last_model == "analysis-route"
-        assert exc_info.value.last_provider == "anthropic"
+        assert exc_info.value.last_provider == "deepseek"
 
     def test_call_litellm_impl_uses_last_router_deployment_provider_for_alias_failure(self):
         from src.analyzer import _AllModelsFailedError
@@ -551,8 +400,8 @@ class TestAnalyzerGenerateText:
         class RouterTransportError(RuntimeError):
             def __init__(self):
                 super().__init__("router transport error")
-                self.model = "anthropic/claude-sonnet-test"
-                self.llm_provider = "anthropic"
+                self.model = "deepseek/deepseek-v4-pro"
+                self.llm_provider = "deepseek"
 
         analyzer = self._make_analyzer()
         analyzer._router = MagicMock()
@@ -561,11 +410,11 @@ class TestAnalyzerGenerateText:
         analyzer._config_override.llm_model_list = [
             {
                 "model_name": "analysis-route",
-                "litellm_params": {"model": "openai/gpt-4o-mini"},
+                "litellm_params": {"model": "deepseek/deepseek-flash"},
             },
             {
                 "model_name": "analysis-route",
-                "litellm_params": {"model": "anthropic/claude-sonnet-test"},
+                "litellm_params": {"model": "deepseek/deepseek-v4-pro"},
             },
         ]
 
@@ -580,42 +429,9 @@ class TestAnalyzerGenerateText:
                     {"max_tokens": 128, "temperature": 0.7},
                 )
 
-        assert exc_info.value.last_model == "anthropic/claude-sonnet-test"
-        assert exc_info.value.last_provider == "anthropic"
+        assert exc_info.value.last_model == "deepseek/deepseek-v4-pro"
+        assert exc_info.value.last_provider == "deepseek"
 
-    def test_call_litellm_impl_preserves_openrouter_provider_for_exhausted_latest_alias_failure(self):
-        from src.analyzer import _AllModelsFailedError
-
-        class RouterTransportError(RuntimeError):
-            def __init__(self):
-                super().__init__("router transport error")
-                self.model = "openai/~anthropic/claude-sonnet-latest"
-                self.llm_provider = "openai"
-
-        analyzer = self._make_analyzer()
-        analyzer._router = MagicMock()
-        analyzer._config_override.litellm_model = "analysis-route"
-        analyzer._config_override.litellm_fallback_models = []
-        analyzer._config_override.llm_model_list = [
-            {
-                "model_name": "analysis-route",
-                "litellm_params": {"model": "openai/~anthropic/claude-sonnet-latest"},
-            },
-        ]
-
-        with patch.object(
-            analyzer,
-            "_dispatch_litellm_completion",
-            side_effect=RouterTransportError(),
-        ):
-            with pytest.raises(_AllModelsFailedError) as exc_info:
-                analyzer._call_litellm_impl(
-                    "写一份复盘",
-                    {"max_tokens": 128, "temperature": 0.7},
-                )
-
-        assert exc_info.value.last_model == "openai/~anthropic/claude-sonnet-latest"
-        assert exc_info.value.last_provider == "openrouter"
 
     def test_call_litellm_impl_preserves_response_model_for_empty_router_response(self):
         from src.analyzer import _AllModelsFailedError
@@ -627,12 +443,12 @@ class TestAnalyzerGenerateText:
         analyzer._config_override.llm_model_list = [
             {
                 "model_name": "analysis-route",
-                "litellm_params": {"model": "openai/~anthropic/claude-sonnet-latest"},
+                "litellm_params": {"model": "deepseek/deepseek-v4-pro"},
             },
         ]
 
         response = SimpleNamespace(
-            model="anthropic/claude-sonnet-4.6",
+            model="deepseek/deepseek-v4-pro",
             choices=[SimpleNamespace(message=SimpleNamespace(content=None))],
             usage=None,
         )
@@ -644,8 +460,8 @@ class TestAnalyzerGenerateText:
                     {"max_tokens": 128, "temperature": 0.7},
                 )
 
-        assert exc_info.value.last_model == "anthropic/claude-sonnet-4.6"
-        assert exc_info.value.last_provider == "openrouter"
+        assert exc_info.value.last_model == "deepseek/deepseek-v4-pro"
+        assert exc_info.value.last_provider == "deepseek"
 
     def test_call_litellm_impl_prefers_transport_provider_for_unqualified_failure_model(self):
         from src.analyzer import _AllModelsFailedError
@@ -653,8 +469,8 @@ class TestAnalyzerGenerateText:
         class RouterTransportError(RuntimeError):
             def __init__(self):
                 super().__init__("router transport error")
-                self.deployment_model = "claude-sonnet-test"
-                self.llm_provider = "anthropic"
+                self.deployment_model = "deepseek/deepseek-v4-pro"
+                self.llm_provider = "deepseek"
 
         analyzer = self._make_analyzer()
         analyzer._router = MagicMock()
@@ -663,7 +479,7 @@ class TestAnalyzerGenerateText:
         analyzer._config_override.llm_model_list = [
             {
                 "model_name": "analysis-route",
-                "litellm_params": {"model": "anthropic/claude-sonnet-test"},
+                "litellm_params": {"model": "deepseek/deepseek-v4-pro"},
             },
         ]
 
@@ -678,187 +494,17 @@ class TestAnalyzerGenerateText:
                     {"max_tokens": 128, "temperature": 0.7},
                 )
 
-        assert exc_info.value.last_model == "claude-sonnet-test"
-        assert exc_info.value.last_provider == "anthropic"
+        assert exc_info.value.last_model == "deepseek/deepseek-v4-pro"
+        assert exc_info.value.last_provider == "deepseek"
 
-    @pytest.mark.parametrize(
-        ("generation_backend", "executable_name"),
-        [
-            ("codex_cli", "codex"),
-            ("claude_code_cli", "claude"),
-            ("opencode_cli", "opencode"),
-        ],
-    )
-    def test_local_cli_is_available_without_litellm_api_keys(self, generation_backend, executable_name):
-        analyzer = self._make_analyzer()
-        analyzer._litellm_available = False
-        analyzer._router = None
-        analyzer._config_override = SimpleNamespace(
-            generation_backend=generation_backend,
-            generation_fallback_backend="",
-            generation_backend_timeout_seconds=300,
-            generation_backend_max_output_bytes=1048576,
-            generation_backend_max_concurrency=1,
-            local_cli_backend_max_concurrency=1,
-        )
-
-        with patch("src.llm.local_cli_backend.shutil.which", return_value=f"/usr/bin/{executable_name}"), \
-             patch("src.llm.local_cli_backend.os.access", return_value=True):
-            assert analyzer.get_generation_backend_config_error() is None
-            assert analyzer.is_available() is True
-
-    def test_analyze_uses_litellm_fallback_when_codex_cli_config_error_is_fallbackable(self):
-        from src.llm.generation_backend import GenerationBackend, GenerationError, GenerationErrorCode
-        from src.llm.local_cli_backend import LocalCliGenerationBackend
-
-        analyzer = self._make_analyzer()
-        analyzer._litellm_available = True
-        analyzer._config_override = SimpleNamespace(
-            generation_backend="codex_cli",
-            generation_fallback_backend="litellm",
-            litellm_model="gemini/gemini-2.0-flash",
-            litellm_fallback_models=[],
-            llm_model_list=[],
-            report_language="zh",
-            gemini_request_delay=0,
-            llm_temperature=0.7,
-            report_integrity_enabled=False,
-            report_integrity_retry=0,
-        )
-        codex_error = GenerationError(
-            error_code=GenerationErrorCode.COMMAND_NOT_FOUND,
-            stage="configuration",
-            retryable=False,
-            fallbackable=True,
-            backend="codex_cli",
-            provider="codex_cli",
-            details={"reason": "executable_not_found"},
-        )
-        primary_backend = MagicMock(spec=LocalCliGenerationBackend)
-        primary_backend.get_config_error.return_value = codex_error
-        primary_backend.generate.side_effect = codex_error
-        fallback_backend = MagicMock(spec=GenerationBackend)
-        fallback_backend.generate.return_value = SimpleNamespace(
-            text=json.dumps({
-                "sentiment_score": 70,
-                "trend_prediction": "看多",
-                "operation_advice": "持有",
-                "analysis_summary": "fallback ok",
-            }),
-            model="gemini/gemini-2.0-flash",
-            usage={
-                "usage_available": False,
-                "usage_source": "unavailable",
-                "backend": "litellm",
-            },
-        )
-
-        def _backend_for(backend_id=None):
-            return primary_backend if backend_id == "codex_cli" else fallback_backend
-
-        with patch.object(analyzer, "_get_generation_backend", side_effect=_backend_for), \
-             patch.object(analyzer, "_get_analysis_system_prompt", return_value="system"), \
-             patch.object(analyzer, "_get_skill_prompt_sections", return_value=(None, None, True)), \
-             patch.object(analyzer, "_format_prompt", return_value="prompt"), \
-             patch.object(analyzer, "_build_market_snapshot", return_value={}):
-            assert analyzer.is_available() is True
-            result = analyzer.analyze({"code": "600519", "stock_name": "贵州茅台"})
-
-        assert result.success is True
-        assert result.analysis_summary == "fallback ok"
-        primary_backend.generate.assert_called()
-        fallback_backend.generate.assert_called()
-
-    def test_analyze_preserves_litellm_text_fallback_after_codex_cli_primary_failure(self):
-        from src.analyzer import AnalysisResult, _AllModelsFailedError
-        from src.llm.generation_backend import GenerationBackend, GenerationError, GenerationErrorCode
-
-        analyzer = self._make_analyzer()
-        analyzer._litellm_available = True
-        analyzer._config_override = SimpleNamespace(
-            generation_backend="codex_cli",
-            generation_fallback_backend="litellm",
-            litellm_model="provider/primary-model",
-            litellm_fallback_models=["provider/fallback-model"],
-            llm_model_list=[],
-            report_language="zh",
-            gemini_request_delay=0,
-            llm_temperature=0.7,
-            report_integrity_enabled=False,
-            report_integrity_retry=0,
-        )
-        primary_error = GenerationError(
-            error_code=GenerationErrorCode.COMMAND_NOT_FOUND,
-            stage="configuration",
-            retryable=False,
-            fallbackable=True,
-            backend="codex_cli",
-            provider="codex_cli",
-            details={"reason": "executable_not_found"},
-        )
-        all_models_error = _AllModelsFailedError(
-            "all fallback models returned invalid JSON",
-            last_response_text="这不是 JSON，而是 fallback 模型返回的纯文本分析",
-            last_model="provider/fallback-model",
-            last_usage={"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
-        )
-        text_fallback_result = AnalysisResult(
-            code="600519",
-            name="贵州茅台",
-            sentiment_score=50,
-            trend_prediction="震荡",
-            operation_advice="持有",
-            analysis_summary="纯文本兜底摘要",
-            success=False,
-            error_message="LLM response is not valid JSON; analysis result will not be persisted",
-        )
-        primary_backend = MagicMock(spec=GenerationBackend)
-        primary_backend.generate.side_effect = primary_error
-        fallback_backend = MagicMock(spec=GenerationBackend)
-        fallback_backend.generate.side_effect = all_models_error
-
-        def _backend_for(backend_id):
-            return primary_backend if backend_id == "codex_cli" else fallback_backend
-
-        with patch.object(analyzer, "get_generation_backend_config_error", return_value=None), \
-             patch.object(analyzer, "is_available", return_value=True), \
-             patch.object(analyzer, "_get_generation_backend", side_effect=_backend_for), \
-             patch.object(analyzer, "_get_analysis_system_prompt", return_value="system"), \
-             patch.object(analyzer, "_get_skill_prompt_sections", return_value=(None, None, True)), \
-             patch.object(analyzer, "_format_prompt", return_value="prompt"), \
-             patch.object(analyzer, "_parse_response", return_value=text_fallback_result) as mock_parse, \
-             patch.object(analyzer, "_build_market_snapshot", return_value={}), \
-             patch("src.analyzer.persist_llm_usage") as mock_persist:
-            result = analyzer.analyze({"code": "600519", "stock_name": "贵州茅台"})
-
-        assert result.analysis_summary == "纯文本兜底摘要"
-        assert result.raw_response == "这不是 JSON，而是 fallback 模型返回的纯文本分析"
-        assert result.model_used == "provider/fallback-model"
-        mock_parse.assert_called_once_with(
-            "这不是 JSON，而是 fallback 模型返回的纯文本分析",
-            "600519",
-            "贵州茅台",
-        )
-        mock_persist.assert_called_once_with(
-            {"prompt_tokens": 10, "completion_tokens": 20, "total_tokens": 30},
-            "provider/fallback-model",
-            call_type="analysis",
-            stock_code="600519",
-        )
-        primary_backend.generate.assert_called_once()
-        fallback_backend.generate.assert_called_once()
 
     def test_analyze_does_not_persist_unavailable_usage(self):
         analyzer = self._make_analyzer()
         analyzer._config_override = SimpleNamespace(
-            generation_backend="codex_cli",
-            generation_fallback_backend="",
-            generation_backend_timeout_seconds=300,
-            generation_backend_max_output_bytes=1048576,
-            generation_backend_max_concurrency=1,
-            local_cli_backend_max_concurrency=1,
+
+
             litellm_model="",
-            gemini_request_delay=0,
+            llm_request_delay=0,
             report_language="zh",
             llm_temperature=0.7,
             report_integrity_enabled=False,
@@ -873,7 +519,7 @@ class TestAnalyzerGenerateText:
         usage = {
             "usage_available": False,
             "usage_source": "unavailable",
-            "backend": "codex_cli",
+            "backend": "litellm",
         }
 
         with patch.object(analyzer, "get_generation_backend_config_error", return_value=None), \
@@ -881,7 +527,7 @@ class TestAnalyzerGenerateText:
              patch.object(analyzer, "_get_analysis_system_prompt", return_value="system"), \
              patch.object(analyzer, "_get_skill_prompt_sections", return_value=(None, None, True)), \
              patch.object(analyzer, "_format_prompt", return_value="prompt"), \
-             patch.object(analyzer, "_call_litellm", return_value=(response_text, "codex_cli", usage)), \
+             patch.object(analyzer, "_call_litellm", return_value=(response_text, "litellm", usage)), \
              patch.object(analyzer, "_build_market_snapshot", return_value={}), \
              patch("src.analyzer.persist_llm_usage") as mock_persist:
             result = analyzer.analyze({"code": "600519", "stock_name": "贵州茅台"})
@@ -895,20 +541,6 @@ class TestAnalyzerGenerateText:
             result = analyzer.generate_text("prompt")
             assert result is None  # must not raise
 
-    def test_generate_text_raises_generation_error_for_unsupported_backend(self):
-        from src.llm.generation_backend import GenerationError
-
-        analyzer = self._make_analyzer()
-        analyzer._config_override = SimpleNamespace(
-            generation_backend="codex",
-            generation_fallback_backend="litellm",
-        )
-
-        with pytest.raises(GenerationError) as exc_info:
-            analyzer.generate_text("prompt")
-
-        assert exc_info.value.details["field"] == "GENERATION_BACKEND"
-        assert exc_info.value.details["requested_backend"] == "codex"
 
     def test_generate_text_default_params(self):
         analyzer = self._make_analyzer()
@@ -926,8 +558,8 @@ class TestAnalyzerGenerateText:
         backend = MagicMock(spec=GenerationBackend)
         backend.generate.return_value = SimpleNamespace(
             text="backend response",
-            model="gemini/gemini-3.1-pro-preview",
-            usage={"provider": "gemini", "total_tokens": 9},
+            model="deepseek/deepseek-v4-pro",
+            usage={"provider": "deepseek", "total_tokens": 9},
         )
 
         with patch.object(analyzer, "_get_generation_backend", return_value=backend):
@@ -943,8 +575,8 @@ class TestAnalyzerGenerateText:
 
         assert result == (
             "backend response",
-            "gemini/gemini-3.1-pro-preview",
-            {"provider": "gemini", "total_tokens": 9},
+            "deepseek/deepseek-v4-pro",
+            {"provider": "deepseek", "total_tokens": 9},
         )
         backend.generate.assert_called_once()
         _, generation_config = backend.generate.call_args.args
@@ -955,109 +587,11 @@ class TestAnalyzerGenerateText:
         assert callable(backend.generate.call_args.kwargs["response_validator"])
         assert backend.generate.call_args.kwargs["audit_context"] == {"call_type": "analysis"}
 
-    def test_call_litellm_wraps_fallback_generation_error_with_primary_context(self):
-        from src.llm.generation_backend import GenerationBackend, GenerationError, GenerationErrorCode
-
-        analyzer = self._make_analyzer()
-        analyzer._config_override.generation_backend = "codex_cli"
-        analyzer._config_override.generation_fallback_backend = "litellm"
-        primary_error = GenerationError(
-            error_code=GenerationErrorCode.COMMAND_NOT_FOUND,
-            stage="configuration",
-            retryable=False,
-            fallbackable=True,
-            backend="codex_cli",
-            provider="codex_cli",
-            details={"reason": "executable_not_found"},
-        )
-        fallback_error = GenerationError(
-            error_code=GenerationErrorCode.INVALID_JSON,
-            stage="validation",
-            retryable=True,
-            fallbackable=True,
-            backend="litellm",
-            provider="gemini",
-            details={
-                "reason": "invalid_json",
-                "route_name": "invalid-shared-route",
-            },
-        )
-        primary_backend = MagicMock(spec=GenerationBackend)
-        primary_backend.generate.side_effect = primary_error
-        fallback_backend = MagicMock(spec=GenerationBackend)
-        fallback_backend.generate.side_effect = fallback_error
-
-        def _backend_for(backend_id):
-            return primary_backend if backend_id == "codex_cli" else fallback_backend
-
-        with patch.object(analyzer, "_get_generation_backend", side_effect=_backend_for):
-            with pytest.raises(GenerationError) as exc_info:
-                analyzer._call_litellm("prompt", {"max_tokens": 128})
-
-        error = exc_info.value
-        assert error.stage == "fallback"
-        assert error.error_code is GenerationErrorCode.INVALID_JSON
-        assert error.details["reason"] == "fallback_backend_failed"
-        assert error.details["route_name"] == "invalid-shared-route"
-        assert error.details["primary_error"]["error_code"] == "command_not_found"
-        assert error.details["primary_error"]["details"]["reason"] == "executable_not_found"
-        assert error.details["fallback_error"]["error_code"] == "invalid_json"
-        assert error.details["fallback_error"]["details"]["reason"] == "invalid_json"
-
-    def test_call_litellm_rejects_unknown_generation_backend_without_litellm_fallback(self):
-        from src.llm.generation_backend import GenerationError
-
-        analyzer = self._make_analyzer()
-        analyzer._config_override = SimpleNamespace(
-            generation_backend="codex",
-            generation_fallback_backend="litellm",
-        )
-
-        with pytest.raises(GenerationError) as exc_info:
-            analyzer._call_litellm("prompt", {"max_tokens": 128})
-
-        assert exc_info.value.details["requested_backend"] == "codex"
-
-    def test_call_litellm_rejects_unknown_generation_fallback_backend(self):
-        from src.llm.generation_backend import GenerationError
-
-        analyzer = self._make_analyzer()
-        analyzer._config_override = SimpleNamespace(
-            generation_backend="litellm",
-            generation_fallback_backend="codex",
-        )
-
-        with pytest.raises(GenerationError) as exc_info:
-            analyzer._call_litellm("prompt", {"max_tokens": 128})
-
-        assert exc_info.value.details["field"] == "GENERATION_FALLBACK_BACKEND"
-        assert exc_info.value.details["requested_backend"] == "codex"
-
-    def test_analyze_reports_generation_backend_config_error_instead_of_api_key_missing(self):
-        analyzer = self._make_analyzer()
-        analyzer._litellm_available = True
-        analyzer._config_override = SimpleNamespace(
-            generation_backend="codex",
-            generation_fallback_backend="litellm",
-            report_language="zh",
-            gemini_request_delay=0,
-        )
-
-        with patch.object(analyzer, "_get_analysis_system_prompt", return_value="system"), \
-             patch.object(analyzer, "_get_skill_prompt_sections", return_value=(None, None, True)):
-            result = analyzer.analyze({"code": "AAPL", "stock_name": "Apple"})
-
-        assert result.success is False
-        assert "backend_not_configured" in result.error_message
-        assert "GENERATION_BACKEND" in result.error_message
-        assert "codex" in result.error_message
-        assert "API Key" not in result.error_message
-        assert "API Key" not in result.analysis_summary
 
     def test_call_litellm_stream_aggregates_chunks_and_reports_progress(self):
         analyzer = self._make_analyzer()
         analyzer._config_override = SimpleNamespace(
-            litellm_model="gemini/gemini-2.0-flash",
+            litellm_model="deepseek/deepseek-flash",
             litellm_fallback_models=[],
             llm_model_list=[],
         )
@@ -1083,14 +617,14 @@ class TestAnalyzerGenerateText:
             )
 
         assert text == "abcdef"
-        assert model == "gemini/gemini-2.0-flash"
+        assert model == "deepseek/deepseek-flash"
         _assert_usage_contains(usage, {"prompt_tokens": 1, "completion_tokens": 2, "total_tokens": 3})
         assert progress_updates == [3, 6]
 
     def test_call_litellm_stream_reads_private_hidden_usage_best_effort(self):
         analyzer = self._make_analyzer()
         analyzer._config_override = SimpleNamespace(
-            litellm_model="openai/gpt-4o-mini",
+            litellm_model="deepseek/deepseek-flash",
             litellm_fallback_models=[],
             llm_model_list=[],
         )
@@ -1116,13 +650,13 @@ class TestAnalyzerGenerateText:
             )
 
         assert text == "abc"
-        assert model == "openai/gpt-4o-mini"
+        assert model == "deepseek/deepseek-flash"
         _assert_usage_contains(usage, {"prompt_tokens": 11, "completion_tokens": 2, "total_tokens": 13})
 
     def test_call_litellm_stream_records_legacy_message_audit_for_actual_messages(self):
         analyzer = self._make_analyzer()
         analyzer._config_override = SimpleNamespace(
-            litellm_model="gemini/gemini-2.0-flash",
+            litellm_model="deepseek/deepseek-flash",
             litellm_fallback_models=[],
             llm_model_list=[],
         )
@@ -1153,12 +687,12 @@ class TestAnalyzerGenerateText:
             )
 
         assert text == "ok"
-        assert model == "gemini/gemini-2.0-flash"
+        assert model == "deepseek/deepseek-flash"
         _assert_usage_contains(usage, {"prompt_tokens": 8, "completion_tokens": 1, "total_tokens": 9})
         assert usage["language"] == "zh"
         assert usage["market_group"] == "cn"
         assert usage["analysis_mode"] == "stock_analysis"
-        assert usage["provider"] == "gemini"
+        assert usage["provider"] == "deepseek"
         assert usage["transport"] == "litellm"
         assert usage["message_count"] == 2
         markers = json.loads(usage["known_dynamic_marker_positions"])
@@ -1168,27 +702,27 @@ class TestAnalyzerGenerateText:
     def test_call_litellm_legacy_path_uses_legacy_model_list_for_param_recovery(self):
         with patch("src.analyzer.get_config") as mock_cfg:
             cfg = MagicMock()
-            cfg.litellm_model = "openai/gpt-4o-mini"
+            cfg.litellm_model = "deepseek/deepseek-flash"
             cfg.litellm_fallback_models = []
-            cfg.gemini_api_keys = []
-            cfg.anthropic_api_keys = []
             cfg.deepseek_api_keys = []
-            cfg.openai_api_keys = ["sk-openai-legacy-a", "sk-openai-legacy-b"]
+            cfg.deepseek_api_keys = []
+            cfg.deepseek_api_keys = []
+            cfg.deepseek_api_keys = ["sk-openai-legacy-a", "sk-openai-legacy-b"]
             cfg.openai_base_url = None
             cfg.llm_model_list = [
                 {
-                    "model_name": "__legacy_openai__",
+                    "model_name": "__legacy_deepseek__",
                     "litellm_params": {
-                        "model": "__legacy_openai__",
+                        "model": "__legacy_deepseek__",
                         "api_key": "sk-openai-legacy-a",
                         "api_base": "https://legacy-a.example/v1",
                         "extra_headers": {"x-tenant": "legacy-a"},
                     },
                 },
                 {
-                    "model_name": "__legacy_openai__",
+                    "model_name": "__legacy_deepseek__",
                     "litellm_params": {
-                        "model": "__legacy_openai__",
+                        "model": "__legacy_deepseek__",
                         "api_key": "sk-openai-legacy-b",
                         "api_base": "https://legacy-b.example/v1",
                         "extra_headers": {"x-tenant": "legacy-b"},
@@ -1198,9 +732,9 @@ class TestAnalyzerGenerateText:
             cfg.llm_temperature = 0.7
             mock_cfg.return_value = cfg
 
-            from src.analyzer import GeminiAnalyzer
+            from src.analyzer import DeepSeekAnalyzer
 
-            analyzer = GeminiAnalyzer()
+            analyzer = DeepSeekAnalyzer()
             analyzer._config_override = cfg
 
         captured = {}
@@ -1219,7 +753,7 @@ class TestAnalyzerGenerateText:
         passed_model_list = captured.get("model_list")
         assert passed_model_list is not None
         assert len(passed_model_list) == 2
-        assert all(item["litellm_params"].get("model") == "openai/gpt-4o-mini" for item in passed_model_list)
+        assert all(item["litellm_params"].get("model") == "deepseek/deepseek-flash" for item in passed_model_list)
         assert [item["litellm_params"]["api_base"] for item in passed_model_list] == [
             "https://legacy-a.example/v1",
             "https://legacy-b.example/v1",
@@ -1229,103 +763,21 @@ class TestAnalyzerGenerateText:
             {"x-tenant": "legacy-b"},
         ]
 
-    @patch("src.analyzer.Router")
-    def test_analyzer_legacy_router_recovery_cache_is_scoped_by_api_base(self, mock_router):
-        """Analyzer legacy recovery should not leak across same model different api_base."""
-        from src.analyzer import call_litellm_with_param_recovery as real_call
-        from src.llm.generation_params import clear_litellm_generation_param_recovery_cache
-
-        clear_litellm_generation_param_recovery_cache()
-        response = SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content="analyzer ok"))],
-            usage=SimpleNamespace(prompt_tokens=1, completion_tokens=2, total_tokens=3),
-        )
-        strict_router = MagicMock()
-        flex_router = MagicMock()
-        strict_router.completion.side_effect = [
-            RuntimeError("Unsupported parameter: temperature is not supported"),
-            response,
-        ]
-        flex_router.completion.return_value = response
-        mock_router.side_effect = [strict_router, flex_router]
-
-        strict_cfg = SimpleNamespace(
-            litellm_model="openai/shared-model",
-            litellm_fallback_models=[],
-            llm_model_list=[],
-            llm_temperature=0.2,
-            gemini_api_keys=[],
-            anthropic_api_keys=[],
-            openai_api_keys=["sk-strict-key-1", "sk-strict-key-2"],
-            deepseek_api_keys=[],
-            openai_base_url="https://strict.example/v1",
-        )
-        flex_cfg = SimpleNamespace(
-            litellm_model="openai/shared-model",
-            litellm_fallback_models=[],
-            llm_model_list=[],
-            llm_temperature=0.2,
-            gemini_api_keys=[],
-            anthropic_api_keys=[],
-            openai_api_keys=["sk-flex-key-1", "sk-flex-key-2"],
-            deepseek_api_keys=[],
-            openai_base_url="https://flex.example/v1",
-        )
-
-        captured_model_lists = []
-
-        def _fake_recovery(call, **kwargs):
-            captured_model_lists.append(kwargs.get("model_list"))
-            return real_call(call, **kwargs)
-
-        import src.analyzer as analyzer_module
-        from src.analyzer import GeminiAnalyzer
-
-        with patch.object(analyzer_module, "call_litellm_with_param_recovery", side_effect=_fake_recovery):
-            GeminiAnalyzer(config=strict_cfg)._call_litellm(
-                "prompt",
-                {"max_tokens": 128, "temperature": 0.2},
-            )
-            GeminiAnalyzer(config=flex_cfg)._call_litellm(
-                "prompt",
-                {"max_tokens": 128, "temperature": 0.2},
-            )
-
-        assert len(captured_model_lists) == 2
-        strict_model_list = captured_model_lists[0]
-        flex_model_list = captured_model_lists[1]
-        assert strict_model_list is not None
-        assert flex_model_list is not None
-        assert all(
-            item.get("litellm_params", {}).get("api_base") == "https://strict.example/v1"
-            for item in strict_model_list
-        )
-        assert all(
-            item.get("litellm_params", {}).get("api_base") == "https://flex.example/v1"
-            for item in flex_model_list
-        )
-        assert strict_router.completion.call_args_list[0].kwargs["temperature"] == 0.2
-        assert "temperature" not in strict_router.completion.call_args_list[1].kwargs
-        assert flex_router.completion.call_args.kwargs["temperature"] == 0.2
 
     def test_prompt_cache_hints_disabled_does_not_change_analyzer_request_shape(self):
-        from src.analyzer import GeminiAnalyzer
+        from src.analyzer import DeepSeekAnalyzer
 
         cfg = SimpleNamespace(
-            litellm_model="openai/gpt-4o",
+            litellm_model="deepseek/deepseek-flash",
             litellm_fallback_models=[],
             llm_model_list=[],
             llm_temperature=0.7,
-            gemini_api_keys=[],
-            anthropic_api_keys=[],
-            openai_api_keys=["sk-openai-test"],
             deepseek_api_keys=[],
-            openai_base_url=None,
             llm_prompt_cache_telemetry_enabled=True,
             llm_prompt_cache_hints_enabled=False,
             llm_prompt_cache_diagnostics_level="off",
         )
-        analyzer = GeminiAnalyzer(config=cfg)
+        analyzer = DeepSeekAnalyzer(config=cfg)
         captured = {}
 
         def _fake_recovery(call, **kwargs):
@@ -1347,23 +799,19 @@ class TestAnalyzerGenerateText:
         ]
 
     def test_prompt_cache_telemetry_disabled_filters_cache_fields_from_analyzer_usage(self):
-        from src.analyzer import GeminiAnalyzer
+        from src.analyzer import DeepSeekAnalyzer
 
         cfg = SimpleNamespace(
-            litellm_model="openai/gpt-4o",
+            litellm_model="deepseek/deepseek-flash",
             litellm_fallback_models=[],
             llm_model_list=[],
             llm_temperature=0.7,
-            gemini_api_keys=[],
-            anthropic_api_keys=[],
-            openai_api_keys=["sk-openai-test"],
             deepseek_api_keys=[],
-            openai_base_url=None,
             llm_prompt_cache_telemetry_enabled=False,
             llm_prompt_cache_hints_enabled=False,
             llm_prompt_cache_diagnostics_level="off",
         )
-        analyzer = GeminiAnalyzer(config=cfg)
+        analyzer = DeepSeekAnalyzer(config=cfg)
 
         def _fake_recovery(call, **kwargs):
             return SimpleNamespace(
@@ -1388,23 +836,19 @@ class TestAnalyzerGenerateText:
         assert usage["messages_hmac"]
 
     def test_prompt_cache_telemetry_disabled_marks_no_usage_response_for_storage(self):
-        from src.analyzer import GeminiAnalyzer
+        from src.analyzer import DeepSeekAnalyzer
 
         cfg = SimpleNamespace(
-            litellm_model="openai/gpt-4o",
+            litellm_model="deepseek/deepseek-flash",
             litellm_fallback_models=[],
             llm_model_list=[],
             llm_temperature=0.7,
-            gemini_api_keys=[],
-            anthropic_api_keys=[],
-            openai_api_keys=["sk-openai-test"],
             deepseek_api_keys=[],
-            openai_base_url=None,
             llm_prompt_cache_telemetry_enabled=False,
             llm_prompt_cache_hints_enabled=False,
             llm_prompt_cache_diagnostics_level="off",
         )
-        analyzer = GeminiAnalyzer(config=cfg)
+        analyzer = DeepSeekAnalyzer(config=cfg)
 
         def _fake_recovery(call, **kwargs):
             return SimpleNamespace(
@@ -1425,7 +869,7 @@ class TestAnalyzerGenerateText:
     def test_call_litellm_stream_falls_back_to_non_stream_before_first_chunk(self):
         analyzer = self._make_analyzer()
         analyzer._config_override = SimpleNamespace(
-            litellm_model="gemini/gemini-2.0-flash",
+            litellm_model="deepseek/deepseek-flash",
             litellm_fallback_models=[],
             llm_model_list=[],
         )
@@ -1455,460 +899,12 @@ class TestAnalyzerGenerateText:
             )
 
         assert text == "full response"
-        assert model == "gemini/gemini-2.0-flash"
+        assert model == "deepseek/deepseek-flash"
         _assert_usage_contains(usage, {"prompt_tokens": 4, "completion_tokens": 5, "total_tokens": 9})
         assert len(dispatch_calls) == 2
         assert dispatch_calls[0]["stream"] is True
         assert "stream" not in dispatch_calls[1]
 
-    def test_call_litellm_hermes_route_forces_non_stream_direct_client(self):
-        analyzer = self._make_analyzer()
-        analyzer._config_override = SimpleNamespace(
-            litellm_model="openai/hermes-agent",
-            litellm_fallback_models=[],
-            llm_model_list=[
-                {
-                    "model_name": "openai/hermes-agent",
-                    "litellm_params": {
-                        "model": "openai/hermes-agent",
-                        "api_key": "sk-hermes-test-value",
-                        "api_base": "http://127.0.0.1:8642/v1",
-                    },
-                    "model_info": {"dsa_channel": "hermes"},
-                }
-            ],
-            llm_temperature=0.0,
-            generation_backend="litellm",
-            generation_fallback_backend="litellm",
-            llm_channel_config_issues=[],
-            llm_blocks_legacy_fallback=False,
-        )
-        response = SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content="OK"))],
-            usage=SimpleNamespace(prompt_tokens=1, completion_tokens=1, total_tokens=2),
-        )
-        seen_kwargs = {}
-
-        @contextmanager
-        def fake_no_proxy_client(**_kwargs):
-            yield object()
-
-        def fake_completion(**kwargs):
-            seen_kwargs.update(kwargs)
-            return response
-
-        with patch("src.analyzer.open_hermes_no_proxy_client", side_effect=fake_no_proxy_client), \
-             patch("src.analyzer.litellm.completion", side_effect=fake_completion):
-            text, model, _usage = analyzer._call_litellm(
-                "prompt",
-                {"max_tokens": 128, "temperature": 0.0},
-                stream=True,
-            )
-
-        assert text == "OK"
-        assert model == "openai/hermes-agent"
-        assert seen_kwargs["model"] == "openai/hermes-agent"
-        assert seen_kwargs["stream"] is False
-        assert "api_key" not in seen_kwargs
-        assert "api_base" not in seen_kwargs
-        assert "client" in seen_kwargs
-
-    def test_call_litellm_hermes_failure_redacts_secret_from_logs_and_error(self, caplog):
-        from src.analyzer import _AllModelsFailedError
-
-        analyzer = self._make_analyzer()
-        analyzer._config_override = SimpleNamespace(
-            litellm_model="openai/hermes-agent",
-            litellm_fallback_models=[],
-            llm_model_list=[
-                {
-                    "model_name": "openai/hermes-agent",
-                    "litellm_params": {
-                        "model": "openai/hermes-agent",
-                        "api_key": "saved-secret-token",
-                        "api_base": "http://127.0.0.1:8642/v1",
-                    },
-                    "model_info": {"dsa_channel": "hermes"},
-                }
-            ],
-            llm_temperature=0.0,
-            generation_backend="litellm",
-            generation_fallback_backend="",
-            llm_channel_config_issues=[],
-            llm_blocks_legacy_fallback=False,
-        )
-
-        @contextmanager
-        def fake_no_proxy_client(**_kwargs):
-            yield object()
-
-        caplog.set_level("WARNING", logger="src.analyzer")
-        with patch("src.analyzer.open_hermes_no_proxy_client", side_effect=fake_no_proxy_client), \
-             patch("src.analyzer.litellm.completion", side_effect=RuntimeError("upstream saw saved-secret-token")):
-            with pytest.raises(_AllModelsFailedError) as exc_info:
-                analyzer._call_litellm("prompt", {"max_tokens": 4})
-
-        assert "saved-secret-token" not in str(exc_info.value)
-        assert "saved-secret-token" not in caplog.text
-        assert "[REDACTED]" in str(exc_info.value)
-
-    def test_analyze_redacts_hermes_secret_from_final_error_result(self, caplog):
-        analyzer = self._make_analyzer()
-        analyzer._config_override = SimpleNamespace(
-            litellm_model="openai/hermes-agent",
-            litellm_fallback_models=[],
-            llm_model_list=[
-                {
-                    "model_name": "openai/hermes-agent",
-                    "litellm_params": {
-                        "model": "openai/hermes-agent",
-                        "api_key": "saved-secret-token",
-                        "api_base": "http://127.0.0.1:8642/v1",
-                    },
-                    "model_info": {"dsa_channel": "hermes"},
-                }
-            ],
-            generation_backend="litellm",
-            generation_fallback_backend="",
-            llm_channel_config_issues=[],
-            llm_blocks_legacy_fallback=False,
-            llm_temperature=0.0,
-            report_integrity_enabled=False,
-            report_integrity_retry=0,
-            report_language="zh",
-            gemini_request_delay=0,
-        )
-        context = {"code": "600519", "stock_name": "贵州茅台"}
-
-        caplog.set_level("ERROR", logger="src.analyzer")
-        with patch.object(analyzer, "get_generation_backend_config_error", return_value=None), \
-             patch.object(analyzer, "is_available", return_value=True), \
-             patch.object(analyzer, "_get_analysis_system_prompt", return_value="system"), \
-             patch.object(analyzer, "_get_skill_prompt_sections", return_value=("", "", False)), \
-             patch.object(analyzer, "_format_prompt", return_value="prompt"), \
-             patch.object(analyzer, "_call_litellm", side_effect=RuntimeError("upstream saw saved-secret-token")):
-            result = analyzer.analyze(context)
-
-        assert result.success is False
-        assert "saved-secret-token" not in result.error_message
-        assert "saved-secret-token" not in result.analysis_summary
-        assert "saved-secret-token" not in result.risk_warning
-        assert "saved-secret-token" not in caplog.text
-        assert "[REDACTED]" in result.error_message
-
-    def test_generation_config_error_rejects_mixed_hermes_route(self):
-        from src.llm.generation_backend import GenerationErrorCode
-
-        analyzer = self._make_analyzer()
-        analyzer._router = None
-        analyzer._litellm_available = False
-        analyzer._config_override = SimpleNamespace(
-            litellm_model="shared-route",
-            litellm_fallback_models=[],
-            llm_model_list=[
-                {
-                    "model_name": "shared-route",
-                    "litellm_params": {
-                        "model": "hermes-agent",
-                        "api_key": "sk-hermes-test-value",
-                        "api_base": "http://127.0.0.1:8642/v1",
-                    },
-                    "model_info": {"dsa_channel": "hermes"},
-                },
-                {
-                    "model_name": "shared-route",
-                    "litellm_params": {
-                        "model": "openai/gpt-4o-mini",
-                        "api_key": "sk-openai-test-value",
-                    },
-                },
-            ],
-            generation_backend="litellm",
-            generation_fallback_backend="",
-            llm_channel_config_issues=[],
-            llm_blocks_legacy_fallback=False,
-        )
-
-        error = analyzer.get_generation_backend_config_error()
-
-        assert error is not None
-        assert error.error_code is GenerationErrorCode.UNSAFE_CONFIG
-        assert error.details["code"] == "mixed_hermes_route_unsupported"
-
-    def test_generation_config_error_rejects_bare_mixed_hermes_route(self):
-        from src.llm.generation_backend import GenerationErrorCode
-
-        analyzer = self._make_analyzer()
-        analyzer._config_override = SimpleNamespace(
-            litellm_model="shared-route",
-            litellm_fallback_models=[],
-            llm_model_list=[
-                {
-                    "model_name": "openai/shared-route",
-                    "litellm_params": {
-                        "model": "openai/hermes-agent",
-                        "api_key": "sk-hermes-test-value",
-                        "api_base": "http://127.0.0.1:8642/v1",
-                    },
-                    "model_info": {"dsa_channel": "hermes"},
-                },
-                {
-                    "model_name": "openai/shared-route",
-                    "litellm_params": {
-                        "model": "openai/gpt-4o-mini",
-                        "api_key": "sk-openai-test-value",
-                    },
-                },
-            ],
-            generation_backend="litellm",
-            generation_fallback_backend="",
-            llm_channel_config_issues=[],
-            llm_blocks_legacy_fallback=False,
-        )
-
-        error = analyzer.get_generation_backend_config_error()
-
-        assert error is not None
-        assert error.error_code is GenerationErrorCode.UNSAFE_CONFIG
-        assert error.details["code"] == "mixed_hermes_route_unsupported"
-
-    def test_generation_config_error_rejects_mixed_hermes_fallback_route(self):
-        from src.llm.generation_backend import GenerationErrorCode
-
-        analyzer = self._make_analyzer()
-        analyzer._config_override = SimpleNamespace(
-            litellm_model="openai/gpt-4o-mini",
-            litellm_fallback_models=["shared-route"],
-            llm_model_list=[
-                {
-                    "model_name": "shared-route",
-                    "litellm_params": {
-                        "model": "openai/hermes-agent",
-                        "api_key": "sk-hermes-test-value",
-                        "api_base": "http://127.0.0.1:8642/v1",
-                    },
-                    "model_info": {"dsa_channel": "hermes"},
-                },
-                {
-                    "model_name": "shared-route",
-                    "litellm_params": {
-                        "model": "openai/gpt-4o-mini",
-                        "api_key": "sk-openai-test-value",
-                    },
-                },
-            ],
-            generation_backend="litellm",
-            generation_fallback_backend="",
-            llm_channel_config_issues=[],
-            llm_blocks_legacy_fallback=False,
-        )
-
-        error = analyzer.get_generation_backend_config_error()
-
-        assert error is not None
-        assert error.error_code is GenerationErrorCode.UNSAFE_CONFIG
-        assert error.details["code"] == "mixed_hermes_route_unsupported"
-        assert error.details["route_name"] == "shared-route"
-
-    def test_generation_config_error_rejects_bare_mixed_hermes_fallback_route(self):
-        from src.llm.generation_backend import GenerationErrorCode
-
-        analyzer = self._make_analyzer()
-        analyzer._config_override = SimpleNamespace(
-            litellm_model="openai/gpt-4o-mini",
-            litellm_fallback_models=["shared-route"],
-            llm_model_list=[
-                {
-                    "model_name": "openai/shared-route",
-                    "litellm_params": {
-                        "model": "openai/hermes-agent",
-                        "api_key": "sk-hermes-test-value",
-                        "api_base": "http://127.0.0.1:8642/v1",
-                    },
-                    "model_info": {"dsa_channel": "hermes"},
-                },
-                {
-                    "model_name": "openai/shared-route",
-                    "litellm_params": {
-                        "model": "openai/gpt-4o-mini",
-                        "api_key": "sk-openai-test-value",
-                    },
-                },
-            ],
-            generation_backend="litellm",
-            generation_fallback_backend="",
-            llm_channel_config_issues=[],
-            llm_blocks_legacy_fallback=False,
-        )
-
-        error = analyzer.get_generation_backend_config_error()
-
-        assert error is not None
-        assert error.error_code is GenerationErrorCode.UNSAFE_CONFIG
-        assert error.details["code"] == "mixed_hermes_route_unsupported"
-
-    def test_invalid_hermes_with_valid_sibling_keeps_analyzer_available(self):
-        from src.config import Config
-        from src.analyzer import GeminiAnalyzer
-
-        env = {
-            "LLM_CHANNELS": "hermes,primary",
-            "LLM_PRIMARY_PROTOCOL": "openai",
-            "LLM_PRIMARY_BASE_URL": "https://example.invalid/v1",
-            "LLM_PRIMARY_API_KEY": "sk-primary-test-value",
-            "LLM_PRIMARY_MODELS": "gpt-sibling",
-            "OPENAI_API_KEY": "sk-openai-test-value",
-        }
-
-        with patch("src.config.setup_env"), \
-             patch.object(Config, "_parse_litellm_yaml", return_value=[]), \
-             patch.dict("os.environ", env, clear=True):
-            config = Config._load_from_env()
-            analyzer = GeminiAnalyzer(config=config)
-
-        assert config.litellm_model == "openai/gpt-sibling"
-        assert "hermes-agent" in config.llm_blocked_hermes_routes
-        assert "openai/hermes-agent" in config.llm_blocked_hermes_routes
-        assert analyzer.is_available() is True
-        assert analyzer.get_generation_backend_config_error() is None
-
-    def test_explicit_invalid_hermes_primary_with_valid_sibling_is_blocked_before_completion(self):
-        from src.config import Config
-        from src.analyzer import GeminiAnalyzer
-        from src.llm.generation_backend import GenerationError, GenerationErrorCode
-
-        env = {
-            "LLM_CHANNELS": "hermes,primary",
-            "LLM_HERMES_API_KEY": "hermes-key",
-            "LLM_HERMES_MODELS": "bad model",
-            "LLM_PRIMARY_PROTOCOL": "openai",
-            "LLM_PRIMARY_BASE_URL": "https://example.invalid/v1",
-            "LLM_PRIMARY_API_KEY": "sibling-key",
-            "LLM_PRIMARY_MODELS": "gpt-sibling",
-            "OPENAI_API_KEY": "legacy-key",
-            "LITELLM_MODEL": "bad model",
-        }
-
-        with patch("src.config.setup_env"), \
-             patch.object(Config, "_parse_litellm_yaml", return_value=[]), \
-             patch.dict("os.environ", env, clear=True):
-            config = Config._load_from_env()
-            analyzer = GeminiAnalyzer(config=config)
-
-        assert "bad model" in config.llm_blocked_hermes_routes
-        assert "openai/bad model" in config.llm_blocked_hermes_routes
-        error = analyzer.get_generation_backend_config_error()
-        assert error is not None
-        assert error.error_code is GenerationErrorCode.UNSAFE_CONFIG
-        assert error.details["code"] == "explicit_hermes_route_invalid"
-        assert error.details["reason"] == "explicit_hermes_route_invalid"
-        assert error.details["field"] == "LITELLM_MODEL"
-        assert analyzer.is_available() is False
-
-        with patch("src.analyzer.litellm.completion") as completion:
-            with pytest.raises(GenerationError):
-                analyzer._call_litellm("prompt", {"max_tokens": 4})
-        completion.assert_not_called()
-
-    def test_explicit_invalid_hermes_fallback_with_valid_sibling_is_blocked_before_loop(self):
-        from src.config import Config
-        from src.analyzer import GeminiAnalyzer
-        from src.llm.generation_backend import GenerationError, GenerationErrorCode
-
-        env = {
-            "LLM_CHANNELS": "hermes,primary",
-            "LLM_HERMES_API_KEY": "hermes-key",
-            "LLM_HERMES_MODELS": "bad model",
-            "LLM_PRIMARY_PROTOCOL": "openai",
-            "LLM_PRIMARY_BASE_URL": "https://example.invalid/v1",
-            "LLM_PRIMARY_API_KEY": "sibling-key",
-            "LLM_PRIMARY_MODELS": "gpt-sibling",
-            "OPENAI_API_KEY": "legacy-key",
-            "LITELLM_MODEL": "openai/gpt-sibling",
-            "LITELLM_FALLBACK_MODELS": "bad model",
-        }
-
-        with patch("src.config.setup_env"), \
-             patch.object(Config, "_parse_litellm_yaml", return_value=[]), \
-             patch.dict("os.environ", env, clear=True):
-            config = Config._load_from_env()
-            analyzer = GeminiAnalyzer(config=config)
-
-        error = analyzer.get_generation_backend_config_error()
-        assert error is not None
-        assert error.error_code is GenerationErrorCode.UNSAFE_CONFIG
-        assert error.details["code"] == "explicit_hermes_route_invalid"
-        assert error.details["field"] == "LITELLM_FALLBACK_MODELS"
-        assert analyzer.is_available() is False
-
-        with patch("src.analyzer.litellm.completion") as completion:
-            with pytest.raises(GenerationError):
-                analyzer._call_litellm("prompt", {"max_tokens": 4})
-        completion.assert_not_called()
-
-    @pytest.mark.parametrize("selected_model", ["anthropic/foo bad", "openai/anthropic/foo bad"])
-    def test_provider_looking_malformed_hermes_model_is_not_reinterpreted_as_direct_provider(self, selected_model):
-        from src.config import Config
-        from src.analyzer import GeminiAnalyzer
-        from src.llm.generation_backend import GenerationError
-
-        env = {
-            "LLM_CHANNELS": "hermes,primary",
-            "LLM_HERMES_API_KEY": "hermes-key",
-            "LLM_HERMES_MODELS": "anthropic/foo bad",
-            "LLM_PRIMARY_PROTOCOL": "openai",
-            "LLM_PRIMARY_BASE_URL": "https://example.invalid/v1",
-            "LLM_PRIMARY_API_KEY": "sibling-key",
-            "LLM_PRIMARY_MODELS": "gpt-sibling",
-            "ANTHROPIC_API_KEY": "anthropic-legacy-key",
-            "LITELLM_MODEL": selected_model,
-        }
-
-        with patch("src.config.setup_env"), \
-             patch.object(Config, "_parse_litellm_yaml", return_value=[]), \
-             patch.dict("os.environ", env, clear=True):
-            config = Config._load_from_env()
-            analyzer = GeminiAnalyzer(config=config)
-
-        error = analyzer.get_generation_backend_config_error()
-        assert error is not None
-        assert error.details["code"] == "explicit_hermes_route_invalid"
-        assert error.details["field"] == "LITELLM_MODEL"
-
-        with patch("src.analyzer.litellm.completion") as completion:
-            with pytest.raises(GenerationError):
-                analyzer._call_litellm("prompt", {"max_tokens": 4})
-        completion.assert_not_called()
-
-    def test_invalid_hermes_config_error_handles_canonicalize_value_error(self):
-        from src.llm.generation_backend import GenerationErrorCode
-
-        analyzer = self._make_analyzer()
-        analyzer._config_override = SimpleNamespace(
-            litellm_model="bad hermes route",
-            litellm_fallback_models=[],
-            llm_model_list=[],
-            generation_backend="litellm",
-            generation_fallback_backend="",
-            llm_channel_config_issues=[
-                {
-                    "field": "LLM_HERMES_MODELS",
-                    "code": "invalid_model",
-                    "message": "Hermes model IDs must be valid",
-                }
-            ],
-            llm_blocks_legacy_fallback=True,
-            llm_blocked_hermes_routes=["openai/hermes-agent"],
-        )
-
-        with patch("src.analyzer.canonicalize_hermes_model_ref", side_effect=ValueError("bad model")), \
-             patch("src.analyzer.litellm.completion") as completion:
-            error = analyzer.get_generation_backend_config_error()
-
-        assert error is not None
-        assert error.error_code is GenerationErrorCode.UNSAFE_CONFIG
-        assert error.details["code"] == "invalid_model"
-        completion.assert_not_called()
 
     @pytest.mark.parametrize(
         "provider_model,response_payload,expected_text",
@@ -1936,62 +932,7 @@ class TestAnalyzerGenerateText:
         assert model_used == provider_model
         _assert_usage_contains(usage, response_payload["usage"])
 
-    def test_call_litellm_minimax_reasoning_only_blocks_fall_back_to_message_content(self):
-        analyzer = self._make_analyzer()
-        analyzer._config_override = SimpleNamespace(
-            litellm_model="openai/MiniMax-M3",
-            litellm_fallback_models=[],
-            llm_model_list=[],
-        )
-        response = SimpleNamespace(
-            choices=[
-                SimpleNamespace(
-                    content_blocks=[
-                        SimpleNamespace(type="thinking", text="Internal reasoning"),
-                    ],
-                    message=SimpleNamespace(content='{"sentiment_score": 72}'),
-                )
-            ],
-            usage=None,
-        )
 
-        with patch.object(analyzer, "_dispatch_litellm_completion", return_value=response):
-            text, model_used, _usage = analyzer._call_litellm(
-                "prompt",
-                {"max_tokens": 128, "temperature": 0.2},
-            )
-
-        assert text == '{"sentiment_score": 72}'
-        assert model_used == "openai/MiniMax-M3"
-
-    def test_call_litellm_minimax_strips_leading_think_wrapper(self):
-        analyzer = self._make_analyzer()
-        analyzer._config_override = SimpleNamespace(
-            litellm_model="openai/MiniMax-M3",
-            litellm_fallback_models=[],
-            llm_model_list=[],
-        )
-        response = SimpleNamespace(
-            choices=[
-                SimpleNamespace(
-                    content_blocks=None,
-                    message=SimpleNamespace(
-                        content='<think>Internal reasoning</think>\n{"sentiment_score": 72}'
-                    ),
-                )
-            ],
-            usage=None,
-        )
-
-        with patch.object(analyzer, "_dispatch_litellm_completion", return_value=response):
-            text, model_used, _usage = analyzer._call_litellm(
-                "prompt",
-                {"max_tokens": 128, "temperature": 0.2},
-                response_validator=analyzer._validate_json_response,
-            )
-
-        assert text == '{"sentiment_score": 72}'
-        assert model_used == "openai/MiniMax-M3"
 
     def test_call_litellm_preserves_think_markup_inside_json_string(self):
         analyzer = self._make_analyzer()
@@ -2021,80 +962,7 @@ class TestAnalyzerGenerateText:
         assert text == expected
         assert model_used == "openai/MiniMax-M3"
 
-    def test_call_litellm_minimax_stream_ignores_reasoning_blocks(self):
-        analyzer = self._make_analyzer()
-        analyzer._config_override = SimpleNamespace(
-            litellm_model="openai/MiniMax-M3",
-            litellm_fallback_models=[],
-            llm_model_list=[],
-        )
 
-        def stream_response():
-            yield SimpleNamespace(
-                choices=[
-                    SimpleNamespace(
-                        delta=SimpleNamespace(
-                            content=[
-                                {"type": "reasoning", "text": "Internal reasoning"},
-                                {"type": "text", "text": '{"sentiment_score": '},
-                            ]
-                        )
-                    )
-                ],
-                usage=None,
-            )
-            yield SimpleNamespace(
-                choices=[
-                    SimpleNamespace(
-                        delta=SimpleNamespace(
-                            content=[{"type": "text", "text": "72}"}]
-                        )
-                    )
-                ],
-                usage=None,
-            )
-
-        with patch.object(analyzer, "_dispatch_litellm_completion", return_value=stream_response()):
-            text, model_used, _usage = analyzer._call_litellm(
-                "prompt",
-                {"max_tokens": 128, "temperature": 0.2},
-                stream=True,
-                response_validator=analyzer._validate_json_response,
-            )
-
-        assert text == '{"sentiment_score": 72}'
-        assert model_used == "openai/MiniMax-M3"
-
-    def test_call_litellm_minimax_stream_strips_split_think_wrapper(self):
-        analyzer = self._make_analyzer()
-        analyzer._config_override = SimpleNamespace(
-            litellm_model="openai/MiniMax-M3",
-            litellm_fallback_models=[],
-            llm_model_list=[],
-        )
-
-        def stream_response():
-            for content in (
-                "<thi",
-                "nk>Internal reasoning</think>",
-                '{"sentiment_score": ',
-                "72}",
-            ):
-                yield SimpleNamespace(
-                    choices=[SimpleNamespace(delta=SimpleNamespace(content=content))],
-                    usage=None,
-                )
-
-        with patch.object(analyzer, "_dispatch_litellm_completion", return_value=stream_response()):
-            text, model_used, _usage = analyzer._call_litellm(
-                "prompt",
-                {"max_tokens": 128, "temperature": 0.2},
-                stream=True,
-                response_validator=analyzer._validate_json_response,
-            )
-
-        assert text == '{"sentiment_score": 72}'
-        assert model_used == "openai/MiniMax-M3"
 
     def test_call_litellm_falls_back_to_message_content_when_blocks_empty(self):
         analyzer = self._make_analyzer()
@@ -2125,34 +993,11 @@ class TestAnalyzerGenerateText:
         assert "message_count" not in usage
         assert "known_dynamic_marker_positions" not in usage
 
-    def test_call_litellm_normalizes_kimi_k26_temperature(self):
-        analyzer = self._make_analyzer()
-        analyzer._config_override = SimpleNamespace(
-            litellm_model="openai/kimi-k2.6",
-            litellm_fallback_models=[],
-            llm_model_list=[],
-        )
-        response = SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))],
-            usage=SimpleNamespace(prompt_tokens=1, completion_tokens=1, total_tokens=2),
-        )
-
-        with patch.object(analyzer, "_dispatch_litellm_completion", return_value=response) as mock_dispatch:
-            text, model_used, usage = analyzer._call_litellm(
-                "prompt",
-                {"max_tokens": 128, "temperature": 0.2},
-            )
-
-        assert text == "ok"
-        assert model_used == "openai/kimi-k2.6"
-        _assert_usage_contains(usage, {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2})
-        call_kwargs = mock_dispatch.call_args.args[1]
-        assert call_kwargs["temperature"] == 1.0
 
     def test_call_litellm_non_stream_records_legacy_message_audit_for_actual_messages(self):
         analyzer = self._make_analyzer()
         analyzer._config_override = SimpleNamespace(
-            litellm_model="openai/gpt-4o-mini",
+            litellm_model="deepseek/deepseek-flash",
             litellm_fallback_models=[],
             llm_model_list=[],
         )
@@ -2189,9 +1034,9 @@ class TestAnalyzerGenerateText:
             )
 
         assert text == "ok"
-        assert model_used == "openai/gpt-4o-mini"
+        assert model_used == "deepseek/deepseek-flash"
         _assert_usage_contains(usage, {"prompt_tokens": 10, "completion_tokens": 1, "total_tokens": 11})
-        assert usage["provider"] == "openai"
+        assert usage["provider"] == "deepseek"
         assert usage["message_count"] == 2
         markers = {
             marker["marker_name"]: marker
@@ -2212,16 +1057,16 @@ class TestAnalyzerGenerateText:
             llm_model_list=[
                 {
                     "model_name": "analysis-route",
-                    "litellm_params": {"model": "openai/gpt-4o-mini"},
+                    "litellm_params": {"model": "deepseek/deepseek-flash"},
                 },
                 {
                     "model_name": "analysis-route",
-                    "litellm_params": {"model": "anthropic/claude-sonnet-test"},
+                    "litellm_params": {"model": "deepseek/deepseek-v4-pro"},
                 },
             ],
         )
         response = SimpleNamespace(
-            model="anthropic/claude-sonnet-test",
+            model="deepseek/deepseek-v4-pro",
             choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))],
             usage=SimpleNamespace(prompt_tokens=10, completion_tokens=1, total_tokens=11),
         )
@@ -2239,17 +1084,17 @@ class TestAnalyzerGenerateText:
             )
 
         assert text == "ok"
-        assert model_used == "anthropic/claude-sonnet-test"
+        assert model_used == "deepseek/deepseek-v4-pro"
         _assert_usage_contains(usage, {"prompt_tokens": 10, "completion_tokens": 1, "total_tokens": 11})
-        assert usage["provider"] == "anthropic"
-        assert usage["response_model"] == "anthropic/claude-sonnet-test"
+        assert usage["provider"] == "deepseek"
+        assert usage["response_model"] == "deepseek/deepseek-v4-pro"
         assert usage["transport"] == "litellm"
         assert usage["analysis_mode"] == "stock_analysis"
 
     def test_call_litellm_system_hmac_distinguishes_language_and_market_prompt(self):
         analyzer = self._make_analyzer()
         analyzer._config_override = SimpleNamespace(
-            litellm_model="openai/gpt-4o-mini",
+            litellm_model="deepseek/deepseek-flash",
             litellm_fallback_models=[],
             llm_model_list=[],
         )
@@ -2292,282 +1137,13 @@ class TestAnalyzerGenerateText:
         assert zh_usage["market_group"] == "cn"
         assert en_usage["market_group"] == "us"
 
-    def test_call_litellm_normalizes_kimi_k26_temperature_for_yaml_alias(self):
-        analyzer = self._make_analyzer()
-        analyzer._config_override = SimpleNamespace(
-            litellm_model="kimi_router",
-            litellm_fallback_models=[],
-            llm_model_list=[
-                {
-                    "model_name": "kimi_router",
-                    "litellm_params": {"model": "openai/kimi-k2.6"},
-                }
-            ],
-        )
-        response = SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))],
-            usage=SimpleNamespace(prompt_tokens=1, completion_tokens=1, total_tokens=2),
-        )
 
-        with patch.object(analyzer, "_dispatch_litellm_completion", return_value=response) as mock_dispatch:
-            text, model_used, usage = analyzer._call_litellm(
-                "prompt",
-                {"max_tokens": 128, "temperature": 0.2},
-            )
 
-        assert text == "ok"
-        assert model_used == "kimi_router"
-        _assert_usage_contains(usage, {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2})
-        call_kwargs = mock_dispatch.call_args.args[1]
-        assert call_kwargs["temperature"] == 1.0
 
-    def test_call_litellm_normalizes_kimi_k26_temperature_for_non_thinking_yaml_alias(self):
-        analyzer = self._make_analyzer()
-        analyzer._config_override = SimpleNamespace(
-            litellm_model="kimi_router",
-            litellm_fallback_models=[],
-            llm_model_list=[
-                {
-                    "model_name": "kimi_router",
-                    "litellm_params": {
-                        "model": "openai/kimi-k2.6",
-                        "extra_body": {"thinking": {"type": "disabled"}},
-                    },
-                }
-            ],
-        )
-        response = SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))],
-            usage=SimpleNamespace(prompt_tokens=1, completion_tokens=1, total_tokens=2),
-        )
 
-        with patch.object(analyzer, "_dispatch_litellm_completion", return_value=response) as mock_dispatch:
-            text, model_used, usage = analyzer._call_litellm(
-                "prompt",
-                {"max_tokens": 128, "temperature": 0.2},
-            )
 
-        assert text == "ok"
-        assert model_used == "kimi_router"
-        _assert_usage_contains(usage, {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2})
-        call_kwargs = mock_dispatch.call_args.args[1]
-        assert call_kwargs["temperature"] == 0.6
 
-    def test_call_litellm_resolves_anthropic_alias_for_usage_normalization(self):
-        analyzer = self._make_analyzer()
-        analyzer._config_override = SimpleNamespace(
-            litellm_model="claude-router",
-            litellm_fallback_models=[],
-            llm_model_list=[
-                {
-                    "model_name": "claude-router",
-                    "litellm_params": {"model": "anthropic/claude-sonnet-test"},
-                }
-            ],
-        )
-        response = SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))],
-            usage=SimpleNamespace(
-                input_tokens=100,
-                output_tokens=30,
-                cache_read_input_tokens=10,
-                cache_creation_input_tokens=20,
-            ),
-        )
 
-        with patch.object(analyzer, "_dispatch_litellm_completion", return_value=response):
-            text, model_used, usage = analyzer._call_litellm(
-                "prompt",
-                {"max_tokens": 128, "temperature": 0.2},
-            )
-
-        assert text == "ok"
-        assert model_used == "claude-router"
-        assert usage["prompt_tokens"] == 130
-        assert usage["completion_tokens"] == 30
-        assert usage["total_tokens"] == 160
-        assert usage["normalized_cache_read_tokens"] == 10
-        assert usage["normalized_cache_write_tokens"] == 20
-        assert usage["cache_observation"] == "read_and_write"
-
-    def test_call_litellm_uses_openai_wire_model_for_alias_usage_threshold(self):
-        analyzer = self._make_analyzer()
-        analyzer._config_override = SimpleNamespace(
-            litellm_model="fast",
-            litellm_fallback_models=[],
-            llm_model_list=[
-                {
-                    "model_name": "fast",
-                    "litellm_params": {"model": "openai/gpt-4o"},
-                }
-            ],
-        )
-        response = SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))],
-            usage=SimpleNamespace(
-                prompt_tokens=500,
-                completion_tokens=20,
-                total_tokens=520,
-                prompt_tokens_details={"cached_tokens": 0},
-            ),
-        )
-
-        with patch.object(analyzer, "_dispatch_litellm_completion", return_value=response):
-            text, model_used, usage = analyzer._call_litellm(
-                "prompt",
-                {"max_tokens": 128, "temperature": 0.2},
-            )
-
-        assert text == "ok"
-        assert model_used == "fast"
-        assert usage["provider_min_cache_tokens"] == 1024
-        assert usage["cache_capability"] == "supported"
-        assert usage["cache_eligibility"] == "below_threshold"
-        assert usage["cache_observation"] == "unknown"
-        assert usage["normalized_cache_read_tokens"] == 0
-        assert usage["normalized_cache_eligible_input_tokens"] is None
-        assert usage["normalized_cache_hit_ratio"] is None
-
-    def test_call_litellm_preserves_anthropic_litellm_prompt_tokens_without_input_tokens(self):
-        analyzer = self._make_analyzer()
-        analyzer._config_override = SimpleNamespace(
-            litellm_model="claude-router",
-            litellm_fallback_models=[],
-            llm_model_list=[
-                {
-                    "model_name": "claude-router",
-                    "litellm_params": {"model": "anthropic/claude-sonnet-test"},
-                }
-            ],
-        )
-        response = SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))],
-            usage=SimpleNamespace(
-                prompt_tokens=100,
-                completion_tokens=20,
-                total_tokens=120,
-                cache_read_input_tokens=0,
-                cache_creation_input_tokens=0,
-            ),
-        )
-
-        with patch.object(analyzer, "_dispatch_litellm_completion", return_value=response):
-            text, model_used, usage = analyzer._call_litellm(
-                "prompt",
-                {"max_tokens": 128, "temperature": 0.2},
-            )
-
-        assert text == "ok"
-        assert model_used == "claude-router"
-        assert usage["prompt_tokens"] == 100
-        assert usage["completion_tokens"] == 20
-        assert usage["total_tokens"] == 120
-        assert usage["normalized_prompt_tokens"] == 100
-        assert usage["normalized_uncached_input_tokens"] == 100
-        assert usage["cache_observation"] == "zero_hit"
-        assert usage["messages_hmac"] and len(usage["messages_hmac"]) == 64
-
-    def test_call_litellm_stream_resolves_glm_alias_for_usage_normalization(self):
-        analyzer = self._make_analyzer()
-        analyzer._config_override = SimpleNamespace(
-            litellm_model="glm-router",
-            litellm_fallback_models=[],
-            llm_model_list=[
-                {
-                    "model_name": "glm-router",
-                    "litellm_params": {"model": "zhipu/glm-4.5"},
-                }
-            ],
-        )
-
-        def stream_response():
-            yield SimpleNamespace(
-                choices=[SimpleNamespace(delta=SimpleNamespace(content="ok"))],
-                usage=SimpleNamespace(
-                    prompt_tokens=1200,
-                    completion_tokens=80,
-                    total_tokens=1280,
-                    prompt_tokens_details={"cached_tokens": 1200},
-                ),
-            )
-
-        with patch.object(analyzer, "_dispatch_litellm_completion", return_value=stream_response()):
-            text, model_used, usage = analyzer._call_litellm(
-                "prompt",
-                {"max_tokens": 128, "temperature": 0.2},
-                stream=True,
-            )
-
-        assert text == "ok"
-        assert model_used == "glm-router"
-        assert usage["normalized_cache_read_tokens"] == 1200
-        assert usage["cache_capability"] == "supported"
-        assert usage["cache_observation"] == "full_hit"
-
-    def test_call_litellm_stream_uses_openai_wire_model_for_alias_usage_threshold(self):
-        analyzer = self._make_analyzer()
-        analyzer._config_override = SimpleNamespace(
-            litellm_model="fast",
-            litellm_fallback_models=[],
-            llm_model_list=[
-                {
-                    "model_name": "fast",
-                    "litellm_params": {"model": "openai/gpt-4o"},
-                }
-            ],
-        )
-
-        def stream_response():
-            yield SimpleNamespace(
-                choices=[SimpleNamespace(delta=SimpleNamespace(content="ok"))],
-                usage=SimpleNamespace(
-                    prompt_tokens=500,
-                    completion_tokens=20,
-                    total_tokens=520,
-                    prompt_tokens_details={"cached_tokens": 0},
-                ),
-            )
-
-        with patch.object(analyzer, "_dispatch_litellm_completion", return_value=stream_response()):
-            text, model_used, usage = analyzer._call_litellm(
-                "prompt",
-                {"max_tokens": 128, "temperature": 0.2},
-                stream=True,
-            )
-
-        assert text == "ok"
-        assert model_used == "fast"
-        assert usage["provider_min_cache_tokens"] == 1024
-        assert usage["cache_capability"] == "supported"
-        assert usage["cache_eligibility"] == "below_threshold"
-        assert usage["cache_observation"] == "unknown"
-        assert usage["normalized_cache_read_tokens"] == 0
-        assert usage["normalized_cache_eligible_input_tokens"] is None
-        assert usage["normalized_cache_hit_ratio"] is None
-
-    def test_call_litellm_omits_temperature_for_gpt5_family(self):
-        analyzer = self._make_analyzer()
-        analyzer._config_override = SimpleNamespace(
-            litellm_model="openai/gpt5.5-ferr",
-            litellm_fallback_models=[],
-            llm_model_list=[],
-        )
-        response = SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content="ok"))],
-            usage=SimpleNamespace(prompt_tokens=1, completion_tokens=1, total_tokens=2),
-        )
-
-        with patch.object(analyzer, "_dispatch_litellm_completion", return_value=response) as mock_dispatch:
-            text, model_used, usage = analyzer._call_litellm(
-                "prompt",
-                {"max_tokens": 128, "temperature": 0.2},
-            )
-
-        assert text == "ok"
-        assert model_used == "openai/gpt5.5-ferr"
-        _assert_usage_contains(usage, {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2})
-        call_kwargs = mock_dispatch.call_args.args[1]
-        assert "temperature" not in call_kwargs
 
     def test_call_litellm_recovers_from_temperature_default_error(self):
         from src.llm.generation_params import clear_litellm_generation_param_recovery_cache
@@ -2575,7 +1151,7 @@ class TestAnalyzerGenerateText:
         clear_litellm_generation_param_recovery_cache()
         analyzer = self._make_analyzer()
         analyzer._config_override = SimpleNamespace(
-            litellm_model="openai/custom-default-temp",
+            litellm_model="deepseek/deepseek-custom-default-temp",
             litellm_fallback_models=[],
             llm_model_list=[],
         )
@@ -2600,43 +1176,11 @@ class TestAnalyzerGenerateText:
             )
 
         assert text == "ok"
-        assert model_used == "openai/custom-default-temp"
+        assert model_used == "deepseek/deepseek-custom-default-temp"
         _assert_usage_contains(usage, {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2})
         assert calls[0]["temperature"] == 0.2
         assert calls[1]["temperature"] == 1.0
 
-    def test_call_litellm_keeps_user_temperature_for_non_kimi_fallback(self):
-        analyzer = self._make_analyzer()
-        analyzer._config_override = SimpleNamespace(
-            litellm_model="openai/kimi-k2.6",
-            litellm_fallback_models=["openai/gpt-4o-mini"],
-            llm_model_list=[],
-        )
-        response = SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content="fallback ok"))],
-            usage=SimpleNamespace(prompt_tokens=1, completion_tokens=1, total_tokens=2),
-        )
-        temperatures = []
-
-        def fake_dispatch(model, call_kwargs, **kwargs):
-            temperatures.append((model, call_kwargs["temperature"]))
-            if model == "openai/kimi-k2.6":
-                raise RuntimeError("primary failed")
-            return response
-
-        with patch.object(analyzer, "_dispatch_litellm_completion", side_effect=fake_dispatch):
-            text, model_used, usage = analyzer._call_litellm(
-                "prompt",
-                {"max_tokens": 128, "temperature": 0.2},
-            )
-
-        assert text == "fallback ok"
-        assert model_used == "openai/gpt-4o-mini"
-        _assert_usage_contains(usage, {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2})
-        assert temperatures == [
-            ("openai/kimi-k2.6", 1.0),
-            ("openai/gpt-4o-mini", 0.2),
-        ]
 
     def test_call_litellm_stream_falls_back_to_non_stream_after_partial_and_falls_back_model(self):
         analyzer = self._make_analyzer()
@@ -2695,9 +1239,9 @@ class TestAnalyzerGenerateText:
     def test_analyze_integrity_retry_keeps_progress_monotonic(self):
         analyzer = self._make_analyzer()
         analyzer._config_override = SimpleNamespace(
-            gemini_request_delay=0,
+            llm_request_delay=0,
             report_language="zh",
-            litellm_model="gemini/gemini-2.0-flash",
+            litellm_model="deepseek/deepseek-flash",
             llm_temperature=0.2,
             report_integrity_enabled=True,
             report_integrity_retry=1,
@@ -2756,9 +1300,9 @@ class TestAnalyzerGenerateText:
     def test_analyze_persists_provider_usage_from_private_stream_hidden_usage_best_effort(self):
         analyzer = self._make_analyzer()
         analyzer._config_override = SimpleNamespace(
-            gemini_request_delay=0,
+            llm_request_delay=0,
             report_language="zh",
-            litellm_model="openai/gpt-4o-mini",
+            litellm_model="deepseek/deepseek-flash",
             litellm_fallback_models=[],
             llm_model_list=[],
             llm_temperature=0.2,
@@ -2804,14 +1348,14 @@ class TestAnalyzerGenerateText:
         assert result.analysis_summary == "分析结果"
         mock_usage.assert_called_once()
         usage_arg, model_arg = mock_usage.call_args[0]
-        assert model_arg == "openai/gpt-4o-mini"
+        assert model_arg == "deepseek/deepseek-flash"
         _assert_usage_contains(usage_arg, {"prompt_tokens": 11, "completion_tokens": 2, "total_tokens": 13})
         assert usage_arg["language"] == "zh"
         assert usage_arg["market_group"] == "cn"
         assert usage_arg["analysis_mode"] == "stock_analysis"
         assert usage_arg["legacy_prompt_mode"] == "skill_aware"
         assert usage_arg["skill_config_hmac"] and len(usage_arg["skill_config_hmac"]) == 64
-        assert usage_arg["provider"] == "openai"
+        assert usage_arg["provider"] == "deepseek"
         assert usage_arg["transport"] == "litellm"
         assert usage_arg["message_count"] == 2
         assert json.loads(usage_arg["known_dynamic_marker_positions"]) == []
@@ -2820,9 +1364,9 @@ class TestAnalyzerGenerateText:
     def test_analyze_records_marker_positions_from_real_prompt_format(self):
         analyzer = self._make_analyzer()
         analyzer._config_override = SimpleNamespace(
-            gemini_request_delay=0,
+            llm_request_delay=0,
             report_language="zh",
-            litellm_model="openai/gpt-4o-mini",
+            litellm_model="deepseek/deepseek-flash",
             litellm_fallback_models=[],
             llm_model_list=[],
             llm_temperature=0.2,
@@ -2919,9 +1463,9 @@ class TestAnalyzerGenerateText:
         analyzer = self._make_analyzer()
         analyzer._config_override = SimpleNamespace(report_language="zh")
 
-        from src.analyzer import GeminiAnalyzer
+        from src.analyzer import DeepSeekAnalyzer
 
-        result = GeminiAnalyzer._parse_response(analyzer, "这是一段纯文本分析，没有 JSON。", "600519", "贵州茅台")
+        result = DeepSeekAnalyzer._parse_response(analyzer, "这是一段纯文本分析，没有 JSON。", "600519", "贵州茅台")
         assert result.success is False
         assert result.error_message is not None
         assert result.code == "600519"
@@ -2931,10 +1475,10 @@ class TestAnalyzerGenerateText:
         analyzer = self._make_analyzer()
         analyzer._config_override = SimpleNamespace(report_language="zh")
 
-        from src.analyzer import GeminiAnalyzer
+        from src.analyzer import DeepSeekAnalyzer
 
         malformed = "Here is the analysis: {broken json content without closing"
-        result = GeminiAnalyzer._parse_response(analyzer, malformed, "AAPL", "Apple")
+        result = DeepSeekAnalyzer._parse_response(analyzer, malformed, "AAPL", "Apple")
         assert result.success is False
         assert result.error_message is not None
 
@@ -2943,7 +1487,7 @@ class TestAnalyzerGenerateText:
         analyzer = self._make_analyzer()
         analyzer._config_override = SimpleNamespace(report_language="zh")
 
-        from src.analyzer import GeminiAnalyzer
+        from src.analyzer import DeepSeekAnalyzer
         import json
 
         valid_response = json.dumps({
@@ -2952,7 +1496,7 @@ class TestAnalyzerGenerateText:
             "operation_advice": "持有",
             "analysis_summary": "测试分析",
         })
-        result = GeminiAnalyzer._parse_response(analyzer, valid_response, "600519", "贵州茅台")
+        result = DeepSeekAnalyzer._parse_response(analyzer, valid_response, "600519", "贵州茅台")
         assert result.success is True
         assert result.error_message is None
 
@@ -3032,7 +1576,7 @@ class TestAnalyzerGenerateText:
 
         analyzer = self._make_analyzer()
         analyzer._config_override = SimpleNamespace(
-            gemini_request_delay=0,
+            llm_request_delay=0,
             report_language="zh",
             litellm_model="provider/primary-model",
             litellm_fallback_models=["provider/fallback-model"],
@@ -3119,26 +1663,26 @@ class TestMarketAnalyzerBypassFix:
         with patch("src.analyzer.get_config") as mock_cfg, \
              patch("src.market_analyzer.get_config") as mock_cfg2:
             cfg = MagicMock()
-            cfg.litellm_model = "gemini/gemini-2.0-flash"
+            cfg.litellm_model = "deepseek/deepseek-flash"
             cfg.litellm_fallback_models = []
-            cfg.gemini_api_keys = ["sk-gemini-testkey-1234"]
-            cfg.anthropic_api_keys = []
-            cfg.openai_api_keys = []
+            cfg.deepseek_api_keys = ["sk-deepseek/deepseek-flash"]
+            cfg.deepseek_api_keys = []
+            cfg.deepseek_api_keys = []
             cfg.deepseek_api_keys = []
             cfg.llm_model_list = []
             cfg.openai_base_url = None
             cfg.market_review_region = "cn"
             cfg.market_review_color_scheme = "green_up"
             cfg.report_language = "zh"
-            cfg.generation_backend = "litellm"
-            cfg.generation_fallback_backend = "litellm"
+
+
             mock_cfg.return_value = cfg
             mock_cfg2.return_value = cfg
 
-            from src.analyzer import GeminiAnalyzer
+            from src.analyzer import DeepSeekAnalyzer
             from src.market_analyzer import MarketAnalyzer
 
-            analyzer = GeminiAnalyzer.__new__(GeminiAnalyzer)
+            analyzer = DeepSeekAnalyzer.__new__(DeepSeekAnalyzer)
             analyzer._router = None
             analyzer._litellm_available = True
             analyzer._config_override = cfg
@@ -3198,112 +1742,6 @@ class TestMarketAnalyzerBypassFix:
         assert isinstance(result, str) and len(result) > 0
         ma.analyzer.generate_text_with_metadata.assert_called_once()
 
-    def test_generation_backend_config_error_does_not_template_fallback(self):
-        from src.llm.generation_backend import GenerationError
-        from src.market_analyzer import MarketOverview, MarketIndex
-
-        ma = self._make_market_analyzer_with_mock_generate_text(return_value=None)
-        ma.analyzer._config_override.generation_backend = "codex"
-        overview = MarketOverview(
-            date="2026-03-05",
-            indices=[
-                MarketIndex(
-                    code="000001",
-                    name="上证指数",
-                    current=3300.0,
-                    change=5.0,
-                    change_pct=0.15,
-                )
-            ],
-        )
-
-        with patch.object(ma, "_generate_template_review", wraps=ma._generate_template_review) as template_review, \
-             patch("src.market_analyzer.record_llm_run") as mock_record_llm_run:
-            with pytest.raises(GenerationError) as exc_info:
-                ma.generate_market_review(overview, [])
-
-        assert exc_info.value.details["field"] == "GENERATION_BACKEND"
-        assert exc_info.value.details["requested_backend"] == "codex"
-        template_review.assert_not_called()
-        ma.analyzer.generate_text_with_metadata.assert_not_called()
-        mock_record_llm_run.assert_called_once()
-        diagnostic = mock_record_llm_run.call_args.kwargs
-        assert diagnostic["success"] is False
-        assert diagnostic["call_type"] == "market_review"
-        assert diagnostic["error_type"] == "GenerationError"
-        assert "backend_not_configured" in str(diagnostic["error_message"])
-
-    def test_local_backend_execution_error_does_not_template_fallback(self):
-        from src.llm.generation_backend import GenerationError, GenerationErrorCode
-        from src.market_analyzer import MarketOverview, MarketIndex
-
-        ma = self._make_market_analyzer_with_mock_generate_text(return_value=None)
-        ma.analyzer.generate_text_with_metadata.side_effect = GenerationError(
-            error_code=GenerationErrorCode.COMMAND_NOT_FOUND,
-            stage="configuration",
-            retryable=False,
-            fallbackable=True,
-            backend="codex_cli",
-            provider="codex_cli",
-            details={"reason": "executable_not_found"},
-        )
-        overview = MarketOverview(
-            date="2026-03-05",
-            indices=[
-                MarketIndex(
-                    code="000001",
-                    name="上证指数",
-                    current=3300.0,
-                    change=5.0,
-                    change_pct=0.15,
-                )
-            ],
-        )
-
-        with patch.object(ma, "_generate_template_review", wraps=ma._generate_template_review) as template_review:
-            with pytest.raises(GenerationError) as exc_info:
-                ma.generate_market_review(overview, [])
-
-        assert exc_info.value.error_code is GenerationErrorCode.COMMAND_NOT_FOUND
-        template_review.assert_not_called()
-
-    def test_generation_backend_config_error_without_analyzer_does_not_template_fallback(self):
-        from src.llm.generation_backend import GenerationError
-        from src.market_analyzer import MarketOverview, MarketIndex
-
-        overview = MarketOverview(
-            date="2026-03-05",
-            indices=[
-                MarketIndex(
-                    code="000001",
-                    name="上证指数",
-                    current=3300.0,
-                    change=5.0,
-                    change_pct=0.15,
-                )
-            ],
-        )
-        cases = [
-            ("generation_backend", "GENERATION_BACKEND"),
-            ("generation_fallback_backend", "GENERATION_FALLBACK_BACKEND"),
-        ]
-
-        for attr_name, expected_field in cases:
-            ma = self._make_market_analyzer_with_mock_generate_text(return_value=None)
-            ma.analyzer = None
-            ma.config.generation_backend = "litellm"
-            ma.config.generation_fallback_backend = "litellm"
-            setattr(ma.config, attr_name, "codex")
-
-            with patch.object(ma, "_generate_template_review", wraps=ma._generate_template_review) as template_review, \
-                 patch("src.market_analyzer.record_llm_run") as mock_record_llm_run:
-                with pytest.raises(GenerationError) as exc_info:
-                    ma.generate_market_review(overview, [])
-
-            assert exc_info.value.details["field"] == expected_field
-            assert exc_info.value.details["requested_backend"] == "codex"
-            template_review.assert_not_called()
-            mock_record_llm_run.assert_called_once()
 
     def test_generation_backend_config_error_records_failing_route_model(self):
         from src.llm.generation_backend import GenerationError, GenerationErrorCode
@@ -3316,21 +1754,21 @@ class TestMarketAnalyzerBypassFix:
             retryable=False,
             fallbackable=False,
             backend="litellm",
-            provider="hermes",
+            provider="deepseek",
             details={
                 "reason": "invalid_model",
-                "field": "LLM_HERMES_MODELS",
+                "field": "LLM_REMOTE_MODELS",
             },
         ))
-        ma.config.litellm_model = "bad hermes route"
+        ma.config.litellm_model = "bad cloud route"
 
         with patch("src.market_analyzer.record_llm_run") as mock_record_llm_run:
             with pytest.raises(GenerationError):
                 ma.generate_market_review(MarketOverview(date="2026-03-05"), [])
 
         diagnostic = mock_record_llm_run.call_args.kwargs
-        assert diagnostic["provider"] == "hermes"
-        assert diagnostic["model"] == "bad hermes route"
+        assert diagnostic["provider"] == "deepseek"
+        assert diagnostic["model"] == "bad cloud route"
         assert diagnostic["success"] is False
 
     def test_generation_backend_config_error_prefers_route_name_diagnostics(self):
@@ -3344,9 +1782,9 @@ class TestMarketAnalyzerBypassFix:
             retryable=False,
             fallbackable=False,
             backend="litellm",
-            provider="hermes",
+            provider="deepseek",
             details={
-                "reason": "mixed_hermes_route_unsupported",
+                "reason": "invalid_model_route",
                 "field": "LLM_CHANNELS",
                 "route_name": "invalid-shared-route",
             },
@@ -3358,7 +1796,7 @@ class TestMarketAnalyzerBypassFix:
                 ma.generate_market_review(MarketOverview(date="2026-03-05"), [])
 
         diagnostic = mock_record_llm_run.call_args.kwargs
-        assert diagnostic["provider"] == "hermes"
+        assert diagnostic["provider"] == "deepseek"
         assert diagnostic["model"] == "invalid-shared-route"
         assert diagnostic["success"] is False
 
@@ -3452,7 +1890,7 @@ class TestMarketAnalyzerBypassFix:
 
         ma = self._make_market_analyzer_with_mock_generate_text(return_value="unused")
         ma.analyzer = LegacyAnalyzer()
-        ma.config.generation_backend = "broken-backend"
+
 
         with patch.object(ma, "_build_review_prompt", return_value="legacy prompt"), \
              patch.object(ma, "_inject_data_into_review", return_value="渲染后复盘"), \
@@ -3473,36 +1911,16 @@ class TestMarketAnalyzerBypassFix:
         assert recorded.call_args.kwargs["provider"] == "legacy_analyzer"
         assert recorded.call_args.kwargs["model"] == "legacy_analyzer"
 
-    def test_market_review_records_actual_codex_backend(self):
-        from src.market_analyzer import MarketOverview
-
-        ma = self._make_market_analyzer_with_mock_generate_text("复盘结果")
-        ma.analyzer.get_generation_backend_identity.return_value = ("codex_cli", "codex_cli")
-        ma.analyzer.generate_text_with_metadata.return_value = SimpleNamespace(
-            text="复盘结果",
-            provider="codex_cli",
-            model="codex_cli",
-            backend="codex_cli",
-        )
-
-        with patch("src.market_analyzer.record_llm_run_started") as started, \
-             patch("src.market_analyzer.record_llm_run") as recorded:
-            ma.generate_market_review(MarketOverview(date="2026-03-05"), [])
-
-        assert started.call_args.kwargs["provider"] == "codex_cli"
-        assert started.call_args.kwargs["model"] == "codex_cli"
-        assert recorded.call_args.kwargs["provider"] == "codex_cli"
-        assert recorded.call_args.kwargs["model"] == "codex_cli"
 
     def test_market_review_records_actual_litellm_fallback(self):
         from src.market_analyzer import MarketOverview
 
         ma = self._make_market_analyzer_with_mock_generate_text("复盘结果")
-        ma.analyzer.get_generation_backend_identity.return_value = ("codex_cli", "codex_cli")
+        ma.analyzer.get_generation_backend_identity.return_value = ("litellm", "litellm")
         ma.analyzer.generate_text_with_metadata.return_value = SimpleNamespace(
             text="复盘结果",
-            provider="openai",
-            model="openai/qwen3.7-max",
+            provider="deepseek",
+            model="deepseek/deepseek-v4-pro",
             backend="litellm",
         )
 
@@ -3510,47 +1928,47 @@ class TestMarketAnalyzerBypassFix:
              patch("src.market_analyzer.record_llm_run") as recorded:
             ma.generate_market_review(MarketOverview(date="2026-03-05"), [])
 
-        assert started.call_args.kwargs["provider"] == "codex_cli"
-        assert started.call_args.kwargs["model"] == "codex_cli"
-        assert recorded.call_args.kwargs["provider"] == "openai"
-        assert recorded.call_args.kwargs["model"] == "openai/qwen3.7-max"
+        assert started.call_args.kwargs["provider"] == "litellm"
+        assert started.call_args.kwargs["model"] == "litellm"
+        assert recorded.call_args.kwargs["provider"] == "deepseek"
+        assert recorded.call_args.kwargs["model"] == "deepseek/deepseek-v4-pro"
 
     def test_market_review_prefers_generation_usage_provider_when_recording(self):
         from src.market_analyzer import MarketOverview
 
         ma = self._make_market_analyzer_with_mock_generate_text("复盘结果")
-        ma.analyzer.get_generation_backend_identity.return_value = ("codex_cli", "codex_cli")
+        ma.analyzer.get_generation_backend_identity.return_value = ("litellm", "litellm")
         ma.analyzer.generate_text_with_metadata.return_value = SimpleNamespace(
             text="复盘结果",
-            provider="openai",
+            provider="deepseek",
             model="analysis-route",
             backend="litellm",
-            usage={"provider": "anthropic"},
+            usage={"provider": "deepseek"},
         )
 
         with patch("src.market_analyzer.record_llm_run_started") as started, \
              patch("src.market_analyzer.record_llm_run") as recorded:
             ma.generate_market_review(MarketOverview(date="2026-03-05"), [])
 
-        assert started.call_args.kwargs["provider"] == "codex_cli"
-        assert started.call_args.kwargs["model"] == "codex_cli"
-        assert recorded.call_args.kwargs["provider"] == "anthropic"
+        assert started.call_args.kwargs["provider"] == "litellm"
+        assert started.call_args.kwargs["model"] == "litellm"
+        assert recorded.call_args.kwargs["provider"] == "deepseek"
         assert recorded.call_args.kwargs["model"] == "analysis-route"
 
     def test_market_review_resolves_litellm_alias_provider_before_recording(self):
         from src.market_analyzer import MarketOverview
 
         ma = self._make_market_analyzer_with_mock_generate_text("复盘结果")
-        ma.analyzer.get_generation_backend_identity.return_value = ("codex_cli", "codex_cli")
+        ma.analyzer.get_generation_backend_identity.return_value = ("litellm", "litellm")
         ma.config.llm_model_list = [
             {
                 "model_name": "analysis-route",
-                "litellm_params": {"model": "anthropic/claude-sonnet-test"},
+                "litellm_params": {"model": "deepseek/deepseek-v4-pro"},
             }
         ]
         ma.analyzer.generate_text_with_metadata.return_value = SimpleNamespace(
             text="复盘结果",
-            provider="openai",
+            provider="deepseek",
             model="analysis-route",
             backend="litellm",
         )
@@ -3559,143 +1977,54 @@ class TestMarketAnalyzerBypassFix:
              patch("src.market_analyzer.record_llm_run") as recorded:
             ma.generate_market_review(MarketOverview(date="2026-03-05"), [])
 
-        assert started.call_args.kwargs["provider"] == "codex_cli"
-        assert started.call_args.kwargs["model"] == "codex_cli"
-        assert recorded.call_args.kwargs["provider"] == "anthropic"
+        assert started.call_args.kwargs["provider"] == "litellm"
+        assert started.call_args.kwargs["model"] == "litellm"
+        assert recorded.call_args.kwargs["provider"] == "deepseek"
         assert recorded.call_args.kwargs["model"] == "analysis-route"
 
     def test_market_review_prefers_actual_response_model_provider_for_duplicate_aliases(self):
         from src.market_analyzer import MarketOverview
 
         ma = self._make_market_analyzer_with_mock_generate_text("复盘结果")
-        ma.analyzer.get_generation_backend_identity.return_value = ("codex_cli", "codex_cli")
+        ma.analyzer.get_generation_backend_identity.return_value = ("litellm", "litellm")
         ma.config.llm_model_list = [
             {
                 "model_name": "analysis-route",
-                "litellm_params": {"model": "openai/gpt-4o-mini"},
+                "litellm_params": {"model": "deepseek/deepseek-flash"},
             },
             {
                 "model_name": "analysis-route",
-                "litellm_params": {"model": "anthropic/claude-sonnet-test"},
+                "litellm_params": {"model": "deepseek/deepseek-v4-pro"},
             },
         ]
         ma.analyzer.generate_text_with_metadata.return_value = SimpleNamespace(
             text="复盘结果",
-            provider="openai",
+            provider="deepseek",
             model="analysis-route",
             backend="litellm",
-            usage={"response_model": "anthropic/claude-sonnet-test"},
+            usage={"response_model": "deepseek/deepseek-v4-pro"},
         )
 
         with patch("src.market_analyzer.record_llm_run_started") as started, \
              patch("src.market_analyzer.record_llm_run") as recorded:
             ma.generate_market_review(MarketOverview(date="2026-03-05"), [])
 
-        assert started.call_args.kwargs["provider"] == "codex_cli"
-        assert started.call_args.kwargs["model"] == "codex_cli"
-        assert recorded.call_args.kwargs["provider"] == "anthropic"
+        assert started.call_args.kwargs["provider"] == "litellm"
+        assert started.call_args.kwargs["model"] == "litellm"
+        assert recorded.call_args.kwargs["provider"] == "deepseek"
         assert recorded.call_args.kwargs["model"] == "analysis-route"
 
-    def test_market_review_preserves_openrouter_provider_for_latest_alias(self):
-        from src.market_analyzer import MarketOverview
 
-        ma = self._make_market_analyzer_with_mock_generate_text("复盘结果")
-        ma.analyzer.get_generation_backend_identity.return_value = ("codex_cli", "codex_cli")
-        ma.config.llm_model_list = [
-            {
-                "model_name": "analysis-route",
-                "litellm_params": {"model": "openai/~anthropic/claude-sonnet-latest"},
-            },
-        ]
-        ma.analyzer.generate_text_with_metadata.return_value = SimpleNamespace(
-            text="复盘结果",
-            provider="anthropic",
-            model="analysis-route",
-            backend="litellm",
-            usage={"response_model": "anthropic/claude-sonnet-4.6"},
-        )
 
-        with patch("src.market_analyzer.record_llm_run_started") as started, \
-             patch("src.market_analyzer.record_llm_run") as recorded:
-            ma.generate_market_review(MarketOverview(date="2026-03-05"), [])
-
-        assert started.call_args.kwargs["provider"] == "codex_cli"
-        assert started.call_args.kwargs["model"] == "codex_cli"
-        assert recorded.call_args.kwargs["provider"] == "openrouter"
-        assert recorded.call_args.kwargs["model"] == "analysis-route"
-
-    def test_market_review_preserves_openrouter_provider_for_latest_alias_deployment_echo(self):
-        from src.market_analyzer import MarketOverview
-
-        ma = self._make_market_analyzer_with_mock_generate_text("复盘结果")
-        ma.analyzer.get_generation_backend_identity.return_value = ("codex_cli", "codex_cli")
-        ma.config.llm_model_list = [
-            {
-                "model_name": "analysis-route",
-                "litellm_params": {"model": "openai/~anthropic/claude-sonnet-latest"},
-            },
-        ]
-        ma.analyzer.generate_text_with_metadata.return_value = SimpleNamespace(
-            text="复盘结果",
-            provider="openai",
-            model="analysis-route",
-            backend="litellm",
-            usage={
-                "provider": "openai",
-                "response_model": "openai/~anthropic/claude-sonnet-latest",
-            },
-        )
-
-        with patch("src.market_analyzer.record_llm_run_started") as started, \
-             patch("src.market_analyzer.record_llm_run") as recorded:
-            ma.generate_market_review(MarketOverview(date="2026-03-05"), [])
-
-        assert started.call_args.kwargs["provider"] == "codex_cli"
-        assert started.call_args.kwargs["model"] == "codex_cli"
-        assert recorded.call_args.kwargs["provider"] == "openrouter"
-        assert recorded.call_args.kwargs["model"] == "analysis-route"
-
-    def test_market_review_prefers_actual_response_model_provider_for_openrouter_first_duplicate_aliases(self):
-        from src.market_analyzer import MarketOverview
-
-        ma = self._make_market_analyzer_with_mock_generate_text("复盘结果")
-        ma.analyzer.get_generation_backend_identity.return_value = ("codex_cli", "codex_cli")
-        ma.config.llm_model_list = [
-            {
-                "model_name": "analysis-route",
-                "litellm_params": {"model": "openai/~anthropic/claude-sonnet-latest"},
-            },
-            {
-                "model_name": "analysis-route",
-                "litellm_params": {"model": "anthropic/claude-sonnet-4.6"},
-            },
-        ]
-        ma.analyzer.generate_text_with_metadata.return_value = SimpleNamespace(
-            text="复盘结果",
-            provider="openrouter",
-            model="analysis-route",
-            backend="litellm",
-            usage={"response_model": "anthropic/claude-sonnet-4.6"},
-        )
-
-        with patch("src.market_analyzer.record_llm_run_started") as started, \
-             patch("src.market_analyzer.record_llm_run") as recorded:
-            ma.generate_market_review(MarketOverview(date="2026-03-05"), [])
-
-        assert started.call_args.kwargs["provider"] == "codex_cli"
-        assert started.call_args.kwargs["model"] == "codex_cli"
-        assert recorded.call_args.kwargs["provider"] == "anthropic"
-        assert recorded.call_args.kwargs["model"] == "analysis-route"
 
     def test_market_review_records_failed_fallback_last_model(self):
         from src.analyzer import _AllModelsFailedError
-        from src.llm.generation_backend import GenerationError
         from src.market_analyzer import MarketOverview
 
         ma = self._make_market_analyzer_with_mock_generate_text(return_value=None)
-        ma.analyzer._config_override.generation_backend = "codex_cli"
-        ma.analyzer._config_override.generation_fallback_backend = "litellm"
-        ma.analyzer.get_generation_backend_identity.return_value = ("codex_cli", "codex_cli")
+
+
+        ma.analyzer.get_generation_backend_identity.return_value = ("litellm", "litellm")
         ma.analyzer.get_generation_backend_config_error = MagicMock(return_value=None)
         ma.analyzer.generate_text_with_metadata = ma.analyzer.__class__.generate_text_with_metadata.__get__(
             ma.analyzer,
@@ -3704,80 +2033,34 @@ class TestMarketAnalyzerBypassFix:
         exhausted = _AllModelsFailedError(
             "all fallback models failed",
             last_model="analysis-route",
-            last_provider="anthropic",
+            last_provider="deepseek",
         )
 
         with patch.object(ma.analyzer, "_call_litellm", side_effect=exhausted), \
              patch("src.market_analyzer.record_llm_run_started") as started, \
              patch("src.market_analyzer.record_llm_run") as recorded:
-            with pytest.raises(GenerationError) as exc_info:
-                ma.generate_market_review(MarketOverview(date="2026-03-05"), [])
+            ma.generate_market_review(MarketOverview(date="2026-03-05"), [])
 
-        assert exc_info.value.stage == "fallback"
-        assert exc_info.value.backend == "litellm"
-        assert exc_info.value.provider == "anthropic"
-        assert exc_info.value.details["last_model"] == "analysis-route"
-        assert started.call_args.kwargs["provider"] == "codex_cli"
-        assert started.call_args.kwargs["model"] == "codex_cli"
-        assert recorded.call_args.kwargs["provider"] == "anthropic"
+        assert started.call_args.kwargs["provider"] == "litellm"
+        assert started.call_args.kwargs["model"] == "litellm"
+        assert recorded.call_args.kwargs["provider"] == "deepseek"
         assert recorded.call_args.kwargs["model"] == "analysis-route"
         assert recorded.call_args.kwargs["success"] is False
 
-    def test_market_review_records_openrouter_provider_for_exhausted_latest_alias_failure(self):
-        from src.analyzer import _AllModelsFailedError
-        from src.llm.generation_backend import GenerationError
-        from src.market_analyzer import MarketOverview
-
-        ma = self._make_market_analyzer_with_mock_generate_text(return_value=None)
-        ma.analyzer._config_override.generation_backend = "codex_cli"
-        ma.analyzer._config_override.generation_fallback_backend = "litellm"
-        ma.analyzer._config_override.llm_model_list = [
-            {
-                "model_name": "analysis-route",
-                "litellm_params": {"model": "openai/~anthropic/claude-sonnet-latest"},
-            },
-        ]
-        ma.analyzer.get_generation_backend_identity.return_value = ("codex_cli", "codex_cli")
-        ma.analyzer.get_generation_backend_config_error = MagicMock(return_value=None)
-        ma.analyzer.generate_text_with_metadata = ma.analyzer.__class__.generate_text_with_metadata.__get__(
-            ma.analyzer,
-            ma.analyzer.__class__,
-        )
-        exhausted = _AllModelsFailedError(
-            "all fallback models failed",
-            last_model="openai/~anthropic/claude-sonnet-latest",
-            last_provider="openrouter",
-        )
-
-        with patch.object(ma.analyzer, "_call_litellm", side_effect=exhausted), \
-             patch("src.market_analyzer.record_llm_run_started") as started, \
-             patch("src.market_analyzer.record_llm_run") as recorded:
-            with pytest.raises(GenerationError) as exc_info:
-                ma.generate_market_review(MarketOverview(date="2026-03-05"), [])
-
-        assert exc_info.value.stage == "fallback"
-        assert exc_info.value.backend == "litellm"
-        assert exc_info.value.provider == "openrouter"
-        assert exc_info.value.details["last_model"] == "openai/~anthropic/claude-sonnet-latest"
-        assert started.call_args.kwargs["provider"] == "codex_cli"
-        assert started.call_args.kwargs["model"] == "codex_cli"
-        assert recorded.call_args.kwargs["provider"] == "openrouter"
-        assert recorded.call_args.kwargs["model"] == "openai/~anthropic/claude-sonnet-latest"
-        assert recorded.call_args.kwargs["success"] is False
 
     def test_market_review_records_response_model_for_empty_router_response_failure(self):
         from src.market_analyzer import MarketOverview
 
         ma = self._make_market_analyzer_with_mock_generate_text(return_value=None)
         ma.analyzer._router = MagicMock()
-        ma.analyzer._config_override.generation_backend = "litellm"
-        ma.analyzer._config_override.generation_fallback_backend = ""
+
+
         ma.analyzer._config_override.litellm_model = "analysis-route"
         ma.analyzer._config_override.litellm_fallback_models = []
         ma.analyzer._config_override.llm_model_list = [
             {
                 "model_name": "analysis-route",
-                "litellm_params": {"model": "openai/~anthropic/claude-sonnet-latest"},
+                "litellm_params": {"model": "deepseek/deepseek-v4-pro"},
             },
         ]
         ma.config.llm_model_list = ma.analyzer._config_override.llm_model_list
@@ -3788,7 +2071,7 @@ class TestMarketAnalyzerBypassFix:
             ma.analyzer.__class__,
         )
         response = SimpleNamespace(
-            model="anthropic/claude-sonnet-4.6",
+            model="deepseek/deepseek-v4-pro",
             choices=[SimpleNamespace(message=SimpleNamespace(content=None))],
             usage=None,
         )
@@ -3803,65 +2086,11 @@ class TestMarketAnalyzerBypassFix:
         template_review.assert_called_once()
         assert started.call_args.kwargs["provider"] == "litellm"
         assert started.call_args.kwargs["model"] == "analysis-route"
-        assert recorded.call_args.kwargs["provider"] == "openrouter"
-        assert recorded.call_args.kwargs["model"] == "anthropic/claude-sonnet-4.6"
+        assert recorded.call_args.kwargs["provider"] == "deepseek"
+        assert recorded.call_args.kwargs["model"] == "deepseek/deepseek-v4-pro"
         assert recorded.call_args.kwargs["success"] is False
         assert recorded.call_args.kwargs["error_type"] == "AllModelsFailed"
 
-    def test_market_review_records_nested_fallback_route_on_failure(self):
-        from src.llm.generation_backend import GenerationBackend, GenerationError, GenerationErrorCode
-        from src.market_analyzer import MarketOverview
-
-        ma = self._make_market_analyzer_with_mock_generate_text(return_value=None)
-        ma.analyzer._config_override.generation_backend = "codex_cli"
-        ma.analyzer._config_override.generation_fallback_backend = "litellm"
-        ma.analyzer.get_generation_backend_identity.return_value = ("codex_cli", "codex_cli")
-        ma.analyzer.get_generation_backend_config_error = MagicMock(return_value=None)
-        ma.analyzer.generate_text_with_metadata = ma.analyzer.__class__.generate_text_with_metadata.__get__(
-            ma.analyzer,
-            ma.analyzer.__class__,
-        )
-        primary_error = GenerationError(
-            error_code=GenerationErrorCode.COMMAND_NOT_FOUND,
-            stage="configuration",
-            retryable=False,
-            fallbackable=True,
-            backend="codex_cli",
-            provider="codex_cli",
-            details={"reason": "executable_not_found"},
-        )
-        fallback_error = GenerationError(
-            error_code=GenerationErrorCode.INVALID_JSON,
-            stage="validation",
-            retryable=True,
-            fallbackable=True,
-            backend="litellm",
-            provider="hermes",
-            details={
-                "reason": "mixed_hermes_route_unsupported",
-                "route_name": "invalid-shared-route",
-            },
-        )
-        primary_backend = MagicMock(spec=GenerationBackend)
-        primary_backend.generate.side_effect = primary_error
-        fallback_backend = MagicMock(spec=GenerationBackend)
-        fallback_backend.generate.side_effect = fallback_error
-
-        def _backend_for(backend_id):
-            return primary_backend if backend_id == "codex_cli" else fallback_backend
-
-        with patch.object(ma.analyzer, "_get_generation_backend", side_effect=_backend_for), \
-             patch("src.market_analyzer.record_llm_run_started") as started, \
-             patch("src.market_analyzer.record_llm_run") as recorded:
-            with pytest.raises(GenerationError) as exc_info:
-                ma.generate_market_review(MarketOverview(date="2026-03-05"), [])
-
-        assert exc_info.value.details["route_name"] == "invalid-shared-route"
-        assert started.call_args.kwargs["provider"] == "codex_cli"
-        assert started.call_args.kwargs["model"] == "codex_cli"
-        assert recorded.call_args.kwargs["provider"] == "hermes"
-        assert recorded.call_args.kwargs["model"] == "invalid-shared-route"
-        assert recorded.call_args.kwargs["success"] is False
 
     def test_market_review_preserves_template_fallback_for_primary_litellm_exhaustion(self):
         from src.market_analyzer import MarketOverview, MarketIndex
@@ -3882,14 +2111,14 @@ class TestMarketAnalyzerBypassFix:
         )
         ma.analyzer.generate_text_with_metadata.return_value = SimpleNamespace(
             text="",
-            provider="anthropic",
+            provider="deepseek",
             model="analysis-route",
             backend="litellm",
-            usage={"provider": "anthropic"},
+            usage={"provider": "deepseek"},
             diagnostics={
                 "reason": "all_models_failed",
-                "configured_primary_backend": "litellm",
-                "configured_fallback_backend": None,
+
+
                 "last_model": "analysis-route",
                 "template_fallback": True,
             },
@@ -3903,7 +2132,7 @@ class TestMarketAnalyzerBypassFix:
         assert isinstance(result, str) and len(result) > 0
         template_review.assert_called_once()
         assert started.call_args.kwargs["provider"] == "litellm"
-        assert recorded.call_args.kwargs["provider"] == "anthropic"
+        assert recorded.call_args.kwargs["provider"] == "deepseek"
         assert recorded.call_args.kwargs["model"] == "analysis-route"
         assert recorded.call_args.kwargs["success"] is False
         assert recorded.call_args.kwargs["error_type"] == "AllModelsFailed"

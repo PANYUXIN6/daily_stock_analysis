@@ -196,10 +196,18 @@ def screen(
                 + _format_filter_waterfall(snapshot_waterfall)
             )
     df = apply_hard_filters(snapshot_df, snapshot_filters)
+    profit_gap_evidence: dict[str, dict] = {}
+    if screening.profit_gap is not None and not df.empty:
+        from src.services.screening.profit_gap import filter_profit_gap
+
+        df, profit_gap_evidence, profit_gap_notes = filter_profit_gap(
+            df, screening.profit_gap, progress=progress_callback,
+        )
+        degradation.extend(profit_gap_notes)
     after_filter_count = len(df)
     _emit_progress(
         progress_callback,
-        42,
+        46 if screening.profit_gap else 42,
         f"快照筛选完成，保留 {after_filter_count} 条候选",
     )
 
@@ -221,8 +229,8 @@ def screen(
             portfolio_diversity_enabled=config.portfolio_diversity_enabled,
         )
 
-    daily_enriched = False
-    daily_enrich_count = 0
+    daily_enriched = bool(profit_gap_evidence)
+    daily_enrich_count = len(profit_gap_evidence)
     if daily_needed or daily_requested:
         provisional = _sort_screened_candidates(compute_screen_scores(df, screening), screening)
         enrich_count = min(daily_limit, len(provisional))
@@ -337,6 +345,9 @@ def screen(
     # fundamentals, and news. This runs before LLM ranking so L2 can use it.
     _emit_progress(progress_callback, 52, "正在补充候选行情与基本面")
     degradation.extend(apply_dsa_provider_context(picks, context))
+    for pick in picks:
+        if pick.code in profit_gap_evidence:
+            pick.dsa_context["profit_gap"] = profit_gap_evidence[pick.code]
     llm_fallback_picks = [copy.deepcopy(pick) for pick in picks]
 
     # 7. L2 LLM ranking
@@ -507,6 +518,17 @@ def screen(
             scorecard_profile=screening.scorecard_profile,
         )
         degradation.extend(post_degradation)
+
+    # Keep the deterministic event evidence visible even if LLM ranking changes
+    # its prose or reconstructs Pick objects.
+    if profit_gap_evidence:
+        from src.services.screening.profit_gap import evidence_summary
+
+        for pick in picks:
+            item = profit_gap_evidence[pick.code]
+            pick.post_analysis_results["net_profit_gap"] = item
+            pick.post_analysis_summaries["net_profit_gap"] = evidence_summary(item)
+            pick.post_analysis_status["net_profit_gap"] = "success"
 
     # Apply selection variant after post-analyzers to ensure rotation respects
     # final_score adjustments made by L3 analyzers (e.g. scorecard/dsa).

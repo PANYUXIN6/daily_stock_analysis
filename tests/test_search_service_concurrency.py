@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """Concurrency regression tests for search service shared state."""
 
-import sys
 import multiprocessing
 import threading
 import time
@@ -10,12 +9,6 @@ from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-# Mock newspaper before search_service import (optional dependency)
-if "newspaper" not in sys.modules:
-    mock_np = MagicMock()
-    mock_np.Article = MagicMock()
-    mock_np.Config = MagicMock()
-    sys.modules["newspaper"] = mock_np
 
 from src.search_service import (
     BaseSearchProvider,
@@ -78,7 +71,7 @@ class SearchServiceConcurrencyTestCase(unittest.TestCase):
 
     def test_get_cached_or_reserve_prefers_cached_response(self):
         service = SearchService(
-            searxng_public_instances_enabled=False,
+
             news_max_age_days=3,
             news_strategy_profile="short",
         )
@@ -131,7 +124,7 @@ class SearchServiceConcurrencyTestCase(unittest.TestCase):
 
     def test_search_stock_news_coalesces_concurrent_cache_fill(self):
         service = SearchService(
-            searxng_public_instances_enabled=False,
+
             news_max_age_days=3,
             news_strategy_profile="short",
         )
@@ -192,7 +185,7 @@ class SearchServiceConcurrencyTestCase(unittest.TestCase):
 
     def test_search_stock_news_rechecks_cache_after_wait_before_provider_search(self):
         service = SearchService(
-            searxng_public_instances_enabled=False,
+
             news_max_age_days=3,
             news_strategy_profile="short",
         )
@@ -238,7 +231,6 @@ class SearchServiceConcurrencyTestCase(unittest.TestCase):
     def test_bounded_topic_search_caches_in_parent_before_starting_another_process(self):
         service = SearchService(
             bocha_keys=["dummy_key"],
-            searxng_public_instances_enabled=False,
             news_max_age_days=3,
             news_strategy_profile="short",
         )
@@ -269,7 +261,6 @@ class SearchServiceConcurrencyTestCase(unittest.TestCase):
     def test_bounded_topic_search_waits_when_retry_reservation_has_another_owner(self):
         service = SearchService(
             bocha_keys=["dummy_key"],
-            searxng_public_instances_enabled=False,
             news_max_age_days=3,
             news_strategy_profile="short",
         )
@@ -312,7 +303,6 @@ class SearchServiceConcurrencyTestCase(unittest.TestCase):
     def test_bounded_topic_search_cache_wait_uses_the_caller_deadline(self):
         service = SearchService(
             bocha_keys=["dummy_key"],
-            searxng_public_instances_enabled=False,
             news_max_age_days=3,
             news_strategy_profile="short",
         )
@@ -337,7 +327,6 @@ class SearchServiceConcurrencyTestCase(unittest.TestCase):
     def test_bounded_topic_search_provider_receives_only_remaining_deadline(self):
         service = SearchService(
             bocha_keys=["dummy_key"],
-            searxng_public_instances_enabled=False,
             news_max_age_days=3,
             news_strategy_profile="short",
         )
@@ -380,7 +369,7 @@ class SearchServiceConcurrencyTestCase(unittest.TestCase):
             with self.assertRaisesRegex(TimeoutError, "已终止请求进程"):
                 _call_topic_news_in_subprocess(
                     constructor_kwargs={
-                        "searxng_public_instances_enabled": False,
+
                         "news_max_age_days": 3,
                         "news_strategy_profile": "short",
                     },
@@ -400,7 +389,7 @@ class SearchServiceConcurrencyTestCase(unittest.TestCase):
     def test_bounded_topic_search_process_returns_serialized_dsa_response(self):
         response = _call_topic_news_in_subprocess(
             constructor_kwargs={
-                "searxng_public_instances_enabled": False,
+
                 "news_max_age_days": 3,
                 "news_strategy_profile": "short",
             },
@@ -499,14 +488,11 @@ class SearchServiceConcurrencyTestCase(unittest.TestCase):
         config = SimpleNamespace(
             bocha_api_keys=[],
             tavily_api_keys=[],
-            brave_api_keys=[],
-            serpapi_keys=[],
-            minimax_api_keys=[],
-            searxng_base_urls=[],
-            searxng_public_instances_enabled=False,
+
+
             news_max_age_days=3,
             news_strategy_profile="short",
-            anspire_api_keys=[],
+
         )
 
         created = []

@@ -7,6 +7,7 @@ DSA 将选股能力作为主项目的一部分维护。实现参考 [AlphaSift](
 - `src/services/screening/`：快照、日 K、策略加载、过滤、评分、风险、LLM 重排与热点实现。
 - `src/services/screening/strategies/`：随 DSA 版本发布的策略 YAML。
 - `src/services/screening/pipeline.py`：筛选流程的直接入口。
+- `src/services/screening/profit_gap.py`：净利润断层的事件硬过滤及成交量阶段判定；`data_provider/profit_gap.py` 复用现有 Tushare HTTP 客户端提供财报、原始行情、复权因子与涨停价。
 - `src/services/screening_service.py`：DSA 业务编排，直接调用 pipeline，负责配置、数据源上下文、响应归一化、缓存与错误映射。
 - `src/storage.py`：使用 DSA 现有 SQLAlchemy/SQLite 基础设施持久化已完成的选股运行，不另建文件数据库。
 - `api/v1/endpoints/screening.py`：`/api/v1/screening` API。
@@ -80,7 +81,7 @@ SCREENING_EASTMONEY_JITTER_SEC=0.3
 - 模型、渠道、base URL、额外 headers、fallback、timeout 和 token 上限在单次调用范围内注入，不改写用户配置；主模型即使 HTTP 调用成功，但返回空内容、非 JSON 或覆盖率不足，也会继续尝试已配置的备用模型。最终 JSON 必须在 `content` 块或 `output` 块中；`reasoning_content`（链式思考）被视为内部辅助，不作为最终结果。
 - 热点榜单刷新与选股长流程可并行执行；列表默认不批量预取详情，用户选中具体题材时才加载该题材详情；显式刷新后若继续保留当前题材，Web 会同步绕过详情缓存重拉该题材，保证榜单与详情来自同次刷新。
 - 热点成分股并行获取东方财富与同花顺数据，并按固定数据源优先级合并，避免响应先后改变重复股票的字段：正数 `SCREENING_HOTSPOT_CALL_TIMEOUT_SEC` 作为默认 provider 整次调用的共享预算，板块列表、成分股以及引擎失败后的直接详情 fallback 都进入该预算；AkShare/东方财富的可终止子进程与同花顺 HTTP connect/read timeout 每一步只使用剩余时间，fallback 不会重新获得完整预算。直接详情 fallback 不再额外启动无法由该预算强制回收的实时行情预取，行情字段以已受控的成分股源结果为准。超时子进程会 terminate/kill 并回收；进程级并发槽限制活跃任务数量，方法返回前会等待已接纳的 worker 结束，不遗留后台线程。关闭整次调用预算时，各单源仍保留默认硬超时；单源失败不会阻止另一源和本地核心股回退。
-- “搜索最新消息”复用 DSA 原生搜索服务的 provider 优先级、SearXNG 公共实例能力、结果缓存与请求合并，同一缓存键只有 owner 可以启动供应商链；owner 未产出可缓存结果时，等待者重新竞争且未获得所有权的请求继续等待，但缓存等待、抢占和 provider 执行共用请求的绝对 deadline，不会在排队后重新获得完整超时。搜索只补充有链接的事件/催化，不从网页内容推断板块成分股；增强记录分别追加到展示路线和原始时间线，不覆盖已有 `timeline`。搜索由用户主动触发，摘要在本地确定性压缩，不调用 LLM；响应以 `available`、`no_results`、`unavailable` 区分有结果、有效空结果和超时/容量/供应商失败，Web 不会再把运行失败提示成“没有近期消息”。搜索增强仅存在于本次响应，不写入或续期共享热点详情缓存，默认详情请求不会看到搜索状态或增加搜索等待。供应商子进程在启动、执行或清理任一阶段失败时都会释放进程级容量。
+- “搜索最新消息”复用 DSA 原生搜索服务的 Bocha → Tavily 的优先级、结果缓存与请求合并，同一缓存键只有 owner 可以启动供应商链；owner 未产出可缓存结果时，等待者重新竞争且未获得所有权的请求继续等待，但缓存等待、抢占和 provider 执行共用请求的绝对 deadline，不会在排队后重新获得完整超时。搜索只补充有链接的事件/催化，不从网页内容推断板块成分股；增强记录分别追加到展示路线和原始时间线，不覆盖已有 `timeline`。搜索由用户主动触发，摘要在本地确定性压缩，不调用 LLM；响应以 `available`、`no_results`、`unavailable` 区分有结果、有效空结果和超时/容量/供应商失败，Web 不会再把运行失败提示成“没有近期消息”。搜索增强仅存在于本次响应，不写入或续期共享热点详情缓存，默认详情请求不会看到搜索状态或增加搜索等待。供应商子进程在启动、执行或清理任一阶段失败时都会释放进程级容量。
 - 热点实时请求失败时优先使用 last-good cache；无缓存时返回稳定空态与明确错误。
 
 ## 结果轮换
@@ -115,6 +116,12 @@ DSA 中存在两类用途不同的策略文件：
 | `strategies/*.yaml` | 对单只股票如何分析和形成结论 | `src/agent/skills/base.py` | DSA Agent/报告分析 |
 
 即使 `shrink_pullback`、`volume_breakout` 同名，两者也使用不同目录、Schema 和 loader，不会相互覆盖。筛选策略可通过 `analysis_skills` 声明下一阶段建议使用的分析 skill；Web 的“进一步深度分析”会显式携带这些 skill。未声明映射的筛选策略继续使用用户当前选择或默认分析策略，不做含义不可靠的强行映射。
+
+当前内置选股策略为：均衡多因子（`balanced_alpha`）、资金热度（`capital_heat`）、趋势质量（`momentum_quality`）、超跌反转（`oversold_reversal`）、缩量回踩（`shrink_pullback`）、放量突破（`volume_breakout`）。Web 初始选择和 API 未传 `strategy` 时均默认使用均衡多因子。
+
+另提供事件型策略[净利润断层（`net_profit_gap`）](net-profit-gap.md)：全市场快照基础过滤后扫描最近财报事件，在通用因子评分、Top-K 截断和 LLM 排序之前执行三个硬条件与基本面质量门槛。该路径读取原始日线、复权因子和交易日历，不依赖通用日 K 增强开关。证据写入候选 `raw.post_analysis_results.net_profit_gap`，摘要通过现有 `post_analysis_summaries` 返回并在选股页优先展示；API 端点、历史表和默认策略不变。
+
+稳健价值、双低选股、蓝筹收益质量和低波质量已从内置选股策略中移除；使用内置目录时，显式提交这些旧策略 ID 会按现有未知策略路径报错。已有选股历史保留，历史策略不在当前列表时继续显示原始 ID。`strategies/` 下的 15 个单股分析策略全部保留，包括成长质量；共享评分与回测能力不受本次策略清理影响。
 
 ## DSA 原生能力复用
 

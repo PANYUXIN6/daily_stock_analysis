@@ -177,7 +177,7 @@ class TestParseResponseIntegration:
 
     def test_parse_response_calls_normalization(self):
         """测试 _parse_response() 正确调用归一化函数"""
-        from src.analyzer import GeminiAnalyzer
+        from src.analyzer import DeepSeekAnalyzer
         from unittest.mock import MagicMock
 
         # 构造模拟的 LLM 返回（JSON 字符串，包含 signal_attribution）
@@ -214,7 +214,7 @@ class TestParseResponseIntegration:
         config.project_id = None
         config.location = None
 
-        analyzer = GeminiAnalyzer.__new__(GeminiAnalyzer)
+        analyzer = DeepSeekAnalyzer.__new__(DeepSeekAnalyzer)
         analyzer.config = config
         analyzer.llm_provider = "deepseek"
         analyzer.llm_model = "deepseek-chat"

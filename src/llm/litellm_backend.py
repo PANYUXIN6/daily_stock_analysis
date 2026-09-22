@@ -20,7 +20,7 @@ def _provider_from_model(model: str) -> str:
         return ""
     if "/" in model:
         return model.split("/", 1)[0]
-    return "openai"
+    return "deepseek"
 
 
 class LiteLLMGenerationBackend(GenerationBackend):
