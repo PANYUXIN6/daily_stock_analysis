@@ -380,7 +380,7 @@ Add these Secrets:
 | `STOCK_LIST` | Watchlist, e.g., `600519,300750` | ✅ |
 | `TAVILY_API_KEYS` | Tavily Search API Key | Optional |
 | `BOCHA_API_KEYS` | Bocha Search API Key | Optional |
-| `TUSHARE_TOKEN` | Tushare Token | Optional |
+| `MAIRUI_LICENCE` | Mairui Licence | Optional |
 
 > *Note: Configure at least one notification channel, multiple channels supported for simultaneous push
 

@@ -104,7 +104,7 @@ describe('useTaskStream', () => {
           report_type: 'detailed',
           analysis_phase: 'intraday',
           created_at: '2026-03-29T08:00:00Z',
-          skills: ['growth_quality'],
+          skills: ['volume_breakout'],
           region: 'jp,kr',
           flow_event: {
             id: 'flow-1',
@@ -143,7 +143,7 @@ describe('useTaskStream', () => {
       originalQuery: undefined,
       selectionSource: undefined,
       analysisPhase: 'intraday',
-      skills: ['growth_quality'],
+      skills: ['volume_breakout'],
       region: 'jp,kr',
       assetType: 'index',
     });

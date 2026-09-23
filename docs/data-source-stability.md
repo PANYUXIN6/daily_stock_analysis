@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | AkShare | 日线、实时、基本面、板块等免费能力 | 默认可用 |
 | Efinance | 日线、实时与部分指数能力 | 默认可用 |
-| Tushare | 日线、股票列表、基本面与市场数据 | 可选 `TUSHARE_TOKEN` |
+| Mairui | 日线、股票列表、基本面与市场数据 | 可选 `MAIRUI_LICENCE` |
 | Pytdx | A 股日线备用 | 默认可用 |
 | Baostock | A 股日线备用 | 默认可用 |
 | Tencent / Sina | 实时行情与已登记指数链路 | 默认可用 |
@@ -28,7 +28,7 @@
 免费起步可仅使用默认源。需要更稳定的长期任务时，按需增加：
 
 ```dotenv
-TUSHARE_TOKEN=
+MAIRUI_LICENCE=
 TICKFLOW_API_KEY=
 REALTIME_SOURCE_PRIORITY=tencent,akshare_sina,efinance,akshare_em
 ```

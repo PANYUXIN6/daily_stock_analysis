@@ -72,8 +72,8 @@ class TestGetStockInfoContract(unittest.TestCase):
 
         self.assertEqual(result["name"], "贵州茅台")
         self.assertEqual(result["code"], "600519")
-        self.assertEqual(result["pe_ratio"], 12.3)
-        self.assertEqual(result["pb_ratio"], 2.1)
+        self.assertNotIn("pe_ratio", result)
+        self.assertNotIn("pb_ratio", result)
 
         # Contract: boards is compatibility alias of belong_boards.
         self.assertEqual(result["belong_boards"], manager._belong_boards)

@@ -658,7 +658,7 @@ class Config:
     feishu_folder_token: Optional[str] = None  # 目标文件夹 Token
 
     # === 数据源 API Token ===
-    tushare_token: Optional[str] = None
+    mairui_licence: Optional[str] = None
     tickflow_api_key: Optional[str] = None
     tickflow_kline_adjust: str = "none"
     tickflow_priority: int = 2
@@ -934,11 +934,11 @@ class Config:
     # 东财接口补丁开关
     enable_eastmoney_patch: bool = False
     # 实时行情数据源优先级（逗号分隔）
-    # 推荐顺序：tencent > akshare_sina > efinance > akshare_em > tushare
+    # 推荐顺序：tencent > akshare_sina > efinance > akshare_em > mairui
     # - tencent: 腾讯财经，有量比/换手率/市盈率等，单股查询稳定（推荐）
     # - akshare_sina: 新浪财经，基本行情稳定，但无量比
     # - efinance/akshare_em: 东财全量接口，数据最全但容易被封
-    # - tushare: Tushare Pro，需要2000积分，数据全面（付费用户可优先使用）
+    # - mairui: 麦蕊，需有效 licence，接口权限依证书版本
     realtime_source_priority: str = "tencent,akshare_sina,efinance,akshare_em"
     # 实时行情缓存时间（秒）
     realtime_cache_ttl: int = 600
@@ -968,8 +968,6 @@ class Config:
     akshare_sleep_min: float = 2.0
     akshare_sleep_max: float = 5.0
 
-    # Tushare 每分钟最大请求数（免费配额）
-    tushare_rate_limit_per_minute: int = 80
 
     # 重试配置
     max_retries: int = 3
@@ -1111,7 +1109,7 @@ class Config:
                 'eastmoney.com',   # 东方财富 (Efinance/Akshare)
                 'sina.com.cn',     # 新浪财经 (Akshare)
                 '163.com',         # 网易财经 (Akshare)
-                'tushare.pro',     # Tushare
+                'mairuiapi.com',  # 麦蕊
                 'baostock.com',    # Baostock
                 'sse.com.cn',      # 上交所
                 'szse.cn',         # 深交所
@@ -1329,7 +1327,7 @@ class Config:
             feishu_app_id=os.getenv('FEISHU_APP_ID'),
             feishu_app_secret=os.getenv('FEISHU_APP_SECRET'),
             feishu_folder_token=os.getenv('FEISHU_FOLDER_TOKEN'),
-            tushare_token=os.getenv('TUSHARE_TOKEN'),
+            mairui_licence=os.getenv('MAIRUI_LICENCE'),
             tickflow_api_key=os.getenv('TICKFLOW_API_KEY'),
             tickflow_kline_adjust=normalize_tickflow_kline_adjust(os.getenv('TICKFLOW_KLINE_ADJUST')),
             tickflow_priority=parse_env_int(os.getenv('TICKFLOW_PRIORITY'), 2, field_name='TICKFLOW_PRIORITY', minimum=0),
@@ -1702,7 +1700,7 @@ class Config:
             # - tencent: 腾讯财经，有量比/换手率/PE/PB等，单股查询稳定（推荐）
             # - akshare_sina: 新浪财经，基本行情稳定，但无量比
             # - efinance/akshare_em: 东财全量接口，数据最全但容易被封
-            # - tushare: Tushare Pro，需要2000积分，数据全面
+            # - mairui: 麦蕊，需有效 licence
             realtime_source_priority=cls._resolve_realtime_source_priority(),
             realtime_cache_ttl=parse_env_int(os.getenv('REALTIME_CACHE_TTL'), 600, field_name='REALTIME_CACHE_TTL', minimum=0),
             circuit_breaker_cooldown=parse_env_int(os.getenv('CIRCUIT_BREAKER_COOLDOWN'), 300, field_name='CIRCUIT_BREAKER_COOLDOWN', minimum=0),
@@ -2253,10 +2251,10 @@ class Config:
     @classmethod
     def _resolve_realtime_source_priority(cls) -> str:
         """
-        Resolve realtime source priority with automatic tushare injection.
+        Resolve realtime source priority with automatic mairui injection.
 
-        When TUSHARE_TOKEN is configured but REALTIME_SOURCE_PRIORITY is not
-        explicitly set, automatically prepend 'tushare' to the default priority
+        When MAIRUI_LICENCE is configured but REALTIME_SOURCE_PRIORITY is not
+        explicitly set, automatically prepend 'mairui' to the default priority
         so that the paid data source is utilized for realtime quotes as well.
         """
         explicit = os.getenv('REALTIME_SOURCE_PRIORITY')
@@ -2266,15 +2264,15 @@ class Config:
             # User explicitly set priority, respect it
             return explicit
 
-        tushare_token = os.getenv('TUSHARE_TOKEN', '').strip()
-        if tushare_token:
+        mairui_licence = os.getenv('MAIRUI_LICENCE', '').strip()
+        if mairui_licence:
             # Token configured but no explicit priority override
-            # Prepend tushare so the paid source is tried first
+            # Prepend mairui so the paid source is tried first
             import logging
             logger = logging.getLogger(__name__)
-            resolved = f'tushare,{default_priority}'
+            resolved = f'mairui,{default_priority}'
             logger.info(
-                f"TUSHARE_TOKEN detected, auto-injecting tushare into realtime priority: {resolved}"
+                f"MAIRUI_LICENCE detected, auto-injecting mairui into realtime priority: {resolved}"
             )
             return resolved
 
@@ -2383,11 +2381,11 @@ class Config:
                 ))
 
         # --- Data sources (informational only) ---
-        if not self.tushare_token:
+        if not self.mairui_licence:
             issues.append(ConfigIssue(
                 severity="info",
-                message="未配置 Tushare Token，将使用其他数据源",
-                field="TUSHARE_TOKEN",
+                message="未配置麦蕊证书，将使用其他数据源",
+                field="MAIRUI_LICENCE",
             ))
 
         # --- LLM availability ---

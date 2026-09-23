@@ -56,7 +56,7 @@ def test_diagnostics_redacts_webhook_urls_and_preserves_adjacent_normal_urls() -
         ("FEISHU_APP_SECRET=xxy12345abcdef", "xxy12345abcdef"),
         ("AIHUBMIX_KEY=short", "short"),
         ("CUSTOM_API_KEY=abc123xyz789short", "abc123xyz789short"),
-        ("TUSHARE_TOKEN=short", "short"),
+        ("MAIRUI_LICENCE=short", "short"),
         ("NTFY_URL=https://ntfy.sh/private-topic", "https://ntfy.sh/private-topic"),
         ("API_KEYS=short", "short"),
         ("OPENAI_API_KEYS=short", "short"),

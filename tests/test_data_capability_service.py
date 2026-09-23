@@ -23,7 +23,7 @@ def test_capability_registry_contains_no_overseas_providers() -> None:
         "tencent",
         "pytdx",
         "baostock",
-        "tushare",
+        "mairui",
         "tickflow",
     }
     assert set(_REALTIME_SOURCE_PROVIDER.values()) <= provider_names

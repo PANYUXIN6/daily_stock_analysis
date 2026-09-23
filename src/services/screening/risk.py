@@ -16,9 +16,6 @@ _DEFAULT_RISK_PROFILE = {
     "abnormal_volume_ratio_points": 3.0,
     "high_turnover_rate": 15.0,
     "high_turnover_points": 3.0,
-    "invalid_pe_points": 3.0,
-    "high_pb": 8.0,
-    "high_pb_points": 2.0,
     "weak_signal_score": 45.0,
     "weak_signal_points": 2.5,
     "macd_bearish_points": 2.0,
@@ -161,12 +158,6 @@ def assess_pick_risk(
     if pick.turnover_rate is not None and pick.turnover_rate >= profile["high_turnover_rate"]:
         points += profile["high_turnover_points"]
         flags.append("high_turnover")
-    if pick.pe_ratio is not None and pick.pe_ratio <= 0:
-        points += profile["invalid_pe_points"]
-        flags.append("negative_or_invalid_pe")
-    if pick.pb_ratio is not None and pick.pb_ratio >= profile["high_pb"]:
-        points += profile["high_pb_points"]
-        flags.append("high_pb")
     if pick.signal_score is not None and pick.signal_score < profile["weak_signal_score"]:
         points += profile["weak_signal_points"]
         flags.append("weak_daily_signal")

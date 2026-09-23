@@ -68,6 +68,7 @@ _SENSITIVE_ENV_PATTERNS = (
     "SECRET",
     "SESSION",
     "TOKEN",
+    "MAIRUI",
     "TUSHARE",
     "VERTEX_",
     "WEBHOOK",
@@ -116,6 +117,8 @@ _SENSITIVE_DIAGNOSTIC_FIELDS = frozenset({
     "session_secret",
     "signing_key",
     "token",
+    "mairui_licence",
+    "licence",
     "tushare_token",
     "verification_token",
     "webhook",
@@ -1443,6 +1446,8 @@ def _is_sensitive_diagnostic_url(url: str) -> bool:
         parsed = urlsplit(url)
     except ValueError:
         return True
+    if (parsed.hostname or "").lower().endswith(".mairuiapi.com"):
+        return True  # Mairui embeds the licence in the URL path.
     if parsed.username or parsed.password:
         return True
     if _is_webhook_diagnostic_url(parsed.hostname or "", parsed.path):

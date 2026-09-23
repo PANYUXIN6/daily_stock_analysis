@@ -302,6 +302,6 @@ def test_builder_to_prompt_renders_aux_fetch_failed_without_confidence_cap() -> 
     assert pack.data_quality.limitations == ["fundamentals: fetch_failed"]
     assert "数据限制" in section
     assert "数据质量评分：92/100（良好）" in section
-    assert "已知限制：基本面：抓取失败" in section
+    assert "已知限制：资金与板块：抓取失败" in section
     assert "置信度规则" not in section
     assert "confidence_level" not in section

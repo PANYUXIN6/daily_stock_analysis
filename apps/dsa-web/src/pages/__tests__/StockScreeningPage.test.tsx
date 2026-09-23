@@ -1064,7 +1064,7 @@ describe('StockScreeningPage', () => {
           name: '均衡多因子',
           description: 'desc',
           category: '价值',
-          analysisSkills: ['growth_quality'],
+          analysisSkills: ['volume_breakout'],
         },
       ],
       strategyCount: 1,
@@ -1105,7 +1105,7 @@ describe('StockScreeningPage', () => {
         stockName: '贵州茅台',
         autoAnalyze: true,
         selectionSource: 'screening_result',
-        skills: ['growth_quality'],
+        skills: ['volume_breakout'],
       },
     });
   });
@@ -1704,15 +1704,15 @@ describe('StockScreeningPage', () => {
     expect(screen.queryByText(/LLM 已降级/)).not.toBeInTheDocument();
   });
 
-  it('keeps verified profit gap evidence visible above generic factor and LLM prose', async () => {
+  it.each(['gapLimitUp', 'netProfitGap'])('keeps verified %s evidence visible above generic prose', async (key) => {
     getScreeningStatus.mockResolvedValueOnce({ enabled: true, available: true });
-    const summary = '净利润断层｜净利润同比 +50.0%；缺口未回补；第三阶段：趋于稳定。';
+    const summary = '跳空涨停｜缺口未回补；当日放量，后续待观察。';
     screenStocks.mockResolvedValueOnce({
       enabled: true,
       candidates: [{
         rank: 1, code: '002000', name: '策略测试企业', score: 88,
         reason: '通用 LLM 排序结论', llmScore: 88, factorScores: { value: 90 },
-        postAnalysisSummaries: { netProfitGap: summary }, raw: {},
+        postAnalysisSummaries: { [key]: summary }, raw: {},
       }],
       candidateCount: 1, llmRanked: true,
     });
@@ -1743,8 +1743,8 @@ describe('StockScreeningPage', () => {
       ],
       candidateCount: 1,
       llmRanked: true,
-      warnings: ['Snapshot source fallback: tushare: tushare trade_cal returned no open trading days'],
-      sourceErrors: ['tushare: tushare trade_cal returned no open trading days'],
+      warnings: ['Snapshot source fallback: mairui: mairui trade_cal returned no open trading days'],
+      sourceErrors: ['mairui: mairui trade_cal returned no open trading days'],
     });
 
     render(<StockScreeningPage />);
@@ -1753,7 +1753,7 @@ describe('StockScreeningPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /运行选股/ }));
 
     expect(await screen.findByText('选股提示')).toBeInTheDocument();
-    expect(screen.getAllByText('数据源降级：tushare（交易日历暂无可用开市日）')).toHaveLength(1);
+    expect(screen.getAllByText('数据源降级：mairui（交易日历暂无可用开市日）')).toHaveLength(1);
     expect(screen.queryByText(/trade_cal returned no open trading days/)).not.toBeInTheDocument();
   });
 

@@ -24,14 +24,9 @@ This document compiles common issues encountered by users and their solutions.
 
 ---
 
-### Q3: Tushare data fetch failed, showing Token error?
+### Q3: Mairui requests fail or the licence lacks permission?
 
-**Symptom**: Log shows `Tushare data fetch failed: Your token is incorrect, please verify`
-
-**Solution**:
-1. **No Tushare account**: No need to configure `TUSHARE_TOKEN`, system will automatically use free data sources (AkShare, Efinance)
-2. **Have Tushare account**: Verify Token is correct, check in [Tushare Pro](https://tushare.pro/weborder/#/login?reg=834638) personal center
-3. All core features of this project work normally without Tushare
+Check `MAIRUI_LICENCE` and its expiry/entitlements. Full-market APIs require an eligible plan. Failed or incomplete responses use existing fallbacks without substituting non-equivalent fields. Free quote providers remain available without a licence; earnings-gap screening requires Mairui financial evidence. See [migration notes](mairui-migration.md).
 
 ---
 

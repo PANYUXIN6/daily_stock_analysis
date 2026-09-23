@@ -105,8 +105,8 @@ _FIELD_DEFINITIONS: Dict[str, Dict[str, Any]] = {
                 "href": "https://github.com/ZhuLinsen/daily_stock_analysis/blob/main/docs/full-guide.md#环境变量完整列表",
             },
             {
-                "label": "Tushare 股票列表指南",
-                "href": "https://github.com/ZhuLinsen/daily_stock_analysis/blob/main/docs/TUSHARE_STOCK_LIST_GUIDE.md",
+                "label": "麦蕊迁移与股票列表指南",
+                "href": "https://github.com/ZhuLinsen/daily_stock_analysis/blob/main/docs/mairui-migration.md",
             },
         ],
         "warning_codes": [],
@@ -510,9 +510,9 @@ _FIELD_DEFINITIONS: Dict[str, Dict[str, Any]] = {
         "validation": {"multi_value": True, "delimiter": ","},
         "display_order": 7,
     },
-    "TUSHARE_TOKEN": {
-        "title": "Tushare Token",
-        "description": "Token for Tushare Pro API.",
+    "MAIRUI_LICENCE": {
+        "title": "麦蕊接口证书",
+        "description": "Licence for Mairui HTTPS market and financial data APIs.",
         "category": "data_source",
         "data_type": "string",
         "ui_control": "password",
@@ -523,14 +523,14 @@ _FIELD_DEFINITIONS: Dict[str, Dict[str, Any]] = {
         "options": [],
         "validation": {},
         "display_order": 10,
-        "help_key": "settings.data_source.TUSHARE_TOKEN",
+        "help_key": "settings.data_source.MAIRUI_LICENCE",
         "examples": [
-            "TUSHARE_TOKEN=your_tushare_token",
+            "MAIRUI_LICENCE=your_mairui_licence",
         ],
         "docs": [
             {
-                "label": "Tushare 股票列表指南",
-                "href": "https://github.com/ZhuLinsen/daily_stock_analysis/blob/main/docs/TUSHARE_STOCK_LIST_GUIDE.md",
+                "label": "麦蕊迁移与股票列表指南",
+                "href": "https://github.com/ZhuLinsen/daily_stock_analysis/blob/main/docs/mairui-migration.md",
             },
             {
                 "label": "完整指南：环境变量完整列表",
@@ -629,8 +629,8 @@ _FIELD_DEFINITIONS: Dict[str, Dict[str, Any]] = {
         ],
         "docs": [
             {
-                "label": "Tushare 股票列表指南",
-                "href": "https://github.com/ZhuLinsen/daily_stock_analysis/blob/main/docs/TUSHARE_STOCK_LIST_GUIDE.md",
+                "label": "麦蕊迁移与股票列表指南",
+                "href": "https://github.com/ZhuLinsen/daily_stock_analysis/blob/main/docs/mairui-migration.md",
             },
         ],
         "warning_codes": [],
@@ -4164,7 +4164,7 @@ def _infer_category(key: str) -> str:
         return "ai_model"
     if key.endswith("_PRIORITY") or key.startswith(
         (
-            "TUSHARE",
+            "MAIRUI",
             "TICKFLOW",
             "AKSHARE",
             "EFINANCE",

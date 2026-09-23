@@ -16,9 +16,9 @@ if str(SCRIPTS_DIR) not in sys.path:
 refresh_stock_index = importlib.import_module("refresh_stock_index")
 
 
-def test_main_fetches_tushare_with_a_rk_by_default():
+def test_main_fetches_mairui_by_default():
     with (
-        patch.object(refresh_stock_index, "_has_tushare_token", return_value=True),
+        patch.object(refresh_stock_index, "_has_mairui_licence", return_value=True),
         patch.object(refresh_stock_index, "_run") as run,
         patch.object(refresh_stock_index, "_sync_static_index"),
     ):
@@ -27,12 +27,11 @@ def test_main_fetches_tushare_with_a_rk_by_default():
     assert exit_code == 0
     assert run.call_args_list[0].args[0] == [
         sys.executable,
-        "scripts/fetch_tushare_stock_list.py",
-        "--a-rk",
+        "scripts/fetch_mairui_stock_list.py",
     ]
     assert run.call_args_list[1].args[0] == [
         sys.executable,
         "scripts/generate_index_from_csv.py",
         "--source",
-        "tushare",
+        "mairui",
     ]

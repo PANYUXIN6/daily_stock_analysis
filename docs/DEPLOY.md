@@ -422,7 +422,7 @@ git push -u origin main
 | `STOCK_LIST` | 自选股列表，如 `600519,300750` | ✅ |
 | `TAVILY_API_KEYS` | Tavily 搜索 API Key | 可选 |
 | `BOCHA_API_KEYS` | 博查搜索 API Key | 可选 |
-| `TUSHARE_TOKEN` | Tushare Token | 可选 |
+| `MAIRUI_LICENCE` | 麦蕊接口证书 | 可选 |
 
 > *注：通知渠道至少配置一个，支持多渠道同时推送
 

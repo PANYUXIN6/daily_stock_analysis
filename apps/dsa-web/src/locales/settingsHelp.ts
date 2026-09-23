@@ -172,11 +172,11 @@ const settingsHelpZhCN: SettingsHelpMap = {
     impact: ['影响对应 provider 的模型调用、连接测试和可用模型发现。'],
     notes: ['不要在 issue、日志或截图里暴露真实 Key。'],
   },
-  'settings.data_source.TUSHARE_TOKEN': {
-    title: 'Tushare Token',
-    summary: '用于访问 Tushare Pro 数据接口。',
-    usage: '在 Tushare 账户中获取 token 后填入。',
-    valueNotes: ['不同 Tushare 权限会影响可用接口和数据完整度。'],
+  'settings.data_source.MAIRUI_LICENCE': {
+    title: 'Mairui Licence',
+    summary: '用于访问麦蕊行情、财务和股票列表接口。',
+    usage: '在麦蕊网站申请接口证书后填入 licence。',
+    valueNotes: ['不同 Mairui 权限会影响可用接口和数据完整度。'],
     impact: ['影响部分 A 股基础数据、股票列表和相关增强数据获取。'],
     notes: ['不要把 token 提交到仓库或公开日志。'],
   },
@@ -1233,11 +1233,11 @@ const settingsHelpEnUS: SettingsHelpMap = {
     impact: ['Affects model calls, connection tests, and model discovery for the provider.'],
     notes: ['Do not expose real keys in issues, logs, or screenshots.'],
   },
-  'settings.data_source.TUSHARE_TOKEN': {
-    title: 'Tushare Token',
-    summary: 'Token used for Tushare Pro data access.',
-    usage: 'Paste the token from your Tushare account.',
-    valueNotes: ['Available APIs depend on your Tushare permission level.'],
+  'settings.data_source.MAIRUI_LICENCE': {
+    title: 'Mairui Licence',
+    summary: 'Licence used for Mairui market and financial data APIs.',
+    usage: 'Paste the licence issued by Mairui.',
+    valueNotes: ['Available APIs depend on your Mairui permission level.'],
     impact: ['Affects some A-share base data, stock lists, and enrichment data.'],
     notes: ['Do not commit the token or print it in public logs.'],
   },

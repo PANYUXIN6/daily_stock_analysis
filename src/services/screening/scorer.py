@@ -8,7 +8,6 @@ import pandas as pd
 from src.services.screening.models import ScreeningConfig
 
 _FACTOR_COLUMNS = {
-    "value": "factor_value_score",
     "liquidity": "factor_liquidity_score",
     "momentum": "factor_momentum_score",
     "reversal": "factor_reversal_score",
@@ -57,7 +56,6 @@ _DEFAULT_SCORING_PROFILE = {
     "stability_high_turnover_penalty_slope": 2.0,
     "stability_high_volume_ratio": 5.0,
     "stability_high_volume_ratio_penalty_slope": 4.0,
-    "stability_invalid_pe_penalty": 18.0,
     "stability_high_volatility_pct": 45.0,
     "stability_high_volatility_penalty_slope": 0.45,
     "stability_max_drawdown_floor_pct": -12.0,
@@ -118,9 +116,8 @@ def factor_score_columns() -> dict[str, str]:
 def _normalized_factor_weights(config: ScreeningConfig) -> dict[str, float]:
     """Use explicit factor weights, or derive a sane legacy default from tech_weight."""
     raw_weights = config.factor_weights or {
-        "value": (1 - config.tech_weight) * 0.50,
-        "liquidity": (1 - config.tech_weight) * 0.25,
-        "stability": (1 - config.tech_weight) * 0.25,
+        "liquidity": (1 - config.tech_weight) * 0.50,
+        "stability": (1 - config.tech_weight) * 0.50,
         "momentum": config.tech_weight * 0.55,
         "activity": config.tech_weight * 0.45,
     }
@@ -131,7 +128,7 @@ def _normalized_factor_weights(config: ScreeningConfig) -> dict[str, float]:
     }
     total = sum(weights.values())
     if total <= 0:
-        return {"value": 0.4, "liquidity": 0.2, "momentum": 0.2, "activity": 0.2}
+        return {"stability": 0.25, "liquidity": 0.25, "momentum": 0.25, "activity": 0.25}
     return {factor: weight / total for factor, weight in weights.items()}
 
 
@@ -139,7 +136,6 @@ def _compute_factor_scores(df: pd.DataFrame, config: ScreeningConfig | None = No
     config = config or ScreeningConfig()
     profile = _scoring_profile(config)
     return {
-        "value": _compute_value_score(df),
         "liquidity": _compute_liquidity_score(df),
         "momentum": _compute_momentum_score(df, profile),
         "reversal": _compute_reversal_score(df, profile),
@@ -160,21 +156,9 @@ def _scoring_profile(config: ScreeningConfig) -> dict[str, float]:
 
 
 def _compute_snapshot_score(df: pd.DataFrame) -> pd.Series:
-    """Score based on snapshot fundamentals (0-100).
-
-    Components:
-    - PE ratio: lower is better (for value), normalized
-    - PB ratio: lower is better, normalized
-    - Turnover rate: moderate is best
-    - Amount (liquidity): higher is better, log-scaled
-    - Change pct: near zero or moderate positive preferred
-    """
+    """Score liquidity and price stability from the market snapshot."""
     factors = _compute_factor_scores(df)
-    return (
-        factors["value"] * 0.50
-        + factors["liquidity"] * 0.25
-        + factors["stability"] * 0.25
-    ).clip(0, 100)
+    return (factors["liquidity"] * 0.5 + factors["stability"] * 0.5).clip(0, 100)
 
 
 def _compute_tech_score(df: pd.DataFrame) -> pd.Series:
@@ -186,22 +170,6 @@ def _compute_tech_score(df: pd.DataFrame) -> pd.Series:
     """
     factors = _compute_factor_scores(df)
     return (factors["momentum"] * 0.55 + factors["activity"] * 0.45).clip(0, 100)
-
-
-def _compute_value_score(df: pd.DataFrame) -> pd.Series:
-    score = pd.Series(50.0, index=df.index)
-
-    if "pe_ratio" in df.columns:
-        pe = pd.to_numeric(df["pe_ratio"], errors="coerce")
-        pe_score = _rank_score(pe.where((pe > 0) & (pe < 500)), lower_is_better=True, na_score=25)
-        score = score * 0.35 + pe_score * 0.65
-
-    if "pb_ratio" in df.columns:
-        pb = pd.to_numeric(df["pb_ratio"], errors="coerce")
-        pb_score = _rank_score(pb.where((pb > 0) & (pb < 50)), lower_is_better=True, na_score=25)
-        score = score * 0.55 + pb_score * 0.45
-
-    return score.clip(0, 100)
 
 
 def _compute_liquidity_score(df: pd.DataFrame) -> pd.Series:
@@ -332,10 +300,6 @@ def _compute_stability_score(df: pd.DataFrame, profile: dict[str, float]) -> pd.
         score -= (
             volume_ratio - profile["stability_high_volume_ratio"]
         ).clip(lower=0) * profile["stability_high_volume_ratio_penalty_slope"]
-
-    if "pe_ratio" in df.columns:
-        pe = pd.to_numeric(df["pe_ratio"], errors="coerce")
-        score = score.where((pe.isna()) | (pe > 0), score - profile["stability_invalid_pe_penalty"])
 
     if "signal_score" in df.columns:
         signal = pd.to_numeric(df["signal_score"], errors="coerce").fillna(50)

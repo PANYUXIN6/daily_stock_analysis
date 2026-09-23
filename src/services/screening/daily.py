@@ -52,7 +52,6 @@ _DAILY_HISTORY_CACHE_TTL_SECONDS = 24 * 60 * 60
 _SOURCE_HEALTH_FAILURE_THRESHOLD = 3
 _SOURCE_HEALTH_COOLDOWN_SECONDS = 5 * 60
 _DAILY_CALL_TIMEOUT_SECONDS = 20.0
-_DEFAULT_TUSHARE_HTTP_URL = "http://api.waditu.com"
 _BAOSTOCK_LOCK = threading.Lock()
 _BAOSTOCK_OUTAGE_ERROR: str | None = None
 _SOURCE_HEALTH: dict[str, dict[str, object]] = {}
@@ -174,8 +173,8 @@ def fetch_daily_history(
 ) -> pd.DataFrame:
     """Fetch daily history for one stock code.
 
-    ``source`` accepts ``tencent``, ``sina``, ``akshare``, ``baostock``, ``tushare``
-    or ``auto``. ``auto`` prefers Tushare when a token is
+    ``source`` accepts ``tencent``, ``sina``, ``akshare``, ``baostock``, ``mairui``
+    or ``auto``. ``auto`` prefers Mairui when a token is
     configured, then Tencent's direct HTTP K-line endpoint before wrapper-based
     free sources. Without a token it starts with Tencent. Sina is a second
     direct HTTP K-line source before wrapper-based fallbacks.
@@ -185,12 +184,12 @@ def fetch_daily_history(
     src = _normalize_daily_source(source)
     if src == "auto":
         sources: tuple[str, ...] = (
-            ("tushare", "tencent", "sina", "akshare", "baostock")
-            if _has_tushare_token()
+            ("mairui", "tencent", "sina", "akshare", "baostock")
+            if _has_mairui_licence()
             else ("tencent", "sina", "akshare", "baostock")
         )
         sources, source_order_notes = _rank_daily_sources_by_health(sources)
-    elif src in ("akshare", "baostock", "tushare", "tencent", "sina"):
+    elif src in ("akshare", "baostock", "mairui", "tencent", "sina"):
         sources = (src,)
         source_order_notes = []
     else:
@@ -239,9 +238,9 @@ def fetch_daily_history(
                         normalized_code,
                         lookback_days=normalized_lookback_days,
                     )
-                elif current == "tushare":
+                elif current == "mairui":
                     result = _call_daily_wrapper(
-                        _fetch_daily_tushare,
+                        _fetch_daily_mairui,
                         current,
                         normalized_code,
                         lookback_days=normalized_lookback_days,
@@ -632,124 +631,19 @@ def _fetch_daily_sina(code: str, *, lookback_days: int) -> pd.DataFrame:
     return df.tail(count).copy()
 
 
-def _fetch_daily_tushare(code: str, *, lookback_days: int) -> pd.DataFrame:
-    """Fetch forward-adjusted daily history via Tushare Pro."""
-    token = _tushare_token()
-    if not token:
-        raise RuntimeError("tushare requires TUSHARE_TOKEN")
-
-    import tushare as ts
-
-    pro = ts.pro_api(token)
-    _configure_tushare_client(pro, token=token)
-
-    start_date = (datetime.now() - timedelta(days=max(lookback_days * 2, 90))).strftime("%Y%m%d")
-    end_date = datetime.now().strftime("%Y%m%d")
-    adj = _normalize_tushare_adj(os.getenv("TUSHARE_DAILY_ADJ", "qfq"))
-    ts_code = _to_tushare_code(code)
-    df = pro.daily(
-        ts_code=ts_code,
-        start_date=start_date,
-        end_date=end_date,
-        fields="ts_code,trade_date,open,high,low,close,vol,amount",
-    )
-    if df is None or df.empty:
-        raise RuntimeError(f"tushare daily history empty for {code}")
-    if adj is not None:
-        df = _apply_tushare_adjustment(
-            df,
-            pro=pro,
-            ts_code=ts_code,
-            start_date=start_date,
-            end_date=end_date,
-            adj=adj,
-        )
-
-    normalized = _normalize_tushare_daily_frame(df)
-    return normalized.tail(max(lookback_days, 30)).copy()
+def _fetch_daily_mairui(code: str, *, lookback_days: int) -> pd.DataFrame:
+    """Use proportional forward adjustment, matching the former factor ratios."""
+    from data_provider.mairui_fetcher import MairuiFetcher
+    start = (datetime.now() - timedelta(days=max(lookback_days * 2, 90))).strftime("%Y%m%d")
+    end = datetime.now().strftime("%Y%m%d")
+    frame = MairuiFetcher().daily(code, start, end, adjustment="fr")
+    frame["date"] = frame["date"].dt.strftime("%Y%m%d")
+    return frame.tail(max(lookback_days, 30)).copy()
 
 
-def _tushare_token() -> str:
-    return (
-        os.getenv("TUSHARE_TOKEN", "").strip()
-        or os.getenv("TUSHARE_API_TOKEN", "").strip()
-    )
-
-
-def _has_tushare_token() -> bool:
-    return bool(_tushare_token())
-
-
-def _configure_tushare_client(pro: object, *, token: str) -> None:
-    try:
-        setattr(pro, "_DataApi__token", token)
-    except Exception:
-        pass
-
-    http_url = (
-        os.getenv("TUSHARE_API_URL", "").strip()
-        or os.getenv("TUSHARE_HTTP_URL", "").strip()
-        or _DEFAULT_TUSHARE_HTTP_URL
-    )
-    try:
-        setattr(pro, "_DataApi__http_url", http_url)
-    except Exception:
-        pass
-
-
-def _normalize_tushare_daily_frame(df: pd.DataFrame) -> pd.DataFrame:
-    rename_map = {
-        "trade_date": "date",
-        "vol": "volume",
-    }
-    normalized = df.rename(columns=rename_map).copy()
-    if "date" in normalized.columns:
-        normalized["date"] = normalized["date"].astype(str)
-        normalized = normalized.sort_values("date")
-    return normalized
-
-
-def _apply_tushare_adjustment(
-    df: pd.DataFrame,
-    *,
-    pro: object,
-    ts_code: str,
-    start_date: str,
-    end_date: str,
-    adj: str,
-) -> pd.DataFrame:
-    factors = pro.adj_factor(
-        ts_code=ts_code,
-        start_date=start_date,
-        end_date=end_date,
-        fields="trade_date,adj_factor",
-    )
-    if factors is None or factors.empty:
-        raise RuntimeError(f"tushare adj_factor empty for {ts_code}")
-
-    merged = df.merge(factors, on="trade_date", how="left")
-    merged = merged.sort_values("trade_date")
-    merged["adj_factor"] = pd.to_numeric(merged["adj_factor"], errors="coerce").bfill()
-    valid_factors = pd.to_numeric(factors["adj_factor"], errors="coerce").dropna()
-    if valid_factors.empty:
-        raise RuntimeError(f"tushare adj_factor invalid for {ts_code}")
-    latest_factor = float(valid_factors.iloc[0])
-    for col in ("open", "high", "low", "close"):
-        merged[col] = pd.to_numeric(merged[col], errors="coerce")
-        if adj == "hfq":
-            merged[col] = merged[col] * merged["adj_factor"]
-        else:
-            merged[col] = merged[col] * merged["adj_factor"] / latest_factor
-    return merged.drop(columns=["adj_factor"])
-
-
-def _normalize_tushare_adj(value: str | None) -> str | None:
-    text = (value or "").strip().lower()
-    if text in {"", "none", "null", "no", "false", "0"}:
-        return None
-    if text not in {"qfq", "hfq"}:
-        raise RuntimeError(f"unsupported TUSHARE_DAILY_ADJ: {value}")
-    return text
+def _has_mairui_licence() -> bool:
+    from src.config import get_config
+    return bool(get_config().mairui_licence)
 
 
 def _fetch_daily_baostock(code: str, *, lookback_days: int) -> pd.DataFrame:
@@ -816,15 +710,6 @@ def _to_baostock_code(code: str) -> str:
     if raw.startswith(("6", "9", "5")):
         return f"sh.{raw}"
     return f"sz.{raw}"
-
-
-def _to_tushare_code(code: str) -> str:
-    raw = str(code).strip().zfill(6)
-    if raw.startswith(("4", "8", "920")):
-        return f"{raw}.BJ"
-    if raw.startswith(("6", "9", "5")):
-        return f"{raw}.SH"
-    return f"{raw}.SZ"
 
 
 def _to_tencent_code(code: str) -> str:

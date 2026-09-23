@@ -49,7 +49,7 @@ DSA_SCREENING_LLM_CANDIDATE_MULTIPLIER = 2
 DSA_SCREENING_LLM_MAX_CANDIDATES = 12
 DSA_SCREENING_DAILY_FETCH_RETRIES = 3
 DSA_SCREENING_SNAPSHOT_SOURCE_PRIORITY = "sina,efinance,akshare_em,em_datacenter"
-DSA_SCREENING_SNAPSHOT_SOURCE_PRIORITY_WITH_TUSHARE = "tushare,sina,efinance,akshare_em,em_datacenter"
+DSA_SCREENING_SNAPSHOT_SOURCE_PRIORITY_WITH_MAIRUI = "mairui,sina,efinance,akshare_em,em_datacenter"
 DSA_SCREENING_CANDIDATE_CONTEXT_PROVIDERS = "news,fund_flow,announcement,quote"
 DSA_SCREENING_DATA_DIR = Path("data") / "screening"
 DSA_SCREENING_HOTSPOT_CACHE_PATH = DSA_SCREENING_DATA_DIR / "hotspots.json"
@@ -79,7 +79,7 @@ DSA_SCREENING_HOTSPOT_CONNECTIVITY_ERROR_MARKERS = (
 )
 _DSA_FETCHER_MANAGER_LOCK = threading.RLock()
 _DSA_FETCHER_MANAGER: Any = None
-_FUNDAMENTAL_BLOCKS = ("valuation", "growth", "earnings", "institution", "capital_flow", "boards")
+_FUNDAMENTAL_BLOCKS = ("capital_flow", "dragon_tiger", "boards")
 _SCREENING_LITELLM_COMPLETION_ROUTES: ContextVar[Optional[Tuple[Dict[str, Any], ...]]] = ContextVar(
     "screening_litellm_completion_routes",
     default=None,
@@ -1856,9 +1856,9 @@ def _build_screening_dsa_daily_history_fetcher() -> Optional[Callable[..., Any]]
 
 
 def _resolve_screening_snapshot_source_priority(config: Config) -> str:
-    token = _env_text(getattr(config, "tushare_token", None) or os.getenv("TUSHARE_TOKEN"))
+    token = _env_text(getattr(config, "mairui_licence", None) or os.getenv("MAIRUI_LICENCE"))
     if token:
-        return DSA_SCREENING_SNAPSHOT_SOURCE_PRIORITY_WITH_TUSHARE
+        return DSA_SCREENING_SNAPSHOT_SOURCE_PRIORITY_WITH_MAIRUI
     return DSA_SCREENING_SNAPSHOT_SOURCE_PRIORITY
 
 
@@ -3331,10 +3331,11 @@ def get_dsa_realtime_quote(stock_code: str) -> Dict[str, Any]:
     quote = manager.get_realtime_quote(stock_code, log_final_failure=False)
     if quote is None:
         return {}
-    if hasattr(quote, "to_dict") and callable(quote.to_dict):
-        return _remove_non_finite_json_values(quote.to_dict())
-    payload = _to_plain(quote)
-    return _remove_non_finite_json_values(payload if isinstance(payload, dict) else {})
+    payload = quote.to_dict() if hasattr(quote, "to_dict") and callable(quote.to_dict) else _to_plain(quote)
+    return _remove_non_finite_json_values({
+        key: value for key, value in (payload if isinstance(payload, dict) else {}).items()
+        if key not in {"pe_ratio", "pb_ratio"}
+    })
 
 
 def get_dsa_fundamental_context(stock_code: str) -> Dict[str, Any]:
@@ -3624,7 +3625,7 @@ def _compact_fundamental_context(context: Any) -> Dict[str, Any]:
     compact: Dict[str, Any] = {
         "market": context.get("market"),
         "status": context.get("status"),
-        "coverage": context.get("coverage") if isinstance(context.get("coverage"), dict) else {},
+        "coverage": {key: value for key, value in (context.get("coverage") or {}).items() if key in _FUNDAMENTAL_BLOCKS},
     }
     for block in _FUNDAMENTAL_BLOCKS:
         payload = context.get(block)
@@ -3659,7 +3660,7 @@ def _build_dsa_analysis_summary(
     if isinstance(coverage, dict) and coverage:
         available_blocks = [key for key, value in coverage.items() if str(value).lower() in {"available", "partial"}]
         if available_blocks:
-            parts.append(f"DSA基本面覆盖：{', '.join(available_blocks[:4])}")
+            parts.append(f"DSA资金板块覆盖：{', '.join(available_blocks[:4])}")
 
     news_results = news.get("results") if isinstance(news, dict) else []
     if isinstance(news_results, list) and news_results:

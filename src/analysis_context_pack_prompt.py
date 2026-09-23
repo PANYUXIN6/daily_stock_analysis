@@ -12,7 +12,7 @@ BLOCK_LABELS_ZH = {
     "daily_bars": "日线",
     "technical": "技术",
     "chip": "筹码",
-    "fundamentals": "基本面",
+    "fundamentals": "资金与板块",
     "news": "新闻",
 }
 
@@ -21,7 +21,7 @@ BLOCK_LABELS_EN = {
     "daily_bars": "daily bars",
     "technical": "technical",
     "chip": "chip",
-    "fundamentals": "fundamentals",
+    "fundamentals": "flows and sectors",
     "news": "news",
 }
 

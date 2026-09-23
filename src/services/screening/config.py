@@ -21,7 +21,7 @@ _PACKAGE_DIR = Path(__file__).resolve().parent
 DEFAULT_POST_ANALYZERS = ["scorecard"]
 DEFAULT_LLM_MODEL = "deepseek/deepseek-flash"
 DEFAULT_SNAPSHOT_SOURCE_PRIORITY = ["sina", "efinance", "akshare_em", "em_datacenter"]
-TUSHARE_FIRST_SOURCE_PRIORITY = ["tushare", "sina", "efinance", "akshare_em", "em_datacenter"]
+MAIRUI_FIRST_SOURCE_PRIORITY = ["mairui", "sina", "efinance", "akshare_em", "em_datacenter"]
 _ENV_FILE_CACHE: dict[Path, tuple[tuple[int, int], dict[str, str]]] = {}
 _APPLIED_ENV_FILE_VALUES: dict[str, str] = {}
 
@@ -115,10 +115,9 @@ def _parse_optional_path_env(name: str) -> Path | None:
     return Path(value) if value else None
 
 
-def _has_tushare_token() -> bool:
+def _has_mairui_licence() -> bool:
     return bool(
-        os.getenv("TUSHARE_TOKEN", "").strip()
-        or os.getenv("TUSHARE_API_TOKEN", "").strip()
+        os.getenv("MAIRUI_LICENCE", "").strip()
     )
 
 
@@ -126,8 +125,8 @@ def _resolve_snapshot_source_priority() -> list[str]:
     explicit = os.getenv("SNAPSHOT_SOURCE_PRIORITY")
     if explicit is not None:
         return [s.strip() for s in explicit.split(",") if s.strip()]
-    if _has_tushare_token():
-        return list(TUSHARE_FIRST_SOURCE_PRIORITY)
+    if _has_mairui_licence():
+        return list(MAIRUI_FIRST_SOURCE_PRIORITY)
     return list(DEFAULT_SNAPSHOT_SOURCE_PRIORITY)
 
 

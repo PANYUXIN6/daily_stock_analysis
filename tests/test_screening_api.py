@@ -2884,7 +2884,7 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
                 screening_service.os.environ,
                 {
                     "DEEPSEEK_API_KEY": "outer-key",
-                    "TUSHARE_TOKEN": "",
+                    "MAIRUI_LICENCE": "",
                     "SNAPSHOT_SOURCE_PRIORITY": "",
                     "LLM_CANDIDATE_CONTEXT_ENABLED": "true",
                     "LLM_CANDIDATE_MULTIPLIER": "",
@@ -3307,12 +3307,12 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
         fake_module = _make_screening_core(screen=MagicMock(side_effect=screen_impl))
 
         with (
-            patch.dict(screening_service.os.environ, {"SNAPSHOT_SOURCE_PRIORITY": "tushare,em_datacenter"}, clear=False),
+            patch.dict(screening_service.os.environ, {"SNAPSHOT_SOURCE_PRIORITY": "mairui,em_datacenter"}, clear=False),
             _patch_screening_core(fake_module),
         ):
             payload = self._screen(config, market="cn", strategy="balanced_alpha", max_results=5)
 
-        self.assertEqual(captured["snapshot_priority"], "tushare,em_datacenter")
+        self.assertEqual(captured["snapshot_priority"], "mairui,em_datacenter")
         self.assertEqual(payload["candidate_count"], 0)
 
     def test_screen_preserves_explicit_daily_source(self) -> None:
@@ -3517,14 +3517,14 @@ class ScreeningOpportunitiesApiTestCase(unittest.TestCase):
         self.assertEqual(cache_write_mock.call_args.kwargs["lookback_days"], 90)
 
 
-    def test_screening_runtime_priority_puts_tushare_before_sina_when_token_exists(self) -> None:
+    def test_screening_runtime_priority_puts_mairui_before_sina_when_token_exists(self) -> None:
         config = self._config(enabled=True)
-        config.tushare_token = "token-1"
+        config.mairui_licence = "token-1"
 
         with patch.dict(screening_service.os.environ, {"SNAPSHOT_SOURCE_PRIORITY": ""}, clear=False):
             env = screening_service._build_screening_runtime_env(config)
 
-        self.assertEqual(env["SNAPSHOT_SOURCE_PRIORITY"], "tushare,sina,efinance,akshare_em,em_datacenter")
+        self.assertEqual(env["SNAPSHOT_SOURCE_PRIORITY"], "mairui,sina,efinance,akshare_em,em_datacenter")
 
 
     def test_screening_runtime_env_skips_unknown_api_surface(self) -> None:

@@ -16,7 +16,7 @@ English | [简体中文](../README.md) | [繁體中文](README_CHT.md)
 
 - Stock reports with conclusions, trend, price levels, risk alerts, and action checks.
 - A-share market recaps covering indices, breadth, sectors, and next-session strategy.
-- A-share data fallback across AkShare, Tushare, Efinance, Pytdx, Baostock, Tencent, and optional TickFlow.
+- A-share data fallback across AkShare, Mairui, Efinance, Pytdx, Baostock, Tencent, and optional TickFlow.
 - Optional news search through supported providers.
 - Web, API, scheduler, Docker, GitHub Actions, and notification workflows.
 
@@ -32,7 +32,7 @@ cp .env.example .env
 python main.py --stocks 600519,000858,300750
 ```
 
-Configure at least one supported LLM provider. Market data can run with the bundled free A-share providers; `TUSHARE_TOKEN` and `TICKFLOW_API_KEY` are optional stability enhancements.
+Configure at least one supported LLM provider. Market data can run with the bundled free A-share providers; `MAIRUI_LICENCE` and `TICKFLOW_API_KEY` are optional stability enhancements.
 
 Use explicit registered index identities such as `sh000016`, `sz399006`, or `930606.CSI`. Plain six-digit codes are treated as A-share securities.
 

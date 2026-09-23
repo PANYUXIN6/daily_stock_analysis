@@ -38,7 +38,6 @@ instructions: |
 
   5. **风险过滤**（关联理念5：风险排查）：
      - 通过 `search_stock_news` 检查无重大利空。
-     - PE 不应过高（避免泡沫型突破）。
 
   评分调整：
   - 放量突破确认：sentiment_score +12

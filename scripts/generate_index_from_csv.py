@@ -4,13 +4,13 @@
 Generate Stock Index from CSV File
 
 Input:
-  - Tushare format: data/stock_list_a.csv
+  - Mairui format: data/stock_list_a.csv
   - AkShare format: logs/stock_basic_*.csv
 
 Output: apps/dsa-web/public/stocks.index.json
 
 Usage:
-    python scripts/generate_index_from_csv.py              # 默认使用 Tushare
+    python scripts/generate_index_from_csv.py              # 默认使用 Mairui
     python scripts/generate_index_from_csv.py --source akshare
     python scripts/generate_index_from_csv.py --test       # 测试模式
     python scripts/generate_index_from_csv.py --index-only --test  # 仅合并指数 seed
@@ -87,9 +87,9 @@ def load_csv_data(csv_path: Path) -> List[Dict[str, Any]]:
     return stocks
 
 
-def load_tushare_data(data_dir: Path) -> List[Dict[str, Any]]:
+def load_mairui_data(data_dir: Path) -> List[Dict[str, Any]]:
     """
-    从 Tushare CSV 文件加载 A 股数据
+    从 Mairui CSV 文件加载 A 股数据
 
     Args:
         data_dir: 数据目录路径
@@ -144,7 +144,7 @@ def load_akshare_data(logs_dir: Path) -> List[Dict[str, Any]]:
 
     说明：
         AkShare 这条输入路径保留其原始 name 字段，不额外套用
-        Tushare A 股那套 XD / XR / DR 状态前缀修正逻辑。这里的目标是
+        Mairui A 股那套 XD / XR / DR 状态前缀修正逻辑。这里的目标是
         复用 AkShare 已输出的展示名，而不是对其做二次归一化。
     """
     csv_files = list(logs_dir.glob("stock_basic_*.csv"))
@@ -249,7 +249,7 @@ def normalize_stock_name_for_index(name: str, market: str) -> str:
 
 
 def extract_symbol_from_ts_code(ts_code: str, market: str) -> Optional[str]:
-    """Extract a six-digit A-share display code from a Tushare code."""
+    """Extract a six-digit A-share display code from a Mairui code."""
     if not ts_code or market != 'CN':
         return None
     symbol = ts_code.split('.')[0]
@@ -309,7 +309,7 @@ def parse_stock_row(row: Dict[str, str], preferred_market: Optional[str] = None)
 
 
 def determine_market(ts_code: str) -> str:
-    """Return CN for a valid Tushare A-share code, otherwise unsupported."""
+    """Return CN for a valid Mairui A-share code, otherwise unsupported."""
     normalized = str(ts_code or '').strip().upper()
     match = re.fullmatch(r'(\d{6})(?:\.(SH|SZ|BJ))?', normalized)
     return 'CN' if match else ''
@@ -791,9 +791,9 @@ def main():
     parser = argparse.ArgumentParser(description='从 CSV 生成股票自动补全索引')
     parser.add_argument(
         '--source',
-        choices=['tushare', 'akshare'],
-        default='tushare',
-        help='数据源选择（默认: tushare）'
+        choices=['mairui', 'akshare'],
+        default='mairui',
+        help='数据源选择（默认: mairui）'
     )
     parser.add_argument(
         '--index-only',
@@ -845,9 +845,9 @@ def main():
 
     # 加载数据
     print("\n[1/5] 读取 CSV 数据...")
-    if args.source == 'tushare':
+    if args.source == 'mairui':
         data_dir = Path(__file__).parent.parent / 'data'
-        stocks = load_tushare_data(data_dir)
+        stocks = load_mairui_data(data_dir)
     elif args.source == 'akshare':
         logs_dir = Path(__file__).parent.parent / 'logs'
         stocks = load_akshare_data(logs_dir)

@@ -1441,7 +1441,7 @@ class AnalysisApiContractTestCase(unittest.TestCase):
         service = object.__new__(AnalysisService)
         pipeline_instance = MagicMock()
         pipeline_instance.process_single_stock.return_value = object()
-        request_skills = ["growth_quality"]
+        request_skills = ["volume_breakout"]
 
         with patch("src.config.get_config", return_value=SimpleNamespace()), \
              patch("src.core.pipeline.StockAnalysisPipeline", return_value=pipeline_instance) as pipeline_cls, \
@@ -3867,7 +3867,7 @@ class AnalysisApiContractTestCase(unittest.TestCase):
             original_query="茅台",
             selection_source="manual",
             analysis_phase="postmarket",
-            skills=["growth_quality"],
+            skills=["volume_breakout"],
             region=None,
         )
         queue = MagicMock()
@@ -3884,7 +3884,7 @@ class AnalysisApiContractTestCase(unittest.TestCase):
             response = get_task_list(status=None, limit=20)
 
         self.assertEqual(response.tasks[0].analysis_phase, "postmarket")
-        self.assertEqual(response.tasks[0].skills, ["growth_quality"])
+        self.assertEqual(response.tasks[0].skills, ["volume_breakout"])
 
     def test_task_list_exposes_parser_asset_type(self) -> None:
         """Valid asset_type literals pass through verbatim on the task list."""
@@ -4255,7 +4255,7 @@ class BatchTaskQueueContractTestCase(unittest.TestCase):
         queue._executor = executor
         broadcast_events = []
         queue._broadcast_event = lambda event_type, data: broadcast_events.append((event_type, data))
-        request_skills = ["growth_quality"]
+        request_skills = ["volume_breakout"]
 
         accepted, duplicates = queue.submit_tasks_batch(
             ["600519"],
@@ -4273,7 +4273,7 @@ class BatchTaskQueueContractTestCase(unittest.TestCase):
         self.assertNotIn("query_source", broadcast_events[0][1])
         self.assertEqual(accepted[0].copy().analysis_phase, "intraday")
         self.assertEqual(accepted[0].query_source, "web")
-        self.assertEqual(accepted[0].skills, ["growth_quality"])
+        self.assertEqual(accepted[0].skills, ["volume_breakout"])
         self.assertIs(executor.calls[0][1][5], accepted[0].skills)
         self.assertIsNone(executor.calls[0][1][6])
 
@@ -4286,7 +4286,7 @@ class BatchTaskQueueContractTestCase(unittest.TestCase):
             service_instance.analyze_stock.call_args.kwargs["skills"],
             accepted[0].skills,
         )
-        self.assertEqual(service_instance.analyze_stock.call_args.kwargs["skills"], ["growth_quality"])
+        self.assertEqual(service_instance.analyze_stock.call_args.kwargs["skills"], ["volume_breakout"])
         self.assertEqual(service_instance.analyze_stock.call_args.kwargs["analysis_phase"], "intraday")
         self.assertEqual(service_instance.analyze_stock.call_args.kwargs["query_source"], "web")
 

@@ -19,7 +19,7 @@
 
 - 个股分析：生成核心结论、趋势、关键价位、风险提示和操作检查项。
 - A 股大盘复盘：汇总主要指数、市场宽度、板块表现与次日策略。
-- 数据聚合：复用 AkShare、Tushare、Efinance、Pytdx、Baostock、腾讯与 TickFlow 等 A 股数据源，并按可用性降级。
+- 数据聚合：复用 AkShare、Mairui、Efinance、Pytdx、Baostock、腾讯与 TickFlow 等 A 股数据源，并按可用性降级。
 - 新闻与公告：支持 Bocha（博查）和 Tavily 搜索服务。
 - Web / API：支持任务提交、进度、历史报告、回测和配置管理。
 - 自动化通知：支持 GitHub Actions、本地调度、Docker，以及企业微信、飞书、Telegram、Discord、Slack 和邮件。
@@ -43,7 +43,7 @@ DEEPSEEK_API_KEY=your_key
 STOCK_LIST=600519,000858,300750
 ```
 
-行情默认可使用免费 A 股数据源。需要更稳定的历史行情时，可选配置 `TUSHARE_TOKEN` 或 `TICKFLOW_API_KEY`。新闻搜索也是可选能力；不配置时系统会在能力边界内降级运行。
+行情默认可使用免费 A 股数据源。需要更稳定的历史行情时，可选配置 `MAIRUI_LICENCE` 或 `TICKFLOW_API_KEY`。新闻搜索也是可选能力；不配置时系统会在能力边界内降级运行。
 
 已登记指数请使用明确的指数代码，例如 `sh000016`、`sz399006`、`930606.CSI`。普通六位代码按 A 股证券处理。
 

@@ -27,7 +27,7 @@ sz399006
 
 - Efinance
 - AkShare
-- Tushare（可选 `TUSHARE_TOKEN`）
+- Mairui（可选 `MAIRUI_LICENCE`）
 - Pytdx
 - Baostock
 - 腾讯与新浪直连能力
@@ -55,7 +55,7 @@ sz399006
 
 ## 配置建议
 
-最小配置只需要一个可用的大模型渠道与 A 股股票列表。需要稳定的长期任务时，再按需增加 Tushare、TickFlow、新闻搜索和通知渠道。完整变量说明见 [完整配置与部署指南](full-guide.md)。
+最小配置只需要一个可用的大模型渠道与 A 股股票列表。需要稳定的长期任务时，再按需增加 Mairui、TickFlow、新闻搜索和通知渠道。完整变量说明见 [完整配置与部署指南](full-guide.md)。
 
 ## 功能范围
 

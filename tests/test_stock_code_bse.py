@@ -5,7 +5,7 @@ Unit tests for BSE (Beijing Stock Exchange) code recognition (Issue #491).
 Covers:
 - is_bse_code()
 - normalize_stock_code() BJ prefix/suffix
-- TushareFetcher._convert_stock_code() BSE branch
+- MairuiFetcher._convert_stock_code() BSE branch
 - AkshareFetcher _to_sina_tx_symbol() BSE and Shanghai B-share handling
 """
 import sys
@@ -30,12 +30,12 @@ except ImportError as e:
 
 # Optional fetcher-specific imports
 try:
-    from data_provider.tushare_fetcher import TushareFetcher
-    _TUSHARE_IMPORTS_OK = True
-    _TUSHARE_IMPORT_ERROR = ""
+    from data_provider.mairui_fetcher import MairuiFetcher
+    _MAIRUI_IMPORTS_OK = True
+    _MAIRUI_IMPORT_ERROR = ""
 except ImportError as e:
-    _TUSHARE_IMPORTS_OK = False
-    _TUSHARE_IMPORT_ERROR = str(e)
+    _MAIRUI_IMPORTS_OK = False
+    _MAIRUI_IMPORT_ERROR = str(e)
 
 try:
     from data_provider.akshare_fetcher import _to_sina_tx_symbol
@@ -99,20 +99,20 @@ class TestNormalizeStockCode(unittest.TestCase):
         self.assertEqual(normalize_stock_code("bj920748"), "920748")
 
 
-@unittest.skipIf(not _TUSHARE_IMPORTS_OK, f"tushare fetcher imports failed: {_TUSHARE_IMPORT_ERROR}")
-class TestTushareConvertStockCode(unittest.TestCase):
-    """Tests for TushareFetcher._convert_stock_code() BSE branch."""
+@unittest.skipIf(not _MAIRUI_IMPORTS_OK, f"mairui fetcher imports failed: {_MAIRUI_IMPORT_ERROR}")
+class TestMairuiConvertStockCode(unittest.TestCase):
+    """Tests for MairuiFetcher._convert_stock_code() BSE branch."""
 
     def test_bse_returns_bj_suffix(self):
         """BSE codes should convert to xxx.BJ."""
-        fetcher = TushareFetcher()
+        fetcher = MairuiFetcher()
         self.assertEqual(fetcher._convert_stock_code("920748"), "920748.BJ")
         self.assertEqual(fetcher._convert_stock_code("838163"), "838163.BJ")
         self.assertEqual(fetcher._convert_stock_code("430047"), "430047.BJ")
 
     def test_bse_explicit_exchange_hint_is_preserved(self):
-        """BSE prefix/suffix forms should keep the BJ Tushare ts_code."""
-        fetcher = TushareFetcher()
+        """BSE prefix/suffix forms should keep the BJ Mairui ts_code."""
+        fetcher = MairuiFetcher()
         self.assertEqual(fetcher._convert_stock_code("920493.BJ"), "920493.BJ")
         self.assertEqual(fetcher._convert_stock_code("BJ920493"), "920493.BJ")
 

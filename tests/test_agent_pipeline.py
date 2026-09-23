@@ -1622,14 +1622,14 @@ class TestPipelineRouting(unittest.TestCase):
             from src.enums import ReportType
             pipeline = StockAnalysisPipeline(
                 config=mock_cfg,
-                analysis_skills=["growth_quality"],
+                analysis_skills=["volume_breakout"],
             )
             pipeline._analyze_with_agent = MagicMock(return_value=None)
 
             pipeline.analyze_stock("600519", ReportType.SIMPLE, "q1")
 
             pipeline._analyze_with_agent.assert_called_once()
-            self.assertEqual(pipeline.analysis_skills, ["growth_quality"])
+            self.assertEqual(pipeline.analysis_skills, ["volume_breakout"])
 
 
 class TestAnalyzeWithAgentStockName(unittest.TestCase):

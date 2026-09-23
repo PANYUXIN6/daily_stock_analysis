@@ -90,7 +90,7 @@ class AnalyzeRequest(BaseModel):
         None,
         validation_alias=AliasChoices("skills", "strategies"),
         description="本次分析使用的策略 skill ID 列表；兼容 legacy strategies 字段",
-        json_schema_extra={"example": ["bull_trend", "growth_quality"]},
+        json_schema_extra={"example": ["bull_trend", "volume_breakout"]},
     )
 
     model_config = ConfigDict(json_schema_extra={

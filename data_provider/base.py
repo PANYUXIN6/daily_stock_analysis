@@ -505,7 +505,7 @@ class DataFetcherManager:
         "EfinanceFetcher": {"cn"},
         "TencentFetcher": {"cn"},
         "AkshareFetcher": {"cn"},
-        "TushareFetcher": {"cn"},
+        "MairuiFetcher": {"cn"},
         "TickFlowFetcher": {"cn"},
         "PytdxFetcher": {"cn"},
         "BaostockFetcher": {"cn"},
@@ -1631,7 +1631,7 @@ class DataFetcherManager:
         初始化默认数据源列表
 
         优先级动态调整逻辑：
-        - 如果配置了 TUSHARE_TOKEN：实例化 TushareFetcher，并按其内部逻辑提升优先级
+        - 如果配置了 MAIRUI_LICENCE：实例化 MairuiFetcher，并按其内部逻辑提升优先级
         - 未配置的可选数据源不实例化，避免在批量拉取时反复探测无效源
         - 默认优先级：
           0. EfinanceFetcher (Priority 0) - 最高优先级
@@ -1644,7 +1644,7 @@ class DataFetcherManager:
         from .efinance_fetcher import EfinanceFetcher
         from .tencent_fetcher import TencentFetcher
         from .akshare_fetcher import AkshareFetcher
-        from .tushare_fetcher import TushareFetcher
+        from .mairui_fetcher import MairuiFetcher
         from .tickflow_fetcher import TickFlowFetcher
         from .pytdx_fetcher import PytdxFetcher
         from .baostock_fetcher import BaostockFetcher
@@ -1657,11 +1657,14 @@ class DataFetcherManager:
         baostock = BaostockFetcher()
         optional_fetchers: List[BaseFetcher] = []
 
-        tushare_token = (getattr(config, "tushare_token", None) or "").strip()
-        if tushare_token:
-            optional_fetchers.append(TushareFetcher())  # 会根据 Token 配置自动调整优先级
+        mairui_licence = (getattr(config, "mairui_licence", None) or "").strip()
+        if mairui_licence:
+            try:
+                optional_fetchers.append(MairuiFetcher())
+            except ValueError:
+                logger.warning("[数据源初始化] 麦蕊地址或优先级配置无效，继续其他数据源")
         else:
-            logger.debug("[数据源初始化] 跳过未配置的 TushareFetcher")
+            logger.debug("[数据源初始化] 跳过未配置的 MairuiFetcher")
 
         tickflow_api_key = (getattr(config, "tickflow_api_key", None) or "").strip()
         if tickflow_api_key:
@@ -1689,7 +1692,7 @@ class DataFetcherManager:
                 *optional_fetchers,
             ]
 
-            # 按优先级排序（Tushare 如果配置了 Token 且初始化成功，优先级为 0）
+            # 按优先级排序（麦蕊配置了证书时默认优先级为 -1）
             self._fetchers.sort(key=lambda f: f.priority)
             self._refresh_fetcher_indexes_locked()
 
@@ -1857,13 +1860,13 @@ class DataFetcherManager:
         批量预取实时行情数据（在分析开始前调用）
         
         策略：
-        1. 检查优先级中是否包含适合预取的数据源（efinance/akshare_em/tushare/tickflow）
+        1. 检查优先级中是否包含适合预取的数据源（efinance/akshare_em/tickflow）
         2. 如果不包含，跳过预取（新浪/腾讯是单股票查询，无需预取）
         3. 如果自选股数量 >= 5 且使用可预取数据源，则预取填充缓存
         
         这样做的好处：
         - 使用新浪/腾讯时：每只股票独立查询，无全量拉取问题
-        - 使用 efinance/东财/Tushare 时：预取一次，后续缓存命中
+        - 使用 efinance/东财 时：预取一次，后续缓存命中
         - 使用 TickFlow 时：按当前自选股批量预取，避免逐股重复请求
         
         Args:
@@ -1899,10 +1902,10 @@ class DataFetcherManager:
             return 0
         
         # 检查优先级中是否包含适合批量预取的数据源
-        # efinance/akshare_em/tushare 通过一次调用填充全市场缓存；
+        # efinance/akshare_em 通过一次调用填充全市场缓存；
         # tickflow 通过 symbols 批量接口预取当前自选股缓存。
         priority = config.realtime_source_priority.lower()
-        prefetch_sources = ['efinance', 'akshare_em', 'tushare', 'tickflow']
+        prefetch_sources = ['efinance', 'akshare_em', 'tickflow']
         
         # 如果优先级中前两个都不是可预取数据源，跳过预取
         # 因为新浪/腾讯是单股票查询，不需要预取
@@ -2042,7 +2045,7 @@ class DataFetcherManager:
         mapping = {
             "AkshareFetcher": "akshare",
             "EfinanceFetcher": "efinance",
-            "TushareFetcher": "tushare",
+            "MairuiFetcher": "mairui",
         }
         return mapping.get(fetcher_name, fetcher_name.replace("Fetcher", "").lower())
 
@@ -2179,8 +2182,8 @@ class DataFetcherManager:
                         )
                         quote = self._call_fetcher_method(fetcher, 'get_realtime_quote', stock_code, source="tencent")
                 
-                elif source == "tushare":
-                    fetcher = self._get_fetcher_by_name("TushareFetcher", capability="realtime_quote")
+                elif source == "mairui":
+                    fetcher = self._get_fetcher_by_name("MairuiFetcher", capability="realtime_quote")
                     if fetcher is not None and hasattr(fetcher, 'get_realtime_quote'):
                         record_provider_run_started(
                             data_type="realtime_quote",
@@ -2924,10 +2927,6 @@ class DataFetcherManager:
         if status == "failed":
             return False
         for block in (
-            "valuation",
-            "growth",
-            "earnings",
-            "institution",
             "capital_flow",
             "dragon_tiger",
             "boards",
@@ -2939,30 +2938,6 @@ class DataFetcherManager:
 
     def _build_market_not_supported(self, market: str, reason: str) -> Dict[str, Any]:
         blocks = {
-            "valuation": self._build_fundamental_block(
-                "partial" if market == "etf" else "not_supported",
-                {},
-                [{"provider": "fundamental_pipeline", "result": "not_supported", "duration_ms": 0}],
-                [reason],
-            ),
-            "growth": self._build_fundamental_block(
-                "not_supported",
-                {},
-                [{"provider": "fundamental_pipeline", "result": "not_supported", "duration_ms": 0}],
-                [reason],
-            ),
-            "earnings": self._build_fundamental_block(
-                "not_supported",
-                {},
-                [{"provider": "fundamental_pipeline", "result": "not_supported", "duration_ms": 0}],
-                [reason],
-            ),
-            "institution": self._build_fundamental_block(
-                "not_supported",
-                {},
-                [{"provider": "fundamental_pipeline", "result": "not_supported", "duration_ms": 0}],
-                [reason],
-            ),
             "capital_flow": self._build_fundamental_block(
                 "not_supported",
                 {},
@@ -2998,10 +2973,6 @@ class DataFetcherManager:
         """Build a consistent failed-context payload for caller-side fallback."""
         market = _market_tag(stock_code)
         block_names = (
-            "valuation",
-            "growth",
-            "earnings",
-            "institution",
             "capital_flow",
             "dragon_tiger",
             "boards",
@@ -3036,7 +3007,7 @@ class DataFetcherManager:
         budget_seconds: Optional[float] = None
     ) -> Dict[str, Any]:
         """
-        Aggregate fundamental blocks with fail-open semantics.
+        Aggregate capital flow, dragon-tiger activity and boards with fail-open semantics.
         """
         from src.config import get_config
 
@@ -3072,10 +3043,6 @@ class DataFetcherManager:
         remaining_seconds = stage_timeout
         result_ctx: Dict[str, Any] = {
             "market": market,
-            "valuation": {},
-            "growth": {},
-            "earnings": {},
-            "institution": {},
             "capital_flow": {},
             "dragon_tiger": {},
             "boards": {},
@@ -3089,156 +3056,6 @@ class DataFetcherManager:
         def _consume_budget(consumed_ms: int) -> None:
             nonlocal remaining_seconds
             remaining_seconds = max(0.0, remaining_seconds - consumed_ms / 1000.0)
-
-        valuation_timeout = min(fetch_timeout, remaining_seconds)
-        if valuation_timeout > 0:
-            quote_payload, valuation_err, valuation_ms = self._run_with_retry(
-                lambda: self.get_realtime_quote(stock_code),
-                valuation_timeout,
-                "fundamental_valuation",
-            )
-            _consume_budget(valuation_ms)
-        else:
-            quote_payload, valuation_err, valuation_ms = None, "fundamental stage timeout", 0
-
-        valuation_payload = {
-            "pe_ratio": getattr(quote_payload, "pe_ratio", None) if quote_payload else None,
-            "pb_ratio": getattr(quote_payload, "pb_ratio", None) if quote_payload else None,
-            "total_mv": getattr(quote_payload, "total_mv", None) if quote_payload else None,
-            "circ_mv": getattr(quote_payload, "circ_mv", None) if quote_payload else None,
-        }
-        valuation_status = self._infer_block_status(
-            valuation_payload,
-            "partial" if quote_payload is not None else "not_supported",
-        )
-        if valuation_status == "partial" and valuation_err and not self._has_meaningful_payload(valuation_payload):
-            valuation_status = "failed"
-        result_ctx["valuation"] = self._build_fundamental_block(
-            valuation_status,
-            valuation_payload,
-            self._normalize_source_chain(
-                [{"provider": "realtime_quote", "result": valuation_status, "duration_ms": valuation_ms}],
-                "realtime_quote",
-                valuation_status,
-                valuation_ms,
-            ),
-            [valuation_err] if valuation_err else [],
-        )
-
-        # growth / earnings / institution (one AkShare call)
-        if remaining_seconds <= 0:
-            bundle_status = "failed"
-            bundle_payload: Dict[str, Any] = {}
-            bundle_errors = ["fundamental stage timeout"]
-            bundle_ms = 0
-        else:
-            bundle_timeout = min(fetch_timeout, remaining_seconds)
-            bundle_payload, bundle_err_msg, bundle_ms = self._run_with_retry(
-                lambda: self._fundamental_adapter.get_fundamental_bundle(stock_code),
-                bundle_timeout,
-                "fundamental_bundle",
-            )
-            _consume_budget(bundle_ms)
-            if not isinstance(bundle_payload, dict):
-                bundle_status = "failed"
-                bundle_payload = {}
-                bundle_errors = ["fundamental_bundle failed"]
-                if bundle_err_msg:
-                    bundle_errors.append(bundle_err_msg)
-            else:
-                bundle_status = str(bundle_payload.get("status", "not_supported"))
-                bundle_errors = [bundle_err_msg] if bundle_err_msg else []
-
-        bundle_chain = self._normalize_source_chain(
-            bundle_payload.get("source_chain", []),
-            "fundamental_bundle",
-            bundle_status,
-            bundle_ms,
-        ) if isinstance(bundle_payload, dict) else self._normalize_source_chain(
-            None,
-            "fundamental_bundle",
-            bundle_status,
-            bundle_ms,
-        )
-        growth_payload = bundle_payload.get("growth", {}) if isinstance(bundle_payload, dict) else {}
-        earnings_payload = bundle_payload.get("earnings", {}) if isinstance(bundle_payload, dict) else {}
-        institution_payload = bundle_payload.get("institution", {}) if isinstance(bundle_payload, dict) else {}
-        if not isinstance(growth_payload, dict):
-            growth_payload = {}
-        else:
-            growth_payload = dict(growth_payload)
-        if not isinstance(earnings_payload, dict):
-            earnings_payload = {}
-        else:
-            earnings_payload = dict(earnings_payload)
-        if not isinstance(institution_payload, dict):
-            institution_payload = {}
-        else:
-            institution_payload = dict(institution_payload)
-
-        # Derive TTM dividend yield from already-fetched quote price; avoid extra quote calls.
-        earnings_extra_errors: List[str] = []
-        dividend_payload = earnings_payload.get("dividend")
-        if isinstance(dividend_payload, dict):
-            dividend_payload = dict(dividend_payload)
-            ttm_cash_raw = dividend_payload.get("ttm_cash_dividend_per_share")
-            ttm_cash = None
-            if ttm_cash_raw is not None:
-                try:
-                    ttm_cash = float(ttm_cash_raw)
-                except (TypeError, ValueError):
-                    earnings_extra_errors.append("invalid_ttm_cash_dividend_per_share")
-            if isinstance(quote_payload, dict):
-                latest_price_raw = quote_payload.get("price")
-            else:
-                latest_price_raw = getattr(quote_payload, "price", None) if quote_payload else None
-            latest_price = None
-            if latest_price_raw is not None:
-                try:
-                    latest_price = float(latest_price_raw)
-                except (TypeError, ValueError):
-                    latest_price = None
-            ttm_yield = None
-            if ttm_cash is not None:
-                if latest_price is not None and latest_price > 0:
-                    ttm_yield = round(ttm_cash / latest_price * 100.0, 4)
-                else:
-                    earnings_extra_errors.append("invalid_price_for_ttm_dividend_yield")
-
-            dividend_payload["ttm_dividend_yield_pct"] = ttm_yield
-            if ttm_yield is not None:
-                dividend_payload["yield_formula"] = "ttm_cash_dividend_per_share / latest_price * 100"
-            earnings_payload["dividend"] = dividend_payload
-
-        adapter_errors = list(bundle_payload.get("errors", [])) if isinstance(bundle_payload, dict) else []
-        adapter_errors.extend(bundle_errors)
-        growth_errors = list(adapter_errors)
-        earnings_errors = list(adapter_errors)
-        earnings_errors.extend(earnings_extra_errors)
-        institution_errors = list(adapter_errors)
-
-        growth_status = self._infer_block_status(growth_payload, bundle_status)
-        earnings_status = self._infer_block_status(earnings_payload, bundle_status)
-        institution_status = self._infer_block_status(institution_payload, bundle_status)
-
-        result_ctx["growth"] = self._build_fundamental_block(
-            growth_status,
-            growth_payload,
-            bundle_chain,
-            growth_errors,
-        )
-        result_ctx["earnings"] = self._build_fundamental_block(
-            earnings_status,
-            earnings_payload,
-            bundle_chain,
-            earnings_errors,
-        )
-        result_ctx["institution"] = self._build_fundamental_block(
-            institution_status,
-            institution_payload,
-            bundle_chain,
-            institution_errors,
-        )
 
         # capital flow
         if is_etf:
@@ -3284,20 +3101,12 @@ class DataFetcherManager:
             )
 
         block_statuses = {
-            "valuation": result_ctx["valuation"].get("status", "not_supported"),
-            "growth": result_ctx["growth"].get("status", "not_supported"),
-            "earnings": result_ctx["earnings"].get("status", "not_supported"),
-            "institution": result_ctx["institution"].get("status", "not_supported"),
             "capital_flow": result_ctx["capital_flow"].get("status", "not_supported"),
             "dragon_tiger": result_ctx["dragon_tiger"].get("status", "not_supported"),
             "boards": result_ctx["boards"].get("status", "not_supported"),
         }
         result_ctx["coverage"] = block_statuses
         for block in (
-            "valuation",
-            "growth",
-            "earnings",
-            "institution",
             "capital_flow",
             "dragon_tiger",
             "boards",
@@ -3306,7 +3115,7 @@ class DataFetcherManager:
             result_ctx["source_chain"].extend(result_ctx[block].get("source_chain", []))
 
         if is_etf:
-            # Keep ETF downgrade semantics for overall status even when valuation is available.
+            # Preserve the aggregate status for unsupported ETF trading context.
             result_ctx["status"] = (
                 "not_supported" if all(value == "not_supported" for value in block_statuses.values()) else "partial"
             )
@@ -3554,7 +3363,7 @@ class DataFetcherManager:
 
     def get_sector_rankings(self, n: int = 5) -> Tuple[List[Dict], List[Dict]]:
         """获取板块涨跌榜（自动切换数据源）"""
-        # 按需求固定回退顺序：Akshare(EM) -> Akshare(Sina) -> Tushare -> Efinance
+        # 按需求固定回退顺序：Akshare(EM) -> Akshare(Sina) -> Mairui -> Efinance
         top, bottom, _, last_error = self._get_sector_rankings_with_meta(n)
         if top or bottom:
             return top, bottom

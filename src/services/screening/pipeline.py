@@ -177,6 +177,7 @@ def screen(
     snapshot_source = str(snapshot_df.attrs.get("snapshot_source", ""))
     source_errors = [str(item) for item in snapshot_df.attrs.get("source_errors", [])]
     degradation.extend(f"Snapshot source fallback: {item}" for item in source_errors)
+    degradation.extend(str(item) for item in snapshot_df.attrs.get("source_notes", []))
     if bool(snapshot_df.attrs.get("fallback_used")):
         stale_age = snapshot_df.attrs.get("stale_age_hours")
         if stale_age is None:
@@ -196,18 +197,18 @@ def screen(
                 + _format_filter_waterfall(snapshot_waterfall)
             )
     df = apply_hard_filters(snapshot_df, snapshot_filters)
-    profit_gap_evidence: dict[str, dict] = {}
-    if screening.profit_gap is not None and not df.empty:
-        from src.services.screening.profit_gap import filter_profit_gap
+    gap_limit_up_evidence: dict[str, dict] = {}
+    if screening.gap_limit_up is not None and not df.empty:
+        from src.services.screening.gap_limit_up import filter_gap_limit_up
 
-        df, profit_gap_evidence, profit_gap_notes = filter_profit_gap(
-            df, screening.profit_gap, progress=progress_callback,
+        df, gap_limit_up_evidence, gap_limit_up_notes = filter_gap_limit_up(
+            df, screening.gap_limit_up, progress=progress_callback,
         )
-        degradation.extend(profit_gap_notes)
+        degradation.extend(gap_limit_up_notes)
     after_filter_count = len(df)
     _emit_progress(
         progress_callback,
-        46 if screening.profit_gap else 42,
+        46 if screening.gap_limit_up else 42,
         f"快照筛选完成，保留 {after_filter_count} 条候选",
     )
 
@@ -229,8 +230,8 @@ def screen(
             portfolio_diversity_enabled=config.portfolio_diversity_enabled,
         )
 
-    daily_enriched = bool(profit_gap_evidence)
-    daily_enrich_count = len(profit_gap_evidence)
+    daily_enriched = bool(gap_limit_up_evidence)
+    daily_enrich_count = len(gap_limit_up_evidence)
     if daily_needed or daily_requested:
         provisional = _sort_screened_candidates(compute_screen_scores(df, screening), screening)
         enrich_count = min(daily_limit, len(provisional))
@@ -343,11 +344,11 @@ def screen(
 
     # 6.5. Host-provided candidate context, e.g. DSA realtime quote,
     # fundamentals, and news. This runs before LLM ranking so L2 can use it.
-    _emit_progress(progress_callback, 52, "正在补充候选行情与基本面")
+    _emit_progress(progress_callback, 52, "正在补充候选行情与资金板块信息")
     degradation.extend(apply_dsa_provider_context(picks, context))
     for pick in picks:
-        if pick.code in profit_gap_evidence:
-            pick.dsa_context["profit_gap"] = profit_gap_evidence[pick.code]
+        if pick.code in gap_limit_up_evidence:
+            pick.dsa_context["gap_limit_up"] = gap_limit_up_evidence[pick.code]
     llm_fallback_picks = [copy.deepcopy(pick) for pick in picks]
 
     # 7. L2 LLM ranking
@@ -521,14 +522,14 @@ def screen(
 
     # Keep the deterministic event evidence visible even if LLM ranking changes
     # its prose or reconstructs Pick objects.
-    if profit_gap_evidence:
-        from src.services.screening.profit_gap import evidence_summary
+    if gap_limit_up_evidence:
+        from src.services.screening.gap_limit_up import evidence_summary
 
         for pick in picks:
-            item = profit_gap_evidence[pick.code]
-            pick.post_analysis_results["net_profit_gap"] = item
-            pick.post_analysis_summaries["net_profit_gap"] = evidence_summary(item)
-            pick.post_analysis_status["net_profit_gap"] = "success"
+            item = gap_limit_up_evidence[pick.code]
+            pick.post_analysis_results["gap_limit_up"] = item
+            pick.post_analysis_summaries["gap_limit_up"] = evidence_summary(item)
+            pick.post_analysis_status["gap_limit_up"] = "success"
 
     # Apply selection variant after post-analyzers to ensure rotation respects
     # final_score adjustments made by L3 analyzers (e.g. scorecard/dsa).
@@ -656,7 +657,7 @@ def _df_to_picks(df: pd.DataFrame) -> list[Pick]:
 
 def _sort_screened_candidates(df: pd.DataFrame, screening=None) -> pd.DataFrame:
     """Sort scored candidates deterministically with factor-aware tie breakers."""
-    factor_order = ["stability", "activity", "momentum", "value"]
+    factor_order = ["stability", "activity", "momentum", "liquidity"]
     if screening is not None and screening.factor_weights:
         factor_order = [
             factor
@@ -689,10 +690,6 @@ def _required_snapshot_columns(filters) -> list[str]:
         columns.append("price")
     if filters.market_cap_min is not None or filters.market_cap_max is not None:
         columns.append("total_mv")
-    if filters.pe_ttm_min is not None or filters.pe_ttm_max is not None:
-        columns.append("pe_ratio")
-    if filters.pb_min is not None or filters.pb_max is not None:
-        columns.append("pb_ratio")
     if filters.volume_ratio_min is not None:
         columns.append("volume_ratio")
     if filters.turnover_rate_min is not None:

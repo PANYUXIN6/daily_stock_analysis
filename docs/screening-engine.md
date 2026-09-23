@@ -7,7 +7,7 @@ DSA 将选股能力作为主项目的一部分维护。实现参考 [AlphaSift](
 - `src/services/screening/`：快照、日 K、策略加载、过滤、评分、风险、LLM 重排与热点实现。
 - `src/services/screening/strategies/`：随 DSA 版本发布的策略 YAML。
 - `src/services/screening/pipeline.py`：筛选流程的直接入口。
-- `src/services/screening/profit_gap.py`：净利润断层的事件硬过滤及成交量阶段判定；`data_provider/profit_gap.py` 复用现有 Tushare HTTP 客户端提供财报、原始行情、复权因子与涨停价。
+- `src/services/screening/gap_limit_up.py`：当日跳空涨停硬过滤及量能说明；`data_provider/gap_limit_up.py` 组合原始/等比复权行情与 instrument 当日涨停价。
 - `src/services/screening_service.py`：DSA 业务编排，直接调用 pipeline，负责配置、数据源上下文、响应归一化、缓存与错误映射。
 - `src/storage.py`：使用 DSA 现有 SQLAlchemy/SQLite 基础设施持久化已完成的选股运行，不另建文件数据库。
 - `api/v1/endpoints/screening.py`：`/api/v1/screening` API。
@@ -73,8 +73,8 @@ SCREENING_EASTMONEY_JITTER_SEC=0.3
   -> 用户按需进入 DSA 单股深度分析
 ```
 
-- 全市场快照在短 TTL 内优先复用最近成功结果；新缓存会记录完整且有序的数据源优先级，只在当前优先级与写入时一致时复用，因此同一来源链中的后备源结果可以加速后续请求，修改来源配置后则会重新读取实时数据。缓存过期后按配置优先级逐源尝试，单一数据源失败后继续降级，并记录 source health 与 last-good 缓存。当前 Sina、Efinance、AkShare/东财和 Tushare 快照接口均不提供增量游标或变更序列，因此 TTL 内可以零请求复用，TTL 到期后仍需重新读取全表；本地比较前后差异不能减少上游传输量，不作为“增量拉取”宣传。
-- 有 `TUSHARE_TOKEN` 时默认优先 Tushare，否则默认从 Sina 开始；显式 `SNAPSHOT_SOURCE_PRIORITY` 始终优先。
+- 全市场快照在短 TTL 内优先复用最近成功结果；新缓存会记录完整且有序的数据源优先级，只在当前优先级与写入时一致时复用，因此同一来源链中的后备源结果可以加速后续请求，修改来源配置后则会重新读取实时数据。缓存过期后按配置优先级逐源尝试，单一数据源失败后继续降级，并记录 source health 与 last-good 缓存。当前 Sina、Efinance、AkShare/东财和 Mairui 快照接口均不提供增量游标或变更序列，因此 TTL 内可以零请求复用，TTL 到期后仍需重新读取全表；本地比较前后差异不能减少上游传输量，不作为“增量拉取”宣传。
+- 有 `MAIRUI_LICENCE` 时默认优先 Mairui，否则默认从 Sina 开始；显式 `SNAPSHOT_SOURCE_PRIORITY` 始终优先。
 - 日 K 优先通过请求级 fetcher 复用 DSA 历史行情链路，无结果时再走筛选引擎的数据源降级；该桥接不会替换进程级函数，因此重叠选股请求之间不会共享 wrapper 或阻塞彼此。
 - LLM 重排前只补充有限候选上下文，最终候选再补行情、基本面、新闻和摘要，控制请求量。
 - 默认本地 `scorecard` 会覆盖完整短名单，保证所有可能进入近分轮换的候选使用同一最终评分口径；多个后置分析器串联时，每一步完成后都会按最新分数重排，因此后续 `dsa` 与 `external_http` 的 `POST_ANALYSIS_MAX_PICKS` 上限作用于当前真实前列。远程状态按实际提交候选记录，外部响应中的超限代码不会改写未提交候选；启用远程分析时轮换只会在已完成相同分析的候选之间发生。
@@ -119,7 +119,7 @@ DSA 中存在两类用途不同的策略文件：
 
 当前内置选股策略为：均衡多因子（`balanced_alpha`）、资金热度（`capital_heat`）、趋势质量（`momentum_quality`）、超跌反转（`oversold_reversal`）、缩量回踩（`shrink_pullback`）、放量突破（`volume_breakout`）。Web 初始选择和 API 未传 `strategy` 时均默认使用均衡多因子。
 
-另提供事件型策略[净利润断层（`net_profit_gap`）](net-profit-gap.md)：全市场快照基础过滤后扫描最近财报事件，在通用因子评分、Top-K 截断和 LLM 排序之前执行三个硬条件与基本面质量门槛。该路径读取原始日线、复权因子和交易日历，不依赖通用日 K 增强开关。证据写入候选 `raw.post_analysis_results.net_profit_gap`，摘要通过现有 `post_analysis_summaries` 返回并在选股页优先展示；API 端点、历史表和默认策略不变。
+另提供量价型策略[跳空涨停（`gap_limit_up`）](gap-limit-up.md)：在通用评分与 Top-K 截断前核实当日完整向上跳空及收盘封涨停，不使用财报事件或财务质量条件。新证据写入候选 `raw.post_analysis_results.gap_limit_up`，沿用现有 API、历史表和摘要展示。
 
 稳健价值、双低选股、蓝筹收益质量和低波质量已从内置选股策略中移除；使用内置目录时，显式提交这些旧策略 ID 会按现有未知策略路径报错。已有选股历史保留，历史策略不在当前列表时继续显示原始 ID。`strategies/` 下的 15 个单股分析策略全部保留，包括成长质量；共享评分与回测能力不受本次策略清理影响。
 
@@ -172,3 +172,5 @@ AlphaSift 是参考来源，不是自动同步源。更新时应：
 - 业务回滚：设置 `SCREENING_ENABLED=false` 并重启；普通个股分析、报告、通知和问股不受影响。
 - 代码回滚：revert 引入选股引擎的提交并重建后端、Docker 与桌面产物。
 - 数据回滚：如需保留选股缓存和运行历史，先备份 `data/screening/` 与 DSA 数据库；代码回滚不会主动删除 `screening_runs` 用户数据。
+
+选股和单股分析的财务因子移除范围及兼容性见[量价波段分析](price-volume-trading.md)。

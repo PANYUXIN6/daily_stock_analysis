@@ -269,7 +269,7 @@ def fetch_stock_fund_flow_summary(code: str) -> str:
 
 
 def fetch_stock_quote_summary(code: str) -> str:
-    """Fetch lightweight Tencent quote/fundamental context for one candidate."""
+    """Fetch lightweight Tencent price-volume context for one candidate."""
     symbol = _tencent_symbol_for_code(code)
     if not symbol:
         return ""
@@ -294,7 +294,6 @@ def fetch_stock_quote_summary(code: str) -> str:
         ("最低", _part(parts, 34)),
         ("成交额万元", _part(parts, 37)),
         ("换手率", _part(parts, 38)),
-        ("市盈率", _part(parts, 39)),
         ("总市值亿元", _part(parts, 45)),
         ("流通市值亿元", _part(parts, 44)),
     ]
@@ -496,7 +495,7 @@ def _summarize_row_context(row: dict[str, object]) -> str:
         ("news", "新闻"),
         ("announcement", "公告"),
         ("fund_flow", "资金流"),
-        ("quote", "行情估值"),
+        ("quote", "量价行情"),
     ):
         value = _compress_text(row.get(key), max_len=180)
         if value:

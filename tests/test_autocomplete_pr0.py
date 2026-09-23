@@ -48,9 +48,9 @@ class TestAnalyzeRequest:
         """Test analysis requests accept both skills and legacy strategies."""
         request = AnalyzeRequest(
             stock_code="600519",
-            skills=["growth_quality"],
+            skills=["volume_breakout"],
         )
-        assert request.skills == ["growth_quality"]
+        assert request.skills == ["volume_breakout"]
 
         legacy_request = AnalyzeRequest(
             stock_code="600519",

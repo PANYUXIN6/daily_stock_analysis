@@ -261,7 +261,7 @@ def _render_ranking_prompt(hints: str, context: str, candidates_text: str) -> st
 你不能推荐候选池外股票，不能修改硬筛条件，不能给目标价或承诺收益。你的价值在于：
 1. 结合策略偏好，对候选之间做跨股票比较；
 2. 识别结构化数据暴露不出的潜在催化、风格匹配和风险点；
-3. 对行业/概念热度和 DSA 补充的行情、基本面、新闻做语义归因，但不能把单日热度当作唯一买入理由；
+3. 对行业/概念热度和 DSA 补充的量价、资金流、板块和新闻做语义归因，但不能把单日热度当作唯一买入理由；
 4. 给出简短、可审计、可复核的排序理由。
 
 ## 排序依据
@@ -382,7 +382,7 @@ def _format_candidate_for_prompt(p: Pick, *, detail: str = "full") -> str:
     return (
         f"- {p.code} {p.name}: price={p.price}, change_pct={p.change_pct}%, "
         f"amount={p.amount:.0f}, turnover={p.turnover_rate}, volume_ratio={p.volume_ratio}, "
-        f"total_mv={p.total_mv}, PE={p.pe_ratio}, PB={p.pb_ratio}, "
+        f"total_mv={p.total_mv}, "
         f"industry={p.industry or 'unknown'}, concepts={p.concepts or 'unknown'}, "
         f"industry_rank={p.industry_rank}, industry_change_pct={p.industry_change_pct}, "
         f"board_heat_score={p.board_heat_score}, board_heat_summary={p.board_heat_summary or 'unknown'}, "
@@ -466,13 +466,12 @@ def _format_dsa_context_for_prompt(p: Pick) -> str:
         parts.append(f"summary={_truncate_text(p.dsa_analysis_summary, 240)}")
 
     context = p.dsa_context if isinstance(p.dsa_context, dict) else {}
-    gap = context.get("profit_gap")
+    gap = context.get("gap_limit_up")
     if isinstance(gap, dict):
         verified = {key: gap.get(key) for key in (
-            "profit_yoy_pct", "core_profit_ratio",
-            "event_trade_date", "as_of", "observation_days", "volume", "fundamental_note",
+            "event_trade_date", "as_of", "observation_days", "volume",
         )}
-        parts.insert(0, "verified_profit_gap=" + json.dumps(verified, ensure_ascii=False))
+        parts.insert(0, "verified_gap_limit_up=" + json.dumps(verified, ensure_ascii=False))
     quote = context.get("quote") if isinstance(context.get("quote"), dict) else {}
     if quote:
         parts.append(

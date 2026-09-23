@@ -99,9 +99,7 @@ def check_config():
     print(f"  调试模式: {config.debug}")
     
     print_section("API 配置")
-    print(f"  Tushare Token: {'已配置 ✓' if config.tushare_token else '未配置 ✗'}")
-    if config.tushare_token:
-        print(f"    Token 前8位: {config.tushare_token[:8]}...")
+    print(f"  麦蕊证书: {'已配置 ✓' if config.mairui_licence else '未配置 ✗'}")
     
     print(f"  DeepSeek API Key: {'已配置 ✓' if config.deepseek_api_keys else '未配置 ✗'}")
     print(f"  DeepSeek 主模型: {config.litellm_model}")

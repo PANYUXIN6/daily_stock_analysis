@@ -127,10 +127,10 @@ The first four keys are contribution weights (0-100). Non-zero valid weights
 should sum to 100; all-zero means no effective signal and must not be faked.
 ``technical_indicators`` explains the impact of technical signals on the recommendation.
 ``news_sentiment`` explains the impact of news/sentiment on the recommendation.
-``fundamentals`` explains the impact of fundamental factors (valuation, earnings, financials) on the recommendation.
+``fundamentals`` must be 0. Use price-volume, trend and trading risk; do not score valuation or financial quality.
 ``market_conditions`` explains the impact of overall market environment on the recommendation.
-``strongest_bullish_signal`` is the name of the strongest bullish signal (e.g., MACD golden cross, earnings surprise, low valuation).
-``strongest_bearish_signal`` is the name of the strongest bearish signal (e.g., MA death cross, earnings warning, high valuation).
+``strongest_bullish_signal`` is the name of the strongest bullish signal (e.g., MACD golden cross, volume breakout, support reclaim).
+``strongest_bearish_signal`` is the name of the strongest bearish signal (e.g., MA death cross, failed breakout, illiquidity).
 """
         if report_language == "en":
             return prompt + """

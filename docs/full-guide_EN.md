@@ -197,8 +197,8 @@ Chip-distribution analysis has been removed. Tushare `cyq_chips` and other chip 
 
 | Variable | Description | Default | Required |
 |--------|------|--------|:----:|
-| `TUSHARE_TOKEN` | Tushare Pro Token | - | Optional |
-| `TUSHARE_HTTP_URL` | Tushare Pro HTTP endpoint; defaults to `http://api.tushare.pro` when unset/empty. Set only when routing through a corporate proxy, cross-border network, or a self-hosted mirror (must start with `http://` or `https://`). | `http://api.tushare.pro` | Optional |
+| `MAIRUI_LICENCE` | Mairui Licence | - | Optional |
+| `MAIRUI_BASE_URL` | Mairui HTTPS gateway; defaults to official endpoint | `https://api.mairuiapi.com` | Optional |
 | `TICKFLOW_API_KEY` | TickFlow API key; enables optional A-share daily K-lines, realtime quotes, stock list/name lookup, and CN market review enhancement. Permission failures fall back to existing providers. | - | Optional |
 | `TICKFLOW_PRIORITY` | TickFlow priority for the generic A-share daily K-line route; lower values are tried earlier. No effect unless `TICKFLOW_API_KEY` is configured. Registered indices use a separate fixed chain and ignore this variable. Realtime quotes are ordered by `REALTIME_SOURCE_PRIORITY`. | `2` | Optional |
 | `TENCENT_PRIORITY` | Tencent direct priority for the generic A-share daily K-line route; lower values are tried earlier and `5` is the default last fallback. Registered indices use a separate fixed chain and ignore this variable. Does not affect realtime quotes. | `5` | Optional |
@@ -209,8 +209,8 @@ Chip-distribution analysis has been removed. Tushare `cyq_chips` and other chip 
 | `ENABLE_REALTIME_TECHNICAL_INDICATORS` | Intraday real-time technicals: Calculate MA5/MA10/MA20 and bull trends using real-time prices when enabled (Issue #234); uses yesterday's close if disabled. | `true` | Optional |
 | `ENABLE_EASTMONEY_PATCH` | Eastmoney API patch: Recommended to set to `true` when Eastmoney APIs fail frequently (e.g., RemoteDisconnected, connection closed). Injects NID tokens and random User-Agents to reduce rate limiting probability. | `false` | Optional |
 | `REALTIME_SOURCE_PRIORITY` | Real-time quote source priority (comma-separated), e.g., `tencent,akshare_sina,efinance,akshare_em`; add `tickflow` explicitly to use TickFlow realtime quotes | See .env.example | Optional |
-| `ENABLE_FUNDAMENTAL_PIPELINE` | Master switch for fundamental aggregation; when disabled, returns `not_supported` block only, without altering the original analysis pipeline. | `true` | Optional |
-| `FUNDAMENTAL_STAGE_TIMEOUT_SECONDS` | Total latency budget for the fundamental stage (seconds) | `8.0` | Optional |
+| `ENABLE_FUNDAMENTAL_PIPELINE` | Master switch for capital-flow and sector aggregation; when disabled, returns `not_supported` block only, without altering the original analysis pipeline. | `true` | Optional |
+| `FUNDAMENTAL_STAGE_TIMEOUT_SECONDS` | Total latency budget for the capital-flow and sector stage (seconds) | `8.0` | Optional |
 | `FUNDAMENTAL_FETCH_TIMEOUT_SECONDS` | Timeout for a single capability source call; market-structure industry/concept rankings share this budget | `8.0` | Optional |
 | `FUNDAMENTAL_RETRY_MAX` | Retry count for fundamental capabilities (including the first attempt) | `1` | Optional |
 | `FUNDAMENTAL_CACHE_TTL_SECONDS` | Fundamental aggregation cache TTL (seconds), short cache to reduce repeated API pulling. | `120` | Optional |
@@ -224,9 +224,6 @@ Chip-distribution analysis has been removed. Tushare `cyq_chips` and other chip 
 >   - `fundamental_context.belong_boards` = related A-share board list, `[]` when unavailable;
 >   - `fundamental_context.boards.data` = `sector_rankings` (sector rise/fall leaderboard, structure `{top, bottom}`);
 >   - `fundamental_context.concept_boards.data` = `concept_rankings` (concept/theme rise/fall leaderboard, structure `{top, bottom}`; currently A-share only and omitted or empty on fail-open);
->   - `fundamental_context.earnings.data.financial_report.currency` = financial statement currency;
->   - `fundamental_context.earnings.data.dividend.currency` = dividend currency;
->   - `fundamental_context.earnings.data.dividend.ttm_dividend_yield_pct` = `ttm_cash_dividend_per_share / latest_price * 100`, both sides in the trading currency. Falls back to `info.trailingAnnualDividendYield` (decimal) or `info.dividendYield` (already-percent passthrough) only when TTM cash or latest price is unavailable;
 >   - `get_stock_info.belong_boards` = list of sectors the individual stock belongs to;
 >   - `get_stock_info.boards` is a compatibility alias, value is identical to `belong_boards` (removal considered only in major version updates);
 >   - `get_stock_info.sector_rankings` stays consistent with `fundamental_context.boards.data`.
@@ -235,7 +232,7 @@ Chip-distribution analysis has been removed. Tushare `cyq_chips` and other chip 
 >   - `AnalysisReport.details.concept_rankings` = concept/theme leaderboard in structured report details for Web related-board signal matching and notification table type labels.
 > - **Sector leaderboard** uses a fixed fallback order: consistent with global priority.
 > - **Timeout control** is a `best-effort` soft timeout: the stage will quickly degrade and continue execution based on the budget, but does not guarantee a hard interrupt of underlying third-party network calls.
-> - `FUNDAMENTAL_STAGE_TIMEOUT_SECONDS=8.0` indicates the target budget for the newly added fundamental stage, not a strict hard SLA; Windows, Docker, or rate-limited free data sources can raise it to `12-15s`.
+> - `FUNDAMENTAL_STAGE_TIMEOUT_SECONDS=8.0` indicates the target budget for the newly added capital-flow and sector stage, not a strict hard SLA; Windows, Docker, or rate-limited free data sources can raise it to `12-15s`.
 > - For a hard SLA, please upgrade to isolated child process execution in future versions to forcefully terminate timeout tasks.
 
 ### Other Configuration
@@ -268,9 +265,9 @@ Chip-distribution analysis has been removed. Tushare `cyq_chips` and other chip 
 > - TickFlow daily K-line range requests pass explicit `start_time` / `end_time` / `count`. Because the official quickstart documents that time-range queries are still limited by `count`, non-empty count-capped responses whose first returned trading date is later than the requested start trading date are rejected before normalization or cache writes, allowing manager fallback to continue.
 > - Batch analysis can warm the per-process TickFlow daily K-line cache through `prefetch_daily_klines()` before per-stock `get_daily_data()` calls. Only validated frames are cached; batch permission failures are negative-cached and degrade to single-stock requests or existing providers.
 > - TickFlow behavior is capability-based rather than just key-based: limited plans can still enhance main CN indices, while plans with `CN_Equity_A` universe query support also enhance market breadth and stock-list/name lookups.
-> - TickFlow can derive SW1 industry rankings from its industry universes and full A-share quotes, and participates first in the market-structure industry fallback. Concept-theme rankings still use the existing AkShare / Tushare / Efinance chain.
+> - TickFlow can derive SW1 industry rankings from its industry universes and full A-share quotes, and participates first in the market-structure industry fallback. Concept-theme rankings still use the existing AkShare / Efinance chain.
 > - The official quickstart documents `quotes.get(universes=["CN_Equity_A"])`, but online smoke tests confirmed two additional real-world constraints: universe access depends on plan permissions, and `quotes.get(symbols=[...])` has a per-request symbol limit.
-> - TickFlow currently returns `change_pct` / `amplitude` / `turnover_rate` as ratio values; this integration normalizes them to the project's percent convention so they match AkShare / Tushare / efinance semantics.
+> - TickFlow currently returns `change_pct` / `amplitude` / `turnover_rate` as ratio values; this integration normalizes them to the project's percent convention so they match AkShare / Mairui / efinance semantics.
 > - In scheduler mode, if runtime env explicitly sets `RUN_IMMEDIATELY` but does not set `SCHEDULE_RUN_IMMEDIATELY`, the scheduler keeps inheriting the legacy runtime override instead of being pulled back to a persisted `.env` alias value.
 
 > `MARKET_REVIEW_REGION` only accepts `cn` in the A-share edition.
@@ -1047,10 +1044,9 @@ System defaults to AkShare (free), also supports other data sources:
 - Free, no configuration needed
 - Data source: Eastmoney scraper
 
-### Tushare Pro
-- Requires registration to get Token
-- More stable, more comprehensive data
-- Set `TUSHARE_TOKEN`
+### Mairui
+- Set `MAIRUI_LICENCE` to the certificate issued by Mairui.
+- Full-market endpoints require an eligible licence. See [migration notes](mairui-migration.md) for mappings and limitations.
 
 ### Baostock
 - Free, no configuration needed
@@ -1360,7 +1356,7 @@ curl -X POST http://127.0.0.1:8000/api/v1/analysis/analyze \
 # pass strategy list (optional)
 curl -X POST http://127.0.0.1:8000/api/v1/analysis/analyze \
   -H 'Content-Type: application/json' \
-  -d '{"stock_code": "600519", "skills": ["bull_trend", "growth_quality"]}'
+  -d '{"stock_code": "600519", "skills": ["bull_trend", "volume_breakout"]}'
 
 # Query task status
 curl http://127.0.0.1:8000/api/v1/analysis/status/<task_id>
@@ -1474,3 +1470,5 @@ Technical indicator rules use daily-close edge triggers only. `watchlist` rules 
 ---
 
 For more questions, please [submit an Issue](https://github.com/ZhuLinsen/daily_stock_analysis/issues)
+
+Current trading scope: stock screening and single-stock analysis use price-volume swing signals. PE/PB filters, valuation scoring, financial-quality and dividend queries, and the Growth Quality / Expectation Repricing skills have been removed. `ENABLE_FUNDAMENTAL_PIPELINE` retains its deployment name but now only controls capital flow, LHB and sector context. See [price-volume scope (Chinese)](price-volume-trading.md).

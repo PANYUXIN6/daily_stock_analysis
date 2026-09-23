@@ -28,7 +28,7 @@ from src.agent.llm_adapter import (
     register_fallback_model_pricing,
 )
 from src.agent.provider_trace import resolved_model_provider_identity
-from src.agent.skills.defaults import CORE_TRADING_SKILL_POLICY_ZH
+from src.agent.skills.defaults import CORE_TRADING_SKILL_POLICY_ZH, PRICE_VOLUME_POLICY
 from src.config import (
     Config,
     extra_litellm_params,
@@ -768,7 +768,7 @@ def _sanitize_trend_analysis_for_prompt(
             prompt_notes.append("当前技术结构偏空，已剔除与空头主判断直接冲突的看多结构理由。")
         signal_reasons = filtered_signal_reasons
         prompt_notes.append(
-            "若新闻、业绩或政策催化偏多，只能表述为“事件先行、技术待确认”或“基本面偏多，但技术面尚未确认”，严禁写成确定性买点。"
+            "若新闻、业绩或政策催化偏多，只能表述为“事件先行、技术待确认”，严禁写成确定性买点。"
         )
     elif trend_direction == "bullish":
         filtered_signal_reasons = _filter_conflicting_trend_items(
@@ -1821,7 +1821,7 @@ class DeepSeekAnalyzer:
             "latest_news": "【最新消息】近期重要新闻摘要",
             "risk_alerts": ["风险点1：具体描述", "风险点2：具体描述"],
             "positive_catalysts": ["利好1：具体描述", "利好2：具体描述"],
-            "earnings_outlook": "业绩预期分析（基于年报预告、业绩快报等）",
+            "earnings_outlook": "",
             "sentiment_summary": "舆情情绪一句话总结"
         },
 
@@ -1842,7 +1842,7 @@ class DeepSeekAnalyzer:
                 "✅/⚠️/❌ 检查项2：乖离率合理（强势趋势可放宽）",
                 "✅/⚠️/❌ 检查项3：量能配合",
                 "✅/⚠️/❌ 检查项4：无重大利空",
-                "✅/⚠️/❌ 检查项5：PE估值合理"
+                "✅/⚠️/❌ 检查项5：成交量与趋势配合"
             ]
         },
 
@@ -1859,7 +1859,7 @@ class DeepSeekAnalyzer:
         "signal_attribution": {
             "technical_indicators": 技术指标贡献度(0-100),
             "news_sentiment": 新闻舆情贡献度(0-100),
-            "fundamentals": 基本面贡献度(0-100),
+            "fundamentals": 0,
             "market_conditions": 市场环境贡献度(0-100),
             "strongest_bullish_signal": "最强看多信号名称",
             "strongest_bearish_signal": "最强看空信号名称"
@@ -1878,7 +1878,7 @@ class DeepSeekAnalyzer:
     "ma_analysis": "均线系统分析",
     "volume_analysis": "量能分析",
     "pattern_analysis": "K线形态分析",
-    "fundamental_analysis": "基本面分析",
+    "fundamental_analysis": "",
     "sector_position": "板块行业分析",
     "company_highlights": "公司亮点/风险",
     "news_summary": "新闻摘要",
@@ -1935,7 +1935,7 @@ class DeepSeekAnalyzer:
 - 只有在接近支撑确认或有效突破压力，且资金流/量价配合时，才能给出买入；接近压力且资金流出时不得追买。
 - 只有在跌破关键支撑、主力资金持续流出或风险显著放大时，才能给出卖出/减仓。
 - 必须输出 `dashboard.phase_decision` 七字段；盘中/午休/临近收盘要给出当前动作、观察条件和下一次检查点。
-- 建议输出可选展示字段 `dashboard.signal_attribution` 六字段；解释推荐理由的构成，包括技术指标、新闻舆情、基本面、市场环境的贡献度，以及最强看多/看空信号。
+- 建议输出可选展示字段 `dashboard.signal_attribution` 六字段；解释推荐理由的构成，包括技术指标、新闻舆情和市场环境的贡献度；fundamentals 固定为 0，不参与归因，以及最强看多/看空信号。
 - 盘前、非交易日或未知阶段不得伪造今日盘中走势；quote/daily_bars/technical 存在 stale、fallback、missing、fetch_failed、partial 或 estimated 时，`confidence_level` 不得为高。"""
 
     SYSTEM_PROMPT = """你是一位{market_placeholder}投资分析师，负责生成专业的【决策仪表盘】分析报告。
@@ -2001,7 +2001,7 @@ class DeepSeekAnalyzer:
             "latest_news": "【最新消息】近期重要新闻摘要",
             "risk_alerts": ["风险点1：具体描述", "风险点2：具体描述"],
             "positive_catalysts": ["利好1：具体描述", "利好2：具体描述"],
-            "earnings_outlook": "业绩预期分析（基于年报预告、业绩快报等）",
+            "earnings_outlook": "",
             "sentiment_summary": "舆情情绪一句话总结"
         },
 
@@ -2023,7 +2023,7 @@ class DeepSeekAnalyzer:
                 "✅/⚠️/❌ 检查项3：量价/波动是否支持判断",
                 "✅/⚠️/❌ 检查项4：无重大利空",
                 "✅/⚠️/❌ 检查项5：仓位与止损计划明确",
-                "✅/⚠️/❌ 检查项6：估值/业绩/催化与结论匹配"
+                "✅/⚠️/❌ 检查项6：量价/支撑阻力/催化与结论匹配"
             ]
         },
 
@@ -2040,7 +2040,7 @@ class DeepSeekAnalyzer:
         "signal_attribution": {
             "technical_indicators": 技术指标贡献度(0-100),
             "news_sentiment": 新闻舆情贡献度(0-100),
-            "fundamentals": 基本面贡献度(0-100),
+            "fundamentals": 0,
             "market_conditions": 市场环境贡献度(0-100),
             "strongest_bullish_signal": "最强看多信号名称",
             "strongest_bearish_signal": "最强看空信号名称"
@@ -2059,7 +2059,7 @@ class DeepSeekAnalyzer:
     "ma_analysis": "均线系统分析",
     "volume_analysis": "量能分析",
     "pattern_analysis": "K线形态分析",
-    "fundamental_analysis": "基本面分析",
+    "fundamental_analysis": "",
     "sector_position": "板块行业分析",
     "company_highlights": "公司亮点/风险",
     "news_summary": "新闻摘要",
@@ -2115,7 +2115,7 @@ class DeepSeekAnalyzer:
 - 只有在接近支撑确认或有效突破压力，且资金流/量价配合时，才能给出买入；接近压力且资金流出时不得追买。
 - 只有在跌破关键支撑、主力资金持续流出或风险显著放大时，才能给出卖出/减仓。
 - 必须输出 `dashboard.phase_decision` 七字段；盘中/午休/临近收盘要给出当前动作、观察条件和下一次检查点。
-- 建议输出可选展示字段 `dashboard.signal_attribution` 六字段；解释推荐理由的构成，包括技术指标、新闻舆情、基本面、市场环境的贡献度，以及最强看多/看空信号。
+- 建议输出可选展示字段 `dashboard.signal_attribution` 六字段；解释推荐理由的构成，包括技术指标、新闻舆情和市场环境的贡献度；fundamentals 固定为 0，不参与归因，以及最强看多/看空信号。
 - 盘前、非交易日或未知阶段不得伪造今日盘中走势；quote/daily_bars/technical 存在 stale、fallback、missing、fetch_failed、partial 或 estimated 时，`confidence_level` 不得为高。"""
 
     TEXT_SYSTEM_PROMPT = """你是一位专业的股票分析助手。
@@ -2220,6 +2220,7 @@ class DeepSeekAnalyzer:
                 .replace("{default_skill_policy_section}", default_skill_policy_section)
                 .replace("{skills_section}", skills_section)
             )
+        base_prompt += "\n\n" + PRICE_VOLUME_POLICY
         if lang == "en":
             return base_prompt + """
 
@@ -3606,58 +3607,12 @@ class DeepSeekAnalyzer:
 | 当前价格 | {rt.get('price', 'N/A')} 元 | |
 | **量比** | **{rt.get('volume_ratio', 'N/A')}** | {rt.get('volume_ratio_desc', '')} |
 | **换手率** | **{rt.get('turnover_rate', 'N/A')}%** | |
-| 市盈率(动态) | {rt.get('pe_ratio', 'N/A')} | |
-| 市净率 | {rt.get('pb_ratio', 'N/A')} | |
 | 总市值 | {self._format_amount(rt.get('total_mv'))} | |
 | 流通市值 | {self._format_amount(rt.get('circ_mv'))} | |
 | 60日涨跌幅 | {rt.get('change_60d', 'N/A')}% | 中期表现 |
 """
 
-        # 添加财报与分红（价值投资口径）
         fundamental_context = context.get("fundamental_context") if isinstance(context, dict) else None
-        earnings_block = (
-            fundamental_context.get("earnings", {})
-            if isinstance(fundamental_context, dict)
-            else {}
-        )
-        earnings_data = (
-            earnings_block.get("data", {})
-            if isinstance(earnings_block, dict)
-            else {}
-        )
-        financial_report = (
-            earnings_data.get("financial_report", {})
-            if isinstance(earnings_data, dict)
-            else {}
-        )
-        dividend_metrics = (
-            earnings_data.get("dividend", {})
-            if isinstance(earnings_data, dict)
-            else {}
-        )
-        if isinstance(financial_report, dict) or isinstance(dividend_metrics, dict):
-            financial_report = financial_report if isinstance(financial_report, dict) else {}
-            dividend_metrics = dividend_metrics if isinstance(dividend_metrics, dict) else {}
-            ttm_yield = dividend_metrics.get("ttm_dividend_yield_pct", "N/A")
-            ttm_cash = dividend_metrics.get("ttm_cash_dividend_per_share", "N/A")
-            ttm_count = dividend_metrics.get("ttm_event_count", "N/A")
-            report_date = financial_report.get("report_date", "N/A")
-            prompt += f"""
-### 财报与分红（价值投资口径）
-| 指标 | 数值 | 说明 |
-|------|------|------|
-| 最近报告期 | {report_date} | 来自结构化财报字段 |
-| 营业收入 | {financial_report.get('revenue', 'N/A')} | |
-| 归母净利润 | {financial_report.get('net_profit_parent', 'N/A')} | |
-| 经营现金流 | {financial_report.get('operating_cash_flow', 'N/A')} | |
-| ROE | {financial_report.get('roe', 'N/A')} | |
-| 近12个月每股现金分红 | {ttm_cash} | 仅现金分红、税前口径 |
-| TTM 股息率 | {ttm_yield} | 公式：近12个月每股现金分红 / 当前价格 × 100% |
-| TTM 分红事件数 | {ttm_count} | |
-
-> 若上述字段为 N/A 或缺失，请明确写“数据缺失，无法判断”，禁止编造。
-"""
-
         capital_flow_block = (
             fundamental_context.get("capital_flow", {})
             if isinstance(fundamental_context, dict)
@@ -3820,7 +3775,7 @@ class DeepSeekAnalyzer:
 以下是 **{stock_name}({code})** 近{news_window_days}日的新闻搜索结果，请重点提取：
 1. 🚨 **风险警报**：减持、处罚、利空
 2. 🎯 **利好催化**：业绩、合同、政策
-3. 📊 **业绩预期**：年报预告、业绩快报
+3. 📊 **市场反应**：事件后的量价变化与兑现风险
 4. 🕒 **时间规则（强制）**：
    - 输出到 `risk_alerts` / `positive_catalysts` / `latest_news` 的每一条都必须带具体日期（YYYY-MM-DD）
    - 超出近{news_window_days}日窗口的新闻一律忽略
@@ -3840,7 +3795,7 @@ class DeepSeekAnalyzer:
             prompt += """
 ⚠️ **数据缺失警告**
 由于接口限制，当前无法获取完整的实时行情和技术指标数据。
-请 **忽略上述表格中的 N/A 数据**，重点依据 **【📰 舆情情报】** 中的新闻进行基本面和情绪面分析。
+请 **忽略上述表格中的 N/A 数据**，依据可用量价数据及 **【📰 舆情情报】** 描述交易催化和情绪，量价不足时仅给观察条件。
 在回答技术面问题（如均线、乖离率）时，请直接说明“数据缺失，无法判断”，**严禁编造数据**。
 """
 
@@ -3857,7 +3812,7 @@ class DeepSeekAnalyzer:
 > ⚠️ **指数/ETF 分析约束**：该标的为指数跟踪型 ETF 或市场指数。
 > - 风险分析仅关注：**指数走势、跟踪误差、市场流动性**
 > - 严禁将基金公司的诉讼、声誉、高管变动纳入风险警报
-> - 业绩预期基于**指数成分股整体表现**，而非基金公司财报
+> - 根据指数成分股量价和整体市场表现判断趋势
 > - `risk_alerts` 中不得出现基金管理人相关的公司经营风险
 
 """
@@ -3894,7 +3849,7 @@ class DeepSeekAnalyzer:
 - **具体狙击点位**：买入价、止损价、目标价（精确到分）
 - **检查清单**：每项用 ✅/⚠️/❌ 标记
 - **消息面时间合规**：`latest_news`、`risk_alerts`、`positive_catalysts` 不得包含超出近{news_window_days}日或时间未知的信息
-- **技术面一致性**：严禁把“空头排列”和“多头排列”等互斥结论同时当作有效依据；若基本面/事件面与技术面冲突，必须明确写“事件先行、技术待确认”或“基本面偏多，但技术面尚未确认”
+- **技术面一致性**：严禁把“空头排列”和“多头排列”等互斥结论同时当作有效依据；若事件面与技术面冲突，必须明确写“事件先行、技术待确认”
 
 请输出完整的 JSON 格式决策仪表盘。"""
 

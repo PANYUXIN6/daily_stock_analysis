@@ -226,8 +226,8 @@ daily_stock_analysis/
 
 | 变量名 | 说明 | 默认值 | 必填 |
 |--------|------|--------|:----:|
-| `TUSHARE_TOKEN` | Tushare Pro Token | - | 可选 |
-| `TUSHARE_HTTP_URL` | Tushare Pro HTTP 接入地址；留空时使用官方端点 `http://api.tushare.pro`，仅在需通过公司内网代理、跨境网络或自建镜像时填 `http://` 或 `https://` 开头的完整地址 | `http://api.tushare.pro` | 可选 |
+| `MAIRUI_LICENCE` | 麦蕊接口证书 | - | 可选 |
+| `MAIRUI_BASE_URL` | 麦蕊 HTTPS 网关；默认官方端点 | `https://api.mairuiapi.com` | 可选 |
 | `TICKFLOW_API_KEY` | TickFlow API Key；可选，用于 A 股日 K、实时行情、股票列表/名称与大盘复盘增强；失败或权限不足时自动回退。 | - | 可选 |
 | `TICKFLOW_PRIORITY` | TickFlow 普通 A 股日 K 数据源优先级；数字越小越早尝试，默认 `2`；未配置 API Key 时不启用；已登记指数使用独立固定链，不读取本变量；不影响实时行情。 | `2` | 可选 |
 | `TENCENT_PRIORITY` | 腾讯直连普通 A 股日 K 数据源优先级；数字越小越早尝试，默认 `5`，作为通用链路最终兜底；已登记指数使用独立固定链，不读取本变量；不影响实时行情。 | `5` | 可选 |
@@ -238,12 +238,12 @@ daily_stock_analysis/
 | `ENABLE_REALTIME_TECHNICAL_INDICATORS` | 盘中实时技术面：启用时用实时价计算 MA5/MA10/MA20 与多头排列（Issue #234）；关闭则用昨日收盘 | `true` | 可选 |
 | `ENABLE_EASTMONEY_PATCH` | 东财接口补丁：东财接口频繁失败（如 RemoteDisconnected、连接被关闭）时建议设为 `true`，注入 NID 令牌与随机 User-Agent 以降低被限流概率 | `false` | 可选 |
 | `REALTIME_SOURCE_PRIORITY` | 实时行情源优先级，逗号分隔，例如 `tencent,akshare_sina,efinance,akshare_em`；需要显式加入 `tickflow` 才会使用 TickFlow 实时行情。 | 见 `.env.example` | 可选 |
-| `ENABLE_FUNDAMENTAL_PIPELINE` | 基本面聚合总开关；关闭时仅返回 `not_supported` 块，不改变原分析链路 | `true` | 可选 |
-| `FUNDAMENTAL_STAGE_TIMEOUT_SECONDS` | 基本面阶段总时延预算（秒） | `8.0` | 可选 |
+| `ENABLE_FUNDAMENTAL_PIPELINE` | 资金与板块聚合总开关；关闭时仅返回 `not_supported` 块，不改变原分析链路 | `true` | 可选 |
+| `FUNDAMENTAL_STAGE_TIMEOUT_SECONDS` | 资金与板块阶段总时延预算（秒） | `8.0` | 可选 |
 | `FUNDAMENTAL_FETCH_TIMEOUT_SECONDS` | 单能力源调用超时（秒）；市场结构行业/概念排行也复用该预算 | `8.0` | 可选 |
-| `FUNDAMENTAL_RETRY_MAX` | 基本面能力重试次数（含首次） | `1` | 可选 |
-| `FUNDAMENTAL_CACHE_TTL_SECONDS` | 基本面聚合缓存 TTL（秒），短缓存减轻重复拉取 | `120` | 可选 |
-| `FUNDAMENTAL_CACHE_MAX_ENTRIES` | 基本面缓存最大条目数（TTL 内按时间淘汰） | `256` | 可选 |
+| `FUNDAMENTAL_RETRY_MAX` | 资金与板块能力重试次数（含首次） | `1` | 可选 |
+| `FUNDAMENTAL_CACHE_TTL_SECONDS` | 资金与板块聚合缓存 TTL（秒），短缓存减轻重复拉取 | `120` | 可选 |
+| `FUNDAMENTAL_CACHE_MAX_ENTRIES` | 资金与板块缓存最大条目数（TTL 内按时间淘汰） | `256` | 可选 |
 
 > 行为说明：
 > - A 股：按 `valuation/growth/earnings/institution/capital_flow/dragon_tiger/boards` 聚合能力返回；
@@ -256,7 +256,7 @@ daily_stock_analysis/
 > - TickFlow 日 K 区间请求会显式传入 `start_time` / `end_time` / `count`；官方 quickstart 明确说明时间范围查询仍受 `count` 限制。若返回非空但行数打满 `count` 且首个返回交易日晚于请求起始交易日，系统会判定为疑似截断，不写入缓存并让 manager 继续回退。
 > - 批量分析时，`prefetch_daily_klines()` 会在逐股 `get_daily_data()` 之前预热进程内缓存，不改变对外调用路径。
 > - TickFlow 能力按套餐权限分层：有限权限套餐仍可使用主指数查询；支持 `CN_Equity_A` 标的池查询的套餐才会启用 TickFlow 市场统计。
-> - TickFlow 可通过申万一级行业标的池与全 A 股行情生成行业涨跌排行，并优先参与市场结构行业主线 fallback；概念题材排行仍由现有 AkShare / Tushare / Efinance 链路提供。
+> - TickFlow 可通过申万一级行业标的池与全 A 股行情生成行业涨跌排行，并优先参与市场结构行业主线 fallback；概念题材排行仍由现有 AkShare / Efinance 链路提供。
 > - TickFlow 官方 quickstart 提供了 `quotes.get(universes=["CN_Equity_A"])` 用法，但不同 API Key 不一定拥有对应权限；批量日 K、深度和财务等能力也按权限 fail-open。
 > - TickFlow 实际返回的 `change_pct` / `amplitude` 为比例值；系统已在接入层统一转换为百分比值，确保与现有数据源字段语义一致。
 > - A 股大盘复盘报告采用盘后工作台式结构：固定包含盘面信号、指数明细、板块 Top 表、近三日市场线索、明日交易计划和风险提示；盘面信号以 `66/100（偏暖，可进攻）` 这类纯文本分数表达，避免色块进度条在不同终端显示不一致；近三日市场线索只列标题、来源和链接，不再展示搜索摘要片段；若部分数据源缺失，则保留可用区块并在对应位置降级展示。
@@ -264,8 +264,6 @@ daily_stock_analysis/
 >   - `fundamental_context.belong_boards` = 个股关联板块列表，来自 A 股板块数据；无数据时为 `[]`；
 >   - `fundamental_context.boards.data` = `sector_rankings`（板块涨跌榜，结构 `{top, bottom}`）；
 >   - `fundamental_context.concept_boards.data` = `concept_rankings`（概念/题材涨跌榜，结构 `{top, bottom}`，当前仅 A 股提供；不可用时 fail-open 为空或缺失）；
->   - `fundamental_context.earnings.data.financial_report` = 财报摘要（报告期、营收、归母净利润、经营现金流、ROE，及 `currency` 来源 `info.financialCurrency`，HK ADR 常见为 CNY）；
->   - `fundamental_context.earnings.data.dividend` = 分红指标（仅现金分红税前口径，含 `events`、`ttm_cash_dividend_per_share`、`ttm_dividend_yield_pct`、`currency`）。
 >   - `get_stock_info.belong_boards` = 个股所属板块列表；
 >   - `get_stock_info.boards` 为兼容别名，值与 `belong_boards` 相同（未来仅在大版本考虑移除）；
 >   - `get_stock_info.sector_rankings` 与 `fundamental_context.boards.data` 保持一致。
@@ -274,7 +272,7 @@ daily_stock_analysis/
 >   - `AnalysisReport.details.concept_rankings` = 结构化报告详情中的概念/题材涨跌榜（用于前端关联板块信号匹配，以及通知表格按类型区分行业/概念）。
 > - 板块涨跌榜使用数据源顺序：与全局 priority 一致。
 > - 超时控制为 `best-effort` 软超时：阶段会按预算快速降级继续执行，但不保证硬中断底层三方调用。
-> - `FUNDAMENTAL_STAGE_TIMEOUT_SECONDS=8.0` 表示新增基本面阶段的目标预算，不是严格硬 SLA；Windows、Docker 或免费数据源被限流时可继续调高到 `12-15s`。
+> - `FUNDAMENTAL_STAGE_TIMEOUT_SECONDS=8.0` 表示新增资金与板块阶段的目标预算，不是严格硬 SLA；Windows、Docker 或免费数据源被限流时可继续调高到 `12-15s`。
 > - 若要硬 SLA，请在后续版本升级为子进程隔离执行并在超时后强制终止。
 
 ### 其他配置
@@ -1146,10 +1144,9 @@ PUSHOVER_API_TOKEN=your_api_token
 - 免费，无需配置
 - 数据来源：东方财富爬虫
 
-### Tushare Pro
-- 需要注册获取 Token
-- 更稳定，数据更全
-- 设置 `TUSHARE_TOKEN`
+### 麦蕊 Mairui
+- 在麦蕊网站申请 licence，设置 `MAIRUI_LICENCE`
+- 全市场接口需相应证书权限；字段单位、组合查询和缺口见 [迁移说明](mairui-migration.md)
 
 ### Baostock
 - 免费，无需配置
@@ -1161,7 +1158,7 @@ PUSHOVER_API_TOKEN=your_api_token
 
 1. 在 `.env` 中设置 `ENABLE_EASTMONEY_PATCH=true`
 2. 将 `MAX_WORKERS=1` 降低并发
-3. 若已配置 Tushare，可优先使用 Tushare 数据源
+3. 若已配置 Mairui，可优先使用 Mairui 数据源
 
 ---
 
@@ -1479,7 +1476,7 @@ curl -X POST http://127.0.0.1:8000/api/v1/analysis/analyze \
 # 透传策略（可选）
 curl -X POST http://127.0.0.1:8000/api/v1/analysis/analyze \
   -H 'Content-Type: application/json' \
-  -d '{"stock_code": "600519", "skills": ["bull_trend", "growth_quality"]}'
+  -d '{"stock_code": "600519", "skills": ["bull_trend", "volume_breakout"]}'
 
 # 查询任务状态
 curl http://127.0.0.1:8000/api/v1/analysis/status/<task_id>
@@ -1601,3 +1598,5 @@ AGENT_EVENT_ALERT_RULES_JSON=[{"stock_code":"600519","alert_type":"price_cross",
 worker 会把 `triggered`、`skipped`、`degraded`、`failed` 写入 `alert_triggers` 作为评估历史；正常未触发不写历史。DB 持久化规则的 `triggered` 历史按 `rule_id + target + data_source + data_timestamp` 对同一数据点做 best-effort 去重，重复命中会复用最早一条触发记录，`data_timestamp` 缺失时不去重。真实触发后会把每个通知渠道的 attempt 写入 `alert_notifications`，并为 Alert API 创建的持久化规则写入 `alert_cooldowns` 业务冷却状态；若读取持久化冷却失败，worker 会临时使用进程内 fingerprint 防止 DB 异常期间重复推送。legacy `AGENT_EVENT_ALERT_RULES_JSON` 规则继续使用进程内 fingerprint 抑制，不写持久化冷却；通知基础设施的 `notification_noise.py` 降噪仍独立生效。Web 规则列表使用后端返回的 `cooldown_active` 判断冷却状态，避免浏览器本地时区解析影响展示。
 
 技术指标规则只使用日线 close 的边缘触发，partial bar 处理是服务器本地时区 + 16:00 的启发式，不做市场日历精确判定。`watchlist` 每轮刷新 `STOCK_LIST` 后展开，`market` 规则的 target 仅支持 `cn`，使用结构化 `MarketLightSnapshot`；`trade_date` 来自当次 market overview，`data_quality=unavailable` 会跳过触发，非交易日会被交易日 gate 跳过，`market_light_score_drop` 只比较跨交易日 score。WebUI 的“告警”页面可以管理持久化规则、执行一次性 dry-run 测试，并查看触发历史、通知尝试结果和只读冷却状态；批量规则的列表冷却状态是父规则摘要，子目标冷却以触发历史为准。详细边界见 [实时告警中心](alerts.md)。
+
+当前选股与单股分析均采用量价波段口径，PE/PB、财报质量和分红不再参与判断。「成长质量」「预期重估」技能已移除。配置和历史兼容说明见[量价波段分析](price-volume-trading.md)。

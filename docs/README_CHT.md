@@ -16,7 +16,7 @@
 
 - 個股報告：核心結論、趨勢、關鍵價位、風險提示與操作檢查項。
 - A 股大盤復盤：主要指數、市場寬度、板塊表現與次日策略。
-- A 股資料降級鏈：AkShare、Tushare、Efinance、Pytdx、Baostock、騰訊與可選 TickFlow。
+- A 股資料降級鏈：AkShare、Mairui、Efinance、Pytdx、Baostock、騰訊與可選 TickFlow。
 - 可選新聞搜尋、Web/API、本地排程、Docker、GitHub Actions 與通知推送。
 
 主流程為：解析股票清單 → 取得行情與新聞 → 技術面及模型分析 → 產生報告 → 可選通知。後端入口是 `main.py` 與 `server.py`，Web 前端位於 `apps/dsa-web/`。
@@ -31,7 +31,7 @@ cp .env.example .env
 python main.py --stocks 600519,000858,300750
 ```
 
-至少設定一個可用的大模型渠道。行情可使用內建免費 A 股資料源；`TUSHARE_TOKEN` 與 `TICKFLOW_API_KEY` 是可選的穩定性增強。
+至少設定一個可用的大模型渠道。行情可使用內建免費 A 股資料源；`MAIRUI_LICENCE` 與 `TICKFLOW_API_KEY` 是可選的穩定性增強。
 
 已登記指數請使用明確代碼，例如 `sh000016`、`sz399006` 或 `930606.CSI`；一般六位代碼按 A 股證券處理。
 

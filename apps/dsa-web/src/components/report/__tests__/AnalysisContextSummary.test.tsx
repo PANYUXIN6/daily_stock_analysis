@@ -44,7 +44,7 @@ const overview: AnalysisContextPackOverview = {
     },
     {
       key: 'fundamentals',
-      label: '基本面',
+      label: '资金与板块',
       status: 'fetch_failed',
       source: 'fundamental_pipeline',
       warnings: [],
@@ -143,7 +143,7 @@ describe('AnalysisContextSummary', () => {
     expect(screen.getByText('告警:')).toBeInTheDocument();
     expect(screen.getByText(/intraday_realtime_overlay/)).toBeInTheDocument();
     expect(screen.getByText('数据限制:')).toBeInTheDocument();
-    expect(screen.getByText(/基本面：抓取失败/)).toBeInTheDocument();
+    expect(screen.getByText(/资金与板块：抓取失败/)).toBeInTheDocument();
     expect(screen.getByText(/news_provider_timeout/)).toBeInTheDocument();
     expect(screen.getByText(/说明: 新闻未进入本次 LLM 分析，结论未使用新闻上下文/)).toBeInTheDocument();
     expect(screen.getByText(/诊断码: news_context_missing/)).toBeInTheDocument();
@@ -151,10 +151,10 @@ describe('AnalysisContextSummary', () => {
     expect(screen.getByText('来源: 未记录输入来源')).toBeInTheDocument();
     expect(screen.queryByText(/^处理:/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^范围:/)).not.toBeInTheDocument();
-    const fundamentalsBlock = screen.getByText('基本面').closest('.home-subpanel');
+    const fundamentalsBlock = screen.getByText('资金与板块').closest('.home-subpanel');
     expect(fundamentalsBlock).not.toBeNull();
     const fundamentals = within(fundamentalsBlock as HTMLElement);
-    expect(fundamentals.getByText(/说明: 基本面抓取失败，本次分析未使用基本面数据/)).toBeInTheDocument();
+    expect(fundamentals.getByText(/说明: 资金与板块抓取失败，本次分析未使用资金与板块数据/)).toBeInTheDocument();
     expect(fundamentals.getByText(/诊断码: fundamental_pipeline_failed/)).toBeInTheDocument();
     expect(screen.getAllByText('新闻结果数: 3').some((item) => item.textContent === '新闻结果数: 3')).toBe(true);
     expect(screen.getAllByText('本次分析输入')[0]).toBeVisible();
@@ -176,7 +176,7 @@ describe('AnalysisContextSummary', () => {
     fireEvent.click(within(panel).getAllByText('Input Blocks')[0]);
 
     expect(screen.getByText('Data Limitations:')).toBeInTheDocument();
-    expect(screen.getByText(/fundamentals: Fetch failed/)).toBeInTheDocument();
+    expect(screen.getByText(/flows and sectors: Fetch failed/)).toBeInTheDocument();
     expect(screen.getByText(/Details: News was not included in this LLM run, so the conclusion did not use news context/)).toBeInTheDocument();
     expect(screen.getByText(/related news on the report page is loaded separately and does not indicate that it was used in this analysis/)).toBeInTheDocument();
     expect(screen.getByText(/Diagnostic code: news_context_missing/)).toBeInTheDocument();
@@ -188,7 +188,7 @@ describe('AnalysisContextSummary', () => {
       ...overview,
       blocks: [{
         key: 'fundamentals',
-        label: '基本面',
+        label: '资金与板块',
         status: 'available',
         source: null,
         warnings: [],
@@ -210,10 +210,10 @@ describe('AnalysisContextSummary', () => {
 
     fireEvent.click(screen.getAllByText('输入数据块')[0]);
 
-    expect(screen.getByText(/说明: 未记录基本面来源链元数据/)).toBeInTheDocument();
-    expect(screen.getByText(/基本面是否进入本次分析以当前状态为准/)).toBeInTheDocument();
+    expect(screen.getByText(/说明: 未记录资金与板块来源链元数据/)).toBeInTheDocument();
+    expect(screen.getByText(/资金与板块是否进入本次分析以当前状态为准/)).toBeInTheDocument();
     expect(screen.getByText(/诊断码: fundamental_source_chain_missing/)).toBeInTheDocument();
-    expect(screen.queryByText(/本次分析未使用基本面数据/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/本次分析未使用资金与板块数据/)).not.toBeInTheDocument();
   });
 
   it('uses status guidance for unknown reason codes without adding another field', () => {
@@ -221,7 +221,7 @@ describe('AnalysisContextSummary', () => {
       ...overview,
       blocks: [{
         key: 'fundamentals',
-        label: '基本面',
+        label: '资金与板块',
         status: 'fetch_failed',
         source: 'fundamental_pipeline',
         warnings: [],
@@ -294,7 +294,7 @@ describe('AnalysisContextSummary', () => {
         },
         {
           key: 'fundamental',
-          label: '基本面',
+          label: '资金与板块',
           status: 'stale',
           source: 'fundamental_cache',
           warnings: ['stale_fundamental'],

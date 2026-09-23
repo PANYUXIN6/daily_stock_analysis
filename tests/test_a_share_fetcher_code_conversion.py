@@ -10,7 +10,7 @@ import pandas as pd
 from data_provider.base import DataFetcherManager, normalize_stock_code
 from data_provider.baostock_fetcher import BaostockFetcher
 from data_provider.pytdx_fetcher import PytdxFetcher
-from data_provider.tushare_fetcher import TushareFetcher
+from data_provider.mairui_fetcher import MairuiFetcher
 
 
 class _RecordingDailyFetcher:
@@ -92,9 +92,9 @@ class TestPytdxAShareCodeConversion(unittest.TestCase):
         self.assertEqual(fetcher._get_market_code("ss.600519"), (1, "600519"))
 
 
-class TestTushareAShareCodeConversion(unittest.TestCase):
-    def test_convert_bare_stock_codes_to_tushare_format(self) -> None:
-        fetcher = TushareFetcher()
+class TestMairuiAShareCodeConversion(unittest.TestCase):
+    def test_convert_bare_stock_codes_to_mairui_format(self) -> None:
+        fetcher = MairuiFetcher()
 
         self.assertEqual(fetcher._convert_stock_code("605499"), "605499.SH")
         self.assertEqual(fetcher._convert_stock_code("001979"), "001979.SZ")
@@ -102,7 +102,7 @@ class TestTushareAShareCodeConversion(unittest.TestCase):
         self.assertEqual(fetcher._convert_stock_code("301012"), "301012.SZ")
 
     def test_convert_prefix_code_preserves_explicit_exchange_hint(self) -> None:
-        fetcher = TushareFetcher()
+        fetcher = MairuiFetcher()
 
         self.assertEqual(fetcher._convert_stock_code("SH000001"), "000001.SH")
         self.assertEqual(fetcher._convert_stock_code("SH.000001"), "000001.SH")

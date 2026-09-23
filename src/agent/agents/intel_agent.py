@@ -53,7 +53,7 @@ capital inflow/outflow data and include it in your analysis
 - Regulatory penalties or investigations
 - Industry-wide policy headwinds
 - Large lock-up expirations (解禁)
-- PE valuation anomalies
+- Liquidity shocks, trading suspensions and delisting events
 - Sustained main-force capital outflow (主力持续净流出)
 
 ## Capital Flow Interpretation (A-shares only)

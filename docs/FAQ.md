@@ -24,14 +24,9 @@
 
 ---
 
-### Q3: Tushare 获取数据失败，提示 Token 不对？
+### Q3: 麦蕊获取数据失败或证书无权限？
 
-**现象**：日志显示 `Tushare 获取数据失败: 您的token不对，请确认`
-
-**解决方案**：
-1. **无 Tushare 账号**：无需配置 `TUSHARE_TOKEN`，系统会自动使用免费数据源（AkShare、Efinance）
-2. **有 Tushare 账号**：确认 Token 是否正确，可在 [Tushare Pro](https://tushare.pro/weborder/#/login?reg=834638 ) 个人中心查看
-3. 本项目所有核心功能均可在无 Tushare 的情况下正常运行
+确认 `MAIRUI_LICENCE` 与官方证书一致且未过期。全市场行情需要相应版本权限；空数据、权限失败与缺失字段会进入现有 fallback，不会改用不等价字段。无证书时可使用其他免费行情源，净利润断层需要麦蕊财务证据。详见 [迁移与实测限制](mairui-migration.md)。
 
 ---
 
@@ -235,7 +230,7 @@ OPENAI_MODEL=deepseek-v4-flash
 
 ---
 
-### Q14.1: Docker 中网络/DNS 解析失败（如 api.tushare.pro、searchapi.eastmoney.com 无法解析）？
+### Q14.1: Docker 中网络/DNS 解析失败（如 api.mairuiapi.com、searchapi.eastmoney.com 无法解析）？
 
 **现象**：日志显示 `Temporary failure in name resolution` 或 `NameResolutionError`，股票数据 API 和大模型 API 均无法访问。
 

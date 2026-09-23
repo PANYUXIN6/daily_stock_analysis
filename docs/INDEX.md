@@ -23,7 +23,7 @@
 | [小白客户端安装与配置](beginner-client-setup.md) | 面向不会代码用户的客户端下载、DeepSeek 模型配置、新闻源配置和常见问题 |
 | [完整配置与部署指南](full-guide.md) | 环境准备、运行方式、配置说明、部署路径和常见问题 |
 | [FAQ](FAQ.md) | 常见配置、模型、通知、部署和运行问题 |
-| [数据源稳定性与故障处理图示](data-source-stability.md) | Tushare、TickFlow、AkShare、Efinance、YFinance、Longbridge 等已接入源的使用场景、fallback 链路和推荐配置 |
+| [数据源稳定性与故障处理图示](data-source-stability.md) | Mairui、TickFlow、AkShare、Efinance、YFinance、Longbridge 等已接入源的使用场景、fallback 链路和推荐配置 |
 | [更新日志](CHANGELOG.md) | 版本变化、能力调整和迁移说明 |
 
 ## 配置
@@ -35,7 +35,7 @@
 | [LiteLLM YAML 示例](examples/litellm_config.example.yaml) | LiteLLM 多渠道配置示例 |
 | [Grok Bot Skill 示例](examples/grok_bot/README.md) | 给 Grok Bot 粘贴的最小 Skill，调用现有 REST |
 | [通知能力基线](notifications.md) | 企业微信、飞书、Telegram、Discord、Slack、邮件等通知渠道配置 |
-| [Tushare 股票列表指南](TUSHARE_STOCK_LIST_GUIDE.md) | Tushare 股票列表相关配置和使用说明 |
+| [麦蕊迁移与股票列表指南](mairui-migration.md) | Mairui 股票列表相关配置和使用说明 |
 
 ## 使用专题
 
@@ -74,3 +74,6 @@
 | [英文文档索引](INDEX_EN.md) | English documentation index |
 | [英文 README](README_EN.md) | English project overview and quick start |
 | [繁中 README](README_CHT.md) | 繁體中文項目概覽與快速開始 |
+
+- [量价波段分析 / Price-volume trading (Chinese-only)](price-volume-trading.md)
+- [跳空涨停 / Gap limit-up (Chinese-only)](gap-limit-up.md)

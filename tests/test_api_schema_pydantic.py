@@ -101,7 +101,7 @@ def test_schema_examples_remain_in_openapi_schema() -> None:
     assert root_schema["properties"]["message"]["example"] == "Daily Stock Analysis API is running"
     assert root_schema["example"]["version"] == "1.0.0"
     assert analyze_schema["properties"]["stock_code"]["example"] == "600519"
-    assert analyze_schema["properties"]["skills"]["example"] == ["bull_trend", "growth_quality"]
+    assert analyze_schema["properties"]["skills"]["example"] == ["bull_trend", "volume_breakout"]
     assert analyze_schema["properties"]["analysis_phase"]["default"] == "auto"
     assert analyze_schema["properties"]["analysis_phase"]["enum"] == [
         "auto",
@@ -116,10 +116,10 @@ def test_schema_examples_remain_in_openapi_schema() -> None:
 def test_analyze_request_supports_legacy_strategies_dict_input() -> None:
     request = AnalyzeRequest.model_validate({
         "stock_code": "600519",
-        "strategies": ["bull_trend", "growth_quality"],
+        "strategies": ["bull_trend", "volume_breakout"],
     })
 
-    assert request.skills == ["bull_trend", "growth_quality"]
+    assert request.skills == ["bull_trend", "volume_breakout"]
 
 
 def test_request_models_accept_report_language_camel_case_alias() -> None:

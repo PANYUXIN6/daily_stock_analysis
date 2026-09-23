@@ -2125,7 +2125,7 @@ class NotificationService(
         "akshare_sina": {"zh": "新浪财经", "en": "Sina Finance"},
         "akshare_qq": {"zh": "腾讯财经", "en": "Tencent Finance"},
         "efinance": {"zh": "东方财富(efinance)", "en": "Eastmoney (efinance)"},
-        "tushare": {"zh": "Tushare Pro", "en": "Tushare Pro"},
+        "mairui": {"zh": "麦蕊智数", "en": "Mairui"},
         "sina": {"zh": "新浪财经", "en": "Sina Finance"},
         "fallback": {"zh": "降级兜底", "en": "Fallback"},
     }

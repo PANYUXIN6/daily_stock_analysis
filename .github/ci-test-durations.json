@@ -63,7 +63,6 @@
     "tests/test_builtin_screening_engine.py": 1.251,
     "tests/test_chat_context.py": 0.943,
     "tests/test_check_env_encoding.py": 0.01,
-    "tests/test_chip_distribution_manager.py": 0.012,
     "tests/test_chip_structure_fallback.py": 0.036,
     "tests/test_ci_test_shard.py": 0.014,
     "tests/test_ci_workflow_contract.py": 0.02,
@@ -101,7 +100,6 @@
     "tests/test_etf_daily_routing.py": 0.059,
     "tests/test_feishu_stream_ordering.py": 0.055,
     "tests/test_feishu_stream.py": 0.017,
-    "tests/test_fetch_tushare_stock_list.py": 0.012,
     "tests/test_fetcher_logging.py": 0.022,
     "tests/test_formatters.py": 0.045,
     "tests/test_fundamental_adapter.py": 0.028,
@@ -219,9 +217,6 @@
     "tests/test_tickflow_market_review_fallback.py": 0.01,
     "tests/test_tickflow_pipeline_prefetch.py": 0.01,
     "tests/test_trading_calendar.py": 0.069,
-    "tests/test_tushare_fetcher_followups.py": 0.034,
-    "tests/test_tushare_fetcher_get_stock_list.py": 0.043,
-    "tests/test_tushare_fetcher_http_client.py": 0.023,
     "tests/test_usage_api.py": 0.043,
     "tests/test_webui_frontend.py": 0.019
   }

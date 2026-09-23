@@ -46,7 +46,7 @@ _DAILY_HISTORY_MAX_DAYS = 365
 def _get_fetcher_manager():
     """Return a module-level singleton DataFetcherManager.
 
-    Re-creating the manager on every tool call causes Tushare re-init overhead
+    Re-creating the manager on every tool call causes Mairui re-init overhead
     (~2 s each) and prevents circuit-breaker cooldown from taking effect across
     consecutive tool calls within the same agent run.
     """
@@ -137,10 +137,6 @@ def _compact_fundamental_context(fundamental_context: dict) -> dict:
     if not isinstance(fundamental_context, dict):
         return {}
     blocks = (
-        "valuation",
-        "growth",
-        "earnings",
-        "institution",
         "capital_flow",
         "dragon_tiger",
         "boards",
@@ -148,7 +144,7 @@ def _compact_fundamental_context(fundamental_context: dict) -> dict:
     compact = {
         "market": fundamental_context.get("market"),
         "status": fundamental_context.get("status"),
-        "coverage": fundamental_context.get("coverage", {}),
+        "coverage": {key: value for key, value in fundamental_context.get("coverage", {}).items() if key in blocks},
     }
     for block in blocks:
         payload = fundamental_context.get(block, {})
@@ -196,8 +192,6 @@ def _handle_get_realtime_quote(stock_code: str) -> dict:
         "high": quote.high,
         "low": quote.low,
         "pre_close": quote.pre_close,
-        "pe_ratio": quote.pe_ratio,
-        "pb_ratio": quote.pb_ratio,
         "total_mv": quote.total_mv,
         "circ_mv": quote.circ_mv,
         "change_60d": quote.change_60d,
@@ -208,7 +202,7 @@ def _handle_get_realtime_quote(stock_code: str) -> dict:
 get_realtime_quote_tool = ToolDefinition(
     name="get_realtime_quote",
     description="Get real-time stock quote including price, change%, volume ratio, "
-                "turnover rate, PE, PB, market cap. Returns live market data.",
+                "turnover rate and market cap. Returns live market data.",
     parameters=[
         ToolParameter(
             name="stock_code",
@@ -354,7 +348,7 @@ get_analysis_context_tool = ToolDefinition(
 # ============================================================
 
 def _handle_get_stock_info(stock_code: str) -> dict:
-    """Get stock fundamental information through unified fundamental context."""
+    """Get stock capital flow and board context."""
     manager = _get_fetcher_manager()
     try:
         fundamental_context = manager.get_fundamental_context(stock_code)
@@ -363,7 +357,6 @@ def _handle_get_stock_info(stock_code: str) -> dict:
         fundamental_context = manager.build_failed_fundamental_context(stock_code, str(e))
 
     compact_context = _compact_fundamental_context(fundamental_context)
-    valuation = compact_context.get("valuation", {}).get("data", {})
     sector_rankings = compact_context.get("boards", {}).get("data", {})
     belong_boards = manager.get_belong_boards(stock_code)
 
@@ -376,10 +369,6 @@ def _handle_get_stock_info(stock_code: str) -> dict:
     return {
         "code": stock_code.upper(),
         "name": stock_name,
-        "pe_ratio": valuation.get("pe_ratio"),
-        "pb_ratio": valuation.get("pb_ratio"),
-        "total_mv": valuation.get("total_mv"),
-        "circ_mv": valuation.get("circ_mv"),
         "fundamental_context": compact_context,
         "belong_boards": belong_boards,
         # Compatibility alias for existing callers; prefer belong_boards.
@@ -391,9 +380,9 @@ def _handle_get_stock_info(stock_code: str) -> dict:
 
 get_stock_info_tool = ToolDefinition(
     name="get_stock_info",
-    description="Get stock fundamental information: valuation, growth, earnings, institution flow, "
+    description="Get stock trading context: capital flow, dragon-tiger activity, "
                 "stock sector membership (belong_boards; boards is compatibility alias) and "
-                "sector rankings. Returns a compact fundamental_context to reduce token usage.",
+                "sector rankings. Returns a compact trading context to reduce token usage.",
     parameters=[
         ToolParameter(
             name="stock_code",

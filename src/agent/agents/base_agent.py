@@ -25,7 +25,7 @@ from src.agent.protocols import (
     StageStatus,
 )
 from src.agent.runner import RunLoopResult, run_agent_loop
-from src.agent.skills.defaults import extract_skill_id
+from src.agent.skills.defaults import extract_skill_id, PRICE_VOLUME_POLICY
 from src.agent.tools.registry import ToolRegistry
 from src.market_phase_prompt import format_market_phase_prompt_section
 from src.market_structure_prompt import format_market_structure_prompt_section
@@ -177,7 +177,7 @@ class BaseAgent(ABC):
     def _build_messages(self, ctx: AgentContext) -> List[Dict[str, Any]]:
         """Assemble the initial messages list for the LLM."""
         messages: List[Dict[str, Any]] = [
-            {"role": "system", "content": self.system_prompt(ctx)},
+            {"role": "system", "content": self.system_prompt(ctx) + "\n\n" + PRICE_VOLUME_POLICY},
         ]
 
         history = ctx.meta.get("conversation_history")

@@ -3,7 +3,7 @@
 """Refresh local stock autocomplete index assets.
 
 Default flow:
-1. Fetch Tushare stock lists into ``data/`` with ``--a-rk`` for A-share name correction.
+1. Fetch Mairui stock lists into ``data/``.
 2. Generate the A-share-only ``apps/dsa-web/public/stocks.index.json`` from CSV.
 3. Copy the generated index to ``static/stocks.index.json`` for backend use.
 """
@@ -30,7 +30,7 @@ def _run(command: Sequence[str]) -> None:
     subprocess.run(command, cwd=REPO_ROOT, check=True, env=env)
 
 
-def _has_tushare_token() -> bool:
+def _has_mairui_licence() -> bool:
     env_path = REPO_ROOT / ".env"
     try:
         from dotenv import load_dotenv  # type: ignore
@@ -38,12 +38,12 @@ def _has_tushare_token() -> bool:
         if env_path.is_file():
             for line in env_path.read_text(encoding="utf-8", errors="ignore").splitlines():
                 key, sep, value = line.partition("=")
-                if sep and key.strip() == "TUSHARE_TOKEN" and value.strip().strip("'\""):
+                if sep and key.strip() == "MAIRUI_LICENCE" and value.strip().strip("'\""):
                     return True
-        return bool(os.getenv("TUSHARE_TOKEN", "").strip())
+        return bool(os.getenv("MAIRUI_LICENCE", "").strip())
 
     load_dotenv(env_path)
-    return bool(os.getenv("TUSHARE_TOKEN", "").strip())
+    return bool(os.getenv("MAIRUI_LICENCE", "").strip())
 
 
 def _sync_static_index() -> None:
@@ -59,24 +59,24 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "--skip-fetch",
         action="store_true",
-        help="跳过 Tushare 抓取，仅用现有 data/stock_list_*.csv 重新生成索引",
+        help="跳过 Mairui 抓取，仅用现有 data/stock_list_*.csv 重新生成索引",
     )
     args = parser.parse_args(argv)
 
     try:
         if args.skip_fetch:
-            print("[refresh_stock_index] skip Tushare fetch; using existing CSV files")
+            print("[refresh_stock_index] skip Mairui fetch; using existing CSV files")
         else:
-            if not _has_tushare_token():
+            if not _has_mairui_licence():
                 print(
-                    "[refresh_stock_index] ERROR: missing TUSHARE_TOKEN. "
+                    "[refresh_stock_index] ERROR: missing MAIRUI_LICENCE. "
                     "Set it in .env or environment, or rerun with --skip-fetch.",
                     file=sys.stderr,
                 )
                 return 2
-            _run([sys.executable, "scripts/fetch_tushare_stock_list.py", "--a-rk"])
+            _run([sys.executable, "scripts/fetch_mairui_stock_list.py"])
 
-        _run([sys.executable, "scripts/generate_index_from_csv.py", "--source", "tushare"])
+        _run([sys.executable, "scripts/generate_index_from_csv.py", "--source", "mairui"])
         _sync_static_index()
 
     except subprocess.CalledProcessError as exc:

@@ -89,9 +89,9 @@ _PROVIDER_DEFINITIONS: Sequence[_ProviderDefinition] = (
         builtin=True,
     ),
     _ProviderDefinition(
-        name="tushare",
-        label="Tushare",
-        fetcher_name="TushareFetcher",
+        name="mairui",
+        label="Mairui",
+        fetcher_name="MairuiFetcher",
         dataset_markets={
             "quote.realtime": ("cn",),
             "kline.daily": ("cn",),
@@ -128,7 +128,7 @@ _REALTIME_SOURCE_PROVIDER = {
     "akshare_sina": "akshare",
     "akshare_qq": "akshare",
     "tencent": "akshare",
-    "tushare": "tushare",
+    "mairui": "mairui",
     "tickflow": "tickflow",
     "akshare": "akshare",
 }
@@ -146,16 +146,16 @@ _CN_REALTIME_SOURCES = {
     "akshare_sina",
     "akshare_qq",
     "tencent",
-    "tushare",
+    "mairui",
     "tickflow",
 }
 
-_SCREENING_SOURCES = {"tushare", "sina", "efinance", "akshare_em", "em_datacenter"}
+_SCREENING_SOURCES = {"mairui", "sina", "efinance", "akshare_em", "em_datacenter"}
 _MARKET_OVERVIEW_PROVIDER_MARKETS = {
     "tickflow": {"cn"},
     "efinance": {"cn"},
     "akshare": {"cn"},
-    "tushare": {"cn"},
+    "mairui": {"cn"},
 }
 
 
@@ -299,8 +299,8 @@ class DataCapabilityService:
         if definition.builtin:
             return True
         name = definition.name
-        if name == "tushare":
-            return _truthy(getattr(self.config, "tushare_token", None))
+        if name == "mairui":
+            return _truthy(getattr(self.config, "mairui_licence", None))
         if name == "tickflow":
             return _truthy(getattr(self.config, "tickflow_api_key", None))
         return False

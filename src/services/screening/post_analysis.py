@@ -30,9 +30,6 @@ def _normalize_code(value: object) -> str:
 
 SUPPORTED_POST_ANALYZERS = {"dsa", "scorecard", "external_http"}
 _DEFAULT_SCORECARD_PROFILE = {
-    "value_quality_value_min": 75.0,
-    "value_quality_stability_min": 65.0,
-    "value_quality_bonus": 2.4,
     "capital_confirmed_momentum_min": 72.0,
     "capital_confirmed_activity_min": 65.0,
     "capital_confirmed_bonus": 1.8,
@@ -293,7 +290,6 @@ def _scorecard_delta(
 ) -> tuple[float, list[str], list[str], str]:
     profile = _scorecard_profile(profile)
     factors = pick.factor_scores or {}
-    value = float(factors.get("value", 50))
     stability = float(factors.get("stability", 50))
     momentum = float(factors.get("momentum", 50))
     activity = float(factors.get("activity", 50))
@@ -303,9 +299,6 @@ def _scorecard_delta(
     flags: list[str] = []
     tags: list[str] = []
 
-    if value >= profile["value_quality_value_min"] and stability >= profile["value_quality_stability_min"]:
-        delta += profile["value_quality_bonus"]
-        tags.append("value_quality")
     if momentum >= profile["capital_confirmed_momentum_min"] and activity >= profile["capital_confirmed_activity_min"]:
         delta += profile["capital_confirmed_bonus"]
         tags.append("capital_confirmed")

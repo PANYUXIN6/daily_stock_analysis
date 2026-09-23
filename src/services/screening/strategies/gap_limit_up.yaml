@@ -1,0 +1,36 @@
+# Derived from AlphaSift revision 9f522747caafd3c0b1ddb7e14d5cf44c8580b6cf.
+# Licensed under Apache-2.0 and modified for daily_stock_analysis.
+name: gap_limit_up
+display_name: 跳空涨停
+description: 晚间筛选当日完整向上跳空、收盘封涨停的量价信号；展示缺口和当日量能，证据不足不入选。
+version: "1.1"
+category: framework
+tags: [gap, limit_up, volume, swing]
+analysis_skills: [volume_breakout]
+style:
+  risk_profile: aggressive
+  holding_period: swing
+  execution_style: event_driven
+  market_regime: [risk_on, trend]
+  capital_profile: high_liquidity
+  ui_badge: 跳空
+screening:
+  enabled: true
+  market_scope: [cn]
+  hard_filters:
+    exclude_st: true
+  gap_limit_up:
+    volume_baseline_days: 20
+    volume_peak_ratio: 2
+    timeout_seconds: 180
+  factor_weights:
+    stability: 0.25
+    liquidity: 0.20
+    momentum: 0.15
+    activity: 0.10
+  ranking_hints: |
+    当日完整向上跳空、收盘封涨停和缺口已由程序核实。
+    按量价配合、趋势位置、流动性与回撤风险比较候选，不使用估值或财报质量评分。
+    不得声称缺口已经历后续交易日验证，也不得推断后续缩量或量能稳定。
+    一字板与封板不代表次日一定能成交；说明开板风险和止损条件。
+  max_output: 5

@@ -10,29 +10,22 @@ import math
 
 
 @dataclass
-class ProfitGapConfig:
-    """Explicit research thresholds for the earnings-gap event screen."""
+class GapLimitUpConfig:
+    """Thresholds for the daily price-volume gap screen."""
 
-    event_lookback_days: int = 90
-    min_profit_yoy_pct: float = 50.0
-    min_core_profit_ratio: float = 0.8
-    min_observation_days: int = 1
     volume_baseline_days: int = 20
     volume_peak_ratio: float = 2.0
-    volume_stable_cv: float = 0.2
     timeout_seconds: float = 180.0
 
     def __post_init__(self) -> None:
         for name, value in vars(self).items():
             if isinstance(value, bool) or not isinstance(value, (float, int)) or not math.isfinite(value) or value <= 0:
-                raise ValueError(f"profit_gap.{name} must be a positive finite number")
+                raise ValueError(f"gap_limit_up.{name} must be a positive finite number")
             if name.endswith("days"):
                 if not isinstance(value, int):
-                    raise ValueError(f"profit_gap.{name} must be an integer")
+                    raise ValueError(f"gap_limit_up.{name} must be an integer")
         if self.volume_baseline_days < 5:
-            raise ValueError("profit_gap requires at least 5 baseline days")
-        if self.min_core_profit_ratio > 1 or self.volume_stable_cv > 1:
-            raise ValueError("profit_gap ratios must not exceed 1")
+            raise ValueError("gap_limit_up requires at least 5 baseline days")
 
 
 @dataclass
@@ -43,10 +36,6 @@ class HardFilterConfig:
     amount_min: float | None = None
     market_cap_min: float | None = None
     market_cap_max: float | None = None
-    pe_ttm_min: float | None = None
-    pe_ttm_max: float | None = None
-    pb_min: float | None = None
-    pb_max: float | None = None
     volume_ratio_min: float | None = None
     turnover_rate_min: float | None = None
     change_pct_min: float | None = None
@@ -91,7 +80,7 @@ class ScreeningConfig:
     event_profile: dict[str, Any] = field(default_factory=dict)
     ranking_hints: str = ""
     max_output: int = 5
-    profit_gap: ProfitGapConfig | None = None
+    gap_limit_up: GapLimitUpConfig | None = None
 
 
 @dataclass

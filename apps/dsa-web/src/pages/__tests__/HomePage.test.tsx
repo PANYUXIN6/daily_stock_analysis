@@ -3174,7 +3174,7 @@ describe('HomePage', () => {
       default_skill_id: 'bull_trend',
       skills: [
         { id: 'bull_trend', name: '默认多头趋势', description: '趋势分析' },
-        { id: 'growth_quality', name: '成长质量', description: '成长股分析' },
+        { id: 'volume_breakout', name: '放量突破', description: '量价突破分析' },
       ],
     });
     vi.mocked(historyApi.getList).mockResolvedValue({
@@ -3195,7 +3195,7 @@ describe('HomePage', () => {
     );
 
     fireEvent.click(await screen.findByRole('button', { name: '策略' }));
-    fireEvent.click(screen.getByRole('menuitemradio', { name: /成长质量/ }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: /放量突破/ }));
 
     const input = screen.getByPlaceholderText('输入 A 股代码或名称，如 600519、贵州茅台');
     fireEvent.change(input, { target: { value: '600519' } });
@@ -3204,7 +3204,7 @@ describe('HomePage', () => {
     await waitFor(() => {
       expect(analysisApi.analyzeAsync).toHaveBeenCalledWith(expect.objectContaining({
         stockCode: '600519',
-        skills: ['growth_quality'],
+        skills: ['volume_breakout'],
       }));
     });
   });
@@ -3214,7 +3214,7 @@ describe('HomePage', () => {
       default_skill_id: 'bull_trend',
       skills: [
         { id: 'bull_trend', name: '默认多头趋势', description: '趋势分析' },
-        { id: 'growth_quality', name: '成长质量', description: '成长股分析' },
+        { id: 'volume_breakout', name: '放量突破', description: '量价突破分析' },
       ],
     });
     vi.mocked(historyApi.getList).mockResolvedValue({
@@ -3243,7 +3243,7 @@ describe('HomePage', () => {
     expect(screen.getByRole('menuitemradio', { name: /默认多头趋势/ })).toHaveFocus();
 
     fireEvent.keyDown(menu, { key: 'End' });
-    expect(screen.getByRole('menuitemradio', { name: /成长质量/ })).toHaveFocus();
+    expect(screen.getByRole('menuitemradio', { name: /放量突破/ })).toHaveFocus();
 
     fireEvent.keyDown(menu, { key: 'Escape' });
     await waitFor(() => {

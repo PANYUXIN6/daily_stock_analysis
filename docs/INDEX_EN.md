@@ -35,7 +35,7 @@ This is the entry point for project documentation. The README covers the project
 | [Provider Configuration Guide](llm-providers.md) <sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub> (Chinese-only) | Provider presets, GitHub Actions mapping, error categories, and diagnostics |
 | [LiteLLM YAML Example](examples/litellm_config.example.yaml) | Example LiteLLM multi-provider configuration |
 | [Notification Baseline](notifications.md) <sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub> (Chinese-only) | WeChat Work, Feishu, Telegram, Discord, Slack, Email, and other notification channels |
-| [Tushare Stock List Guide](TUSHARE_STOCK_LIST_GUIDE.md) <sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub> (Chinese-only) | Tushare stock-list configuration and usage notes |
+| [Mairui Migration and Stock List Guide](mairui-migration.md) <sub><sub>![P2 Badge](https://img.shields.io/badge/P2-yellow?style=flat)</sub></sub> (Chinese-only) | Mairui stock-list configuration and usage notes |
 
 ## Usage Topics
 
@@ -81,9 +81,12 @@ This is the entry point for project documentation. The README covers the project
 | **Northbound capital flow** | Net buy/sell flow from foreign investors through Stock Connect programs |
 | **Dragon-Tiger List** | Daily SSE/SZSE disclosure of heavily traded stocks and top trading seats |
 | **Chip distribution** | Cost-basis distribution of outstanding shares, often used to estimate support and resistance |
-| **Tushare** | Chinese financial data API that requires a token |
+| **Mairui** | Chinese financial data API that requires a token |
 | **AkShare** | Open-source Python market data library |
 | **Baostock** | Free Python SDK for historical A-share data |
 | **WeChat Work** | Tencent enterprise messaging platform with webhook notifications |
 | **Feishu** | ByteDance enterprise collaboration platform with webhook notifications |
 | **PushPlus / ServerChan** | Chinese mobile push notification services |
+
+- [量价波段分析 / Price-volume trading (Chinese-only)](price-volume-trading.md)
+- [跳空涨停 / Gap limit-up (Chinese-only)](gap-limit-up.md)

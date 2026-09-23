@@ -26,7 +26,6 @@ from src.services.screening.source_guard import call_with_timeout, parse_source_
 logger = logging.getLogger(__name__)
 
 _SNAPSHOT_CACHE_VERSION = 1
-_DEFAULT_TUSHARE_HTTP_URL = "http://api.waditu.com"
 _EM_REQUEST_MIN_INTERVAL_SECONDS = 1.0
 _EM_REQUEST_JITTER_SECONDS = 0.3
 _SOURCE_HEALTH_FAILURE_THRESHOLD = 3
@@ -56,8 +55,8 @@ def fetch_cn_snapshot(source: str = "efinance") -> pd.DataFrame:
         return _call_snapshot_wrapper(_fetch_akshare_em, source=source)
     elif source == "em_datacenter":
         return _call_snapshot_wrapper(_fetch_em_datacenter, source=source)
-    elif source == "tushare":
-        return _call_snapshot_wrapper(_fetch_tushare, source=source)
+    elif source == "mairui":
+        return _call_snapshot_wrapper(_fetch_mairui, source=source)
     else:
         raise ValueError(f"Unknown snapshot source: {source}")
 
@@ -246,6 +245,7 @@ def _write_last_good_snapshot(
             "created_at": datetime.now(timezone.utc).isoformat(),
             "metadata": {
                 "snapshot_source": str(df.attrs.get("snapshot_source", "")),
+                "source_notes": list(df.attrs.get("source_notes", [])),
                 "source_priority": [
                     str(source).strip()
                     for source in (source_priority or [])
@@ -350,6 +350,7 @@ def _read_last_good_snapshot(
     cached.attrs["stale"] = not fresh
     cached.attrs["stale_age_hours"] = stale_age_hours
     cached.attrs["source_errors"] = list(source_errors)
+    cached.attrs["source_notes"] = list(metadata.get("source_notes", []))
     cached.attrs["last_good_snapshot_source"] = str(
         metadata.get("snapshot_source", "")
     )
@@ -564,108 +565,9 @@ def _float_env(name: str, default: float) -> float:
     return float(value) if value else float(default)
 
 
-def _fetch_tushare() -> pd.DataFrame:
-    """Fetch latest available A-share snapshot via Tushare Pro.
-
-    Tushare is not a real-time source here. It is used as a resilient fallback
-    by joining the latest open trading day's daily quote and daily_basic data.
-    """
-    token = (
-        os.getenv("TUSHARE_TOKEN", "").strip()
-        or os.getenv("TUSHARE_API_TOKEN", "").strip()
-    )
-    if not token:
-        raise RuntimeError("tushare requires TUSHARE_TOKEN")
-
-    import tushare as ts
-
-    pro = ts.pro_api(token)
-    _configure_tushare_client(pro, token=token)
-    trade_date = _resolve_tushare_trade_date(pro)
-    daily = pro.daily(
-        trade_date=trade_date,
-        fields="ts_code,trade_date,close,pct_chg,amount",
-    )
-    daily_basic = pro.daily_basic(
-        trade_date=trade_date,
-        fields="ts_code,turnover_rate,volume_ratio,pe,pb,total_mv,circ_mv",
-    )
-    stock_basic = pro.stock_basic(
-        exchange="",
-        list_status="L",
-        fields="ts_code,symbol,name,industry",
-    )
-
-    if daily is None or daily.empty:
-        raise RuntimeError(f"tushare daily returned empty data for {trade_date}")
-    if daily_basic is None or daily_basic.empty:
-        raise RuntimeError(f"tushare daily_basic returned empty data for {trade_date}")
-
-    return _prepare_tushare_snapshot(daily, daily_basic, stock_basic)
-
-
-def _configure_tushare_client(pro: object, *, token: str) -> None:
-    try:
-        setattr(pro, "_DataApi__token", token)
-    except Exception:
-        pass
-
-    http_url = (
-        os.getenv("TUSHARE_API_URL", "").strip()
-        or os.getenv("TUSHARE_HTTP_URL", "").strip()
-        or _DEFAULT_TUSHARE_HTTP_URL
-    )
-    try:
-        setattr(pro, "_DataApi__http_url", http_url)
-    except Exception:
-        pass
-
-
-def _resolve_tushare_trade_date(pro) -> str:
-    """Return the latest open trade date for Tushare requests."""
-    explicit = os.getenv("TUSHARE_TRADE_DATE", "").strip()
-    if explicit:
-        return explicit
-
-    end = date.today()
-    start = end - timedelta(days=30)
-    calendar = pro.trade_cal(
-        exchange="",
-        start_date=start.strftime("%Y%m%d"),
-        end_date=end.strftime("%Y%m%d"),
-        is_open="1",
-        fields="cal_date,is_open",
-    )
-    if calendar is None or calendar.empty or "cal_date" not in calendar.columns:
-        raise RuntimeError("tushare trade_cal returned no open trading days")
-    return str(calendar["cal_date"].max())
-
-
-def _prepare_tushare_snapshot(
-    daily: pd.DataFrame,
-    daily_basic: pd.DataFrame,
-    stock_basic: pd.DataFrame | None,
-) -> pd.DataFrame:
-    """Join and unit-normalize Tushare tables into the common snapshot schema."""
-    merged = daily.merge(daily_basic, on="ts_code", how="left")
-    if stock_basic is not None and not stock_basic.empty:
-        merged = merged.merge(stock_basic, on="ts_code", how="left")
-    if "symbol" not in merged.columns:
-        merged["symbol"] = merged["ts_code"].astype(str).str.split(".").str[0]
-    else:
-        fallback_symbol = merged["ts_code"].astype(str).str.split(".").str[0]
-        merged["symbol"] = merged["symbol"].fillna(fallback_symbol)
-
-    # Tushare units: amount is thousand yuan; market caps are ten-thousand yuan.
-    for col, multiplier in {
-        "amount": 1000,
-        "total_mv": 10000,
-        "circ_mv": 10000,
-    }.items():
-        if col in merged.columns:
-            merged[col] = pd.to_numeric(merged[col], errors="coerce") * multiplier
-
-    return _normalize(merged, source="tushare")
+def _fetch_mairui() -> pd.DataFrame:
+    from data_provider.mairui_fetcher import MairuiFetcher
+    return _normalize(MairuiFetcher().snapshot(), source="mairui")
 
 
 def _normalize(df: pd.DataFrame, source: str) -> pd.DataFrame:
@@ -737,22 +639,8 @@ def _normalize(df: pd.DataFrame, source: str) -> pd.DataFrame:
             "industry": ["INDUSTRY", "INDUSTRY_NAME", "BOARD_NAME"],
             "concepts": ["CONCEPT", "CONCEPT_NAME", "THEME_NAME"],
         }
-    elif source == "tushare":
-        standard_cols = {
-            "code": ["symbol", "code"],
-            "name": ["name"],
-            "price": ["close"],
-            "change_pct": ["pct_chg"],
-            "amount": ["amount"],
-            "total_mv": ["total_mv"],
-            "circ_mv": ["circ_mv"],
-            "pe_ratio": ["pe"],
-            "pb_ratio": ["pb"],
-            "volume_ratio": ["volume_ratio"],
-            "turnover_rate": ["turnover_rate"],
-            "industry": ["industry"],
-            "concepts": ["concepts"],
-        }
+    elif source == "mairui":
+        standard_cols = {}  # Adapter already exposes the common schema.
     else:
         standard_cols = {}
 

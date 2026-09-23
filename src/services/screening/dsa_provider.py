@@ -194,7 +194,7 @@ def _build_dsa_summary(pick: Pick, context: dict[str, Any], news: list[dict[str,
             if str(value).lower() in {"available", "partial"}
         ]
         if available:
-            parts.append(f"DSA基本面覆盖: {', '.join(available[:4])}")
+            parts.append(f"DSA资金板块覆盖: {', '.join(available[:4])}")
 
     titles = [
         str(item.get("title") or "").strip()

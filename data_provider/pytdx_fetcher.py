@@ -85,7 +85,7 @@ class PytdxFetcher(BaseFetcher):
     """
     通达信数据源实现
     
-    优先级：2（与 Tushare 同级）
+    优先级：2（与 Mairui 同级）
     数据来源：通达信行情服务器
     
     关键策略：

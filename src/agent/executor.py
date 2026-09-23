@@ -20,6 +20,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
+from src.agent.skills.defaults import PRICE_VOLUME_POLICY
 from src.config import get_config
 from src.agent.chat_context import build_agent_chat_context_bundle, build_visible_chat_history
 from src.agent.llm_adapter import LLMToolAdapter
@@ -148,7 +149,7 @@ LEGACY_DEFAULT_AGENT_SYSTEM_PROMPT = """你是一位专注于趋势交易的{mar
         "signal_attribution": {{
             "technical_indicators": 技术指标贡献度(0-100；有效非零贡献度之和应为100；全零表示无有效信号),
             "news_sentiment": 新闻舆情贡献度(0-100；有效非零贡献度之和应为100；全零表示无有效信号),
-            "fundamentals": 基本面贡献度(0-100；有效非零贡献度之和应为100；全零表示无有效信号),
+            "fundamentals": 0,
             "market_conditions": 市场环境贡献度(0-100；有效非零贡献度之和应为100；全零表示无有效信号),
             "strongest_bullish_signal": "最强看多信号名称",
             "strongest_bearish_signal": "最强看空信号名称"
@@ -165,7 +166,7 @@ LEGACY_DEFAULT_AGENT_SYSTEM_PROMPT = """你是一位专注于趋势交易的{mar
     "ma_analysis": "均线系统分析",
     "volume_analysis": "量能分析",
     "pattern_analysis": "K线形态分析",
-    "fundamental_analysis": "基本面分析",
+    "fundamental_analysis": "",
     "sector_position": "板块行业分析",
     "company_highlights": "公司亮点/风险",
     "news_summary": "新闻摘要",
@@ -215,7 +216,7 @@ LEGACY_DEFAULT_AGENT_SYSTEM_PROMPT = """你是一位专注于趋势交易的{mar
 - 只有在接近支撑确认或有效突破压力，且资金流/量价配合时，才能给出买入；接近压力且资金流出时不得追买。
 - 只有在跌破关键支撑、主力资金持续流出或风险显著放大时，才能给出卖出/减仓。
 - 必须输出 `dashboard.phase_decision` 七字段；盘中/午休/临近收盘要给出当前动作、观察条件和下一次检查点。
-- 建议输出可选展示字段 `dashboard.signal_attribution` 六字段；解释推荐理由的构成，包括技术指标、新闻舆情、基本面、市场环境的贡献度，以及最强看多/看空信号。
+- 建议输出可选展示字段 `dashboard.signal_attribution` 六字段；解释推荐理由的构成，包括技术指标、新闻舆情和市场环境的贡献度；fundamentals 固定为 0，不参与归因，以及最强看多/看空信号。
 - 盘前、非交易日或未知阶段不得伪造今日盘中走势；quote/daily_bars/technical 存在 stale、fallback、missing、fetch_failed、partial 或 estimated 时，`confidence_level` 不得为高。
 
 {language_section}
@@ -304,7 +305,7 @@ AGENT_SYSTEM_PROMPT = """你是一位{market_role}投资分析 Agent，拥有数
         "signal_attribution": {{
             "technical_indicators": 技术指标贡献度(0-100；有效非零贡献度之和应为100；全零表示无有效信号),
             "news_sentiment": 新闻舆情贡献度(0-100；有效非零贡献度之和应为100；全零表示无有效信号),
-            "fundamentals": 基本面贡献度(0-100；有效非零贡献度之和应为100；全零表示无有效信号),
+            "fundamentals": 0,
             "market_conditions": 市场环境贡献度(0-100；有效非零贡献度之和应为100；全零表示无有效信号),
             "strongest_bullish_signal": "最强看多信号名称",
             "strongest_bearish_signal": "最强看空信号名称"
@@ -321,7 +322,7 @@ AGENT_SYSTEM_PROMPT = """你是一位{market_role}投资分析 Agent，拥有数
     "ma_analysis": "均线系统分析",
     "volume_analysis": "量能分析",
     "pattern_analysis": "K线形态分析",
-    "fundamental_analysis": "基本面分析",
+    "fundamental_analysis": "",
     "sector_position": "板块行业分析",
     "company_highlights": "公司亮点/风险",
     "news_summary": "新闻摘要",
@@ -369,7 +370,7 @@ AGENT_SYSTEM_PROMPT = """你是一位{market_role}投资分析 Agent，拥有数
 - 只有在接近支撑确认或有效突破压力，且资金流/量价配合时，才能给出买入；接近压力且资金流出时不得追买。
 - 只有在跌破关键支撑、主力资金持续流出或风险显著放大时，才能给出卖出/减仓。
 - 必须输出 `dashboard.phase_decision` 七字段；盘中/午休/临近收盘要给出当前动作、观察条件和下一次检查点。
-- 建议输出可选展示字段 `dashboard.signal_attribution` 六字段；解释推荐理由的构成，包括技术指标、新闻舆情、基本面、市场环境的贡献度，以及最强看多/看空信号。
+- 建议输出可选展示字段 `dashboard.signal_attribution` 六字段；解释推荐理由的构成，包括技术指标、新闻舆情和市场环境的贡献度；fundamentals 固定为 0，不参与归因，以及最强看多/看空信号。
 - 盘前、非交易日或未知阶段不得伪造今日盘中走势；quote/daily_bars/technical 存在 stale、fallback、missing、fetch_failed、partial 或 estimated 时，`confidence_level` 不得为高。
 
 {language_section}
@@ -675,7 +676,7 @@ class AgentExecutor:
 
         # Initialize conversation
         messages: List[Dict[str, Any]] = [
-            {"role": "system", "content": system_prompt},
+            {"role": "system", "content": system_prompt + "\n\n" + PRICE_VOLUME_POLICY},
             {"role": "user", "content": self._build_user_message(task, context)},
         ]
 
@@ -709,7 +710,7 @@ class AgentExecutor:
             include_provider_trace=True,
         )
         messages: List[Dict[str, Any]] = [
-            {"role": "system", "content": prepared.system_prompt},
+            {"role": "system", "content": prepared.system_prompt + "\n\n" + PRICE_VOLUME_POLICY},
             *prepared.history_messages,
         ]
         messages.append({"role": "user", "content": message})

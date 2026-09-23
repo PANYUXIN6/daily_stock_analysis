@@ -505,7 +505,7 @@ class StockAnalysisPipeline:
                     use_agent = True
                     logger.info(f"{stock_name}({code}) Auto-enabled agent mode due to configured skills: {configured_skills}")
 
-            self._emit_progress(32, f"{stock_name}：正在聚合基本面与趋势数据")
+            self._emit_progress(32, f"{stock_name}：正在聚合资金、板块与趋势数据")
 
             # Step 2.5: 基本面能力聚合（统一入口，异常降级）
             # - 失败时返回 partial/failed，不影响既有技术面/新闻链路
@@ -956,8 +956,6 @@ class StockAnalysisPipeline:
                 'volume_ratio': volume_ratio,
                 'volume_ratio_desc': self._describe_volume_ratio(volume_ratio) if volume_ratio else '无数据',
                 'turnover_rate': getattr(realtime_quote, 'turnover_rate', None),
-                'pe_ratio': getattr(realtime_quote, 'pe_ratio', None),
-                'pb_ratio': getattr(realtime_quote, 'pb_ratio', None),
                 'total_mv': getattr(realtime_quote, 'total_mv', None),
                 'circ_mv': getattr(realtime_quote, 'circ_mv', None),
                 'change_60d': getattr(realtime_quote, 'change_60d', None),
@@ -1401,7 +1399,10 @@ class StockAnalysisPipeline:
             )
 
             if realtime_quote:
-                initial_context["realtime_quote"] = self._safe_to_dict(realtime_quote)
+                initial_context["realtime_quote"] = {
+                    key: value for key, value in (self._safe_to_dict(realtime_quote) or {}).items()
+                    if key not in {"pe_ratio", "pb_ratio"}
+                }
             if trend_result:
                 initial_context["trend_result"] = self._safe_to_dict(trend_result)
 

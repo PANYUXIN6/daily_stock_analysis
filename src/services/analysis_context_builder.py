@@ -110,7 +110,8 @@ class AnalysisContextBuilder:
 
 
 def _build_quote_block(artifacts: PipelineAnalysisArtifacts) -> AnalysisContextBlock:
-    quote = _to_dict(artifacts.realtime_quote)
+    quote = {key: value for key, value in _to_dict(artifacts.realtime_quote).items()
+             if key not in {"pe_ratio", "pb_ratio"}}
     if not quote:
         return AnalysisContextBlock(
             status=ContextFieldStatus.MISSING,

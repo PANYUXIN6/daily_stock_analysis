@@ -38,7 +38,6 @@ screening:
     stability: 0.22
     activity: 0.18
     liquidity: 0.15
-    value: 0.08
     reversal: 0.05
   scoring_profile:
     momentum_60d_overheat_pct: 35.0

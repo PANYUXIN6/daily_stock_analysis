@@ -23,6 +23,13 @@ LEGACY_STRATEGY_AGENT_PREFIX = "strategy_"
 SKILL_CONSENSUS_AGENT_NAME = "skill_consensus"
 LEGACY_STRATEGY_CONSENSUS_AGENT_NAME = "strategy_consensus"
 
+PRICE_VOLUME_POLICY = """Trading scope: price-volume analysis and swing trading. Base decisions on trend,
+volume, liquidity, support/resistance, volatility and risk/reward. Do not use PE,
+PB, ROE, financial quality, dividend yield or intrinsic value to score or filter
+stocks. News may explain market reactions and concrete trading risks, not justify
+value-investment recommendations. Keep fundamental_analysis empty and the legacy
+fundamentals attribution at 0 when producing a dashboard."""
+
 CORE_TRADING_SKILL_POLICY_ZH = """## 默认技能基线（必须严格遵守）
 
 当前激活的 skills 可以补充细化分析视角，但默认风险控制和交易节奏必须遵守以下基线。
@@ -49,10 +56,7 @@ CORE_TRADING_SKILL_POLICY_ZH = """## 默认技能基线（必须严格遵守）
 ### 5. 风险排查重点
 - 减持公告、业绩预亏、监管处罚、行业政策利空、大额解禁
 
-### 6. 估值关注（PE/PB）
-- PE 明显偏高时需在风险点中说明
-
-### 7. 强势趋势股放宽
+### 6. 强势趋势股放宽
 - 强势趋势股可适当放宽乖离率要求，轻仓追踪但需设止损
 """
 

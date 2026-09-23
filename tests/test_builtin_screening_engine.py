@@ -74,7 +74,7 @@ def test_bundled_strategies_are_loaded_from_the_internal_package() -> None:
         "balanced_alpha",
         "capital_heat",
         "momentum_quality",
-        "net_profit_gap",
+        "gap_limit_up",
         "oversold_reversal",
         "shrink_pullback",
         "volume_breakout",
@@ -265,8 +265,8 @@ def test_scorecard_reranks_before_capped_dsa_analyzer(monkeypatch) -> None:
         for index in range(1, 5)
     ]
     # The original fourth candidate crosses the remote Top-3 cutoff after the
-    # full-pool scorecard applies its value/quality bonus.
-    picks[3].factor_scores = {"value": 100.0, "stability": 100.0}
+    # full-pool scorecard applies its momentum/activity bonus.
+    picks[3].factor_scores = {"momentum": 100.0, "activity": 100.0, "stability": 100.0}
     config = ScreeningRuntimeConfig(
         strategies_dir=SCREENING_ROOT / "strategies",
         dsa_api_url="https://dsa.example",
@@ -291,7 +291,7 @@ def test_scorecard_reranks_before_capped_dsa_analyzer(monkeypatch) -> None:
         max_picks=3,
     )
 
-    assert attempted_codes == ["000001", "000004", "000002"]
+    assert attempted_codes == ["000001", "000002", "000004"]
     assert {
         pick.code: pick.post_analysis_status.get("dsa")
         for pick in analyzed
@@ -713,7 +713,7 @@ def test_fresh_snapshot_cache_ignores_mismatched_source(tmp_path, monkeypatch) -
     live = pd.DataFrame(
         [{"code": "000002", "name": "Vanke", "price": 11.0, "volume_ratio": 2.0}]
     )
-    live.attrs["snapshot_source"] = "tushare"
+    live.attrs["snapshot_source"] = "mairui"
     live_fetch = patch.object(
         screening_snapshot,
         "fetch_cn_snapshot",
@@ -723,15 +723,15 @@ def test_fresh_snapshot_cache_ignores_mismatched_source(tmp_path, monkeypatch) -
 
     with live_fetch as fetch_mock:
         result = screening_snapshot.fetch_snapshot_with_fallback(
-            ["tushare"],
+            ["mairui"],
             required_columns=["volume_ratio"],
             fallback_snapshot_path=cache_path,
             cache_ttl_seconds=300,
         )
 
-    fetch_mock.assert_called_once_with("tushare")
+    fetch_mock.assert_called_once_with("mairui")
     assert result.loc[0, "code"] == "000002"
-    assert result.attrs["snapshot_source"] == "tushare"
+    assert result.attrs["snapshot_source"] == "mairui"
     assert result.attrs["fallback_used"] is False
     assert result.attrs["stale"] is False
 
@@ -747,7 +747,7 @@ def test_fresh_snapshot_cache_ignores_non_primary_source(tmp_path, monkeypatch) 
     live = pd.DataFrame(
         [{"code": "000002", "name": "Vanke", "price": 11.0, "volume_ratio": 2.0}]
     )
-    live.attrs["snapshot_source"] = "tushare"
+    live.attrs["snapshot_source"] = "mairui"
     live_fetch = patch.object(
         screening_snapshot,
         "fetch_cn_snapshot",
@@ -757,15 +757,15 @@ def test_fresh_snapshot_cache_ignores_non_primary_source(tmp_path, monkeypatch) 
 
     with live_fetch as fetch_mock:
         result = screening_snapshot.fetch_snapshot_with_fallback(
-            ["tushare", "sina"],
+            ["mairui", "sina"],
             required_columns=["volume_ratio"],
             fallback_snapshot_path=cache_path,
             cache_ttl_seconds=300,
         )
 
-    fetch_mock.assert_called_once_with("tushare")
+    fetch_mock.assert_called_once_with("mairui")
     assert result.loc[0, "code"] == "000002"
-    assert result.attrs["snapshot_source"] == "tushare"
+    assert result.attrs["snapshot_source"] == "mairui"
     assert result.attrs["fallback_used"] is False
     assert result.attrs["stale"] is False
 
@@ -781,17 +781,17 @@ def test_fresh_snapshot_cache_reuses_fallback_from_same_source_chain(tmp_path, m
         screening_snapshot,
         "fetch_cn_snapshot",
         autospec=True,
-        side_effect=[RuntimeError("tushare unavailable"), live],
+        side_effect=[RuntimeError("mairui unavailable"), live],
     )
     with first_fetch as fetch_mock:
         first = screening_snapshot.fetch_snapshot_with_fallback(
-            ["tushare", "sina"],
+            ["mairui", "sina"],
             required_columns=["volume_ratio"],
             fallback_snapshot_path=cache_path,
             cache_ttl_seconds=300,
         )
 
-    assert fetch_mock.call_args_list == [call("tushare"), call("sina")]
+    assert fetch_mock.call_args_list == [call("mairui"), call("sina")]
     assert first.attrs["snapshot_source"] == "sina"
 
     second_fetch = patch.object(
@@ -801,7 +801,7 @@ def test_fresh_snapshot_cache_reuses_fallback_from_same_source_chain(tmp_path, m
     )
     with second_fetch as fetch_mock:
         second = screening_snapshot.fetch_snapshot_with_fallback(
-            ["tushare", "sina"],
+            ["mairui", "sina"],
             required_columns=["volume_ratio"],
             fallback_snapshot_path=cache_path,
             cache_ttl_seconds=300,

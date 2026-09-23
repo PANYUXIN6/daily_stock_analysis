@@ -280,10 +280,12 @@ const getLocalFactorReason = (item: ScreeningCandidate) => {
 };
 
 const getCandidateReason = (item: ScreeningCandidate) => {
-  const profitGap = item.postAnalysisSummaries?.netProfitGap
+  const priceGap = item.postAnalysisSummaries?.gapLimitUp
+    || item.postAnalysisSummaries?.netProfitGap
+    || item.postAnalysisSummaries?.gap_limit_up
     || item.postAnalysisSummaries?.net_profit_gap;
-  if (profitGap) {
-    return profitGap;
+  if (priceGap) {
+    return priceGap;
   }
   if (item.llmThesis || item.llmScore != null) {
     return item.reason || item.llmThesis || 'LLM 已完成相对排序。';
@@ -317,7 +319,7 @@ const getFactorEntries = (item: ScreeningCandidate) =>
 const toMessageList = (values: string[] | undefined) =>
   Array.isArray(values) ? values.map((value) => String(value).trim()).filter(Boolean) : [];
 
-const KNOWN_SNAPSHOT_SOURCES = new Set(['tushare', 'sina', 'efinance', 'akshare_em', 'em_datacenter', 'baostock']);
+const KNOWN_SNAPSHOT_SOURCES = new Set(['mairui', 'sina', 'efinance', 'akshare_em', 'em_datacenter', 'baostock']);
 const MAX_MESSAGE_DETAIL_LENGTH = 96;
 
 const truncateMessageDetail = (value: string, maxLength = MAX_MESSAGE_DETAIL_LENGTH) => {
